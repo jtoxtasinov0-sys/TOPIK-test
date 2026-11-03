@@ -219,23 +219,6 @@ export function getStore(): Kv {
   return (g.__hqStore = createMemoryStore(file));
 }
 
-/** Oddiy taqsimlangan qulf: bir vaqtda bitta jarayon o'qib-yozishi uchun */
-export async function withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
-  const kv = getStore();
-  const key = `lock:${name}`;
-  for (let i = 0; i < 60; i++) {
-    if (await kv.set(key, Date.now(), { nx: true, ttlSec: 15 })) {
-      try {
-        return await fn();
-      } finally {
-        await kv.del(key).catch(() => {});
-      }
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  throw new StoreError("Band, birozdan keyin urinib ko'ring");
-}
-
 /** Faqat testlar uchun */
 export function setStore(kv: Kv | undefined) {
   g.__hqStore = kv;

@@ -21,7 +21,7 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | **📈 Natijalarim** | Natijalar tarixi, ball grafigi, imtihongacha qolgan kunlar, kunlik seriya (streak) |
 | **🔐 Gmail orqali kirish** | Google OAuth (PKCE), parolsiz. Birinchi kirishda 30 kunlik bepul sinov avtomatik boshlanadi, karta so‘ralmaydi |
 | **☁️ Bulutda saqlash** | Kirgan foydalanuvchining testlar tarixi, so‘zlari, profili va streak’i barcha qurilmalarda sinxron |
-| **🛠️ Admin panel** | `/admin`: foydalanuvchilar ro‘yxati, email bo‘yicha qidirish, bepul sinovni qo‘lda uzaytirish/qisqartirish |
+| **🛠️ Admin panel** | `/admin`: foydalanuvchilar soni, so‘nggi ro‘yxatdan o‘tganlar va email bo‘yicha qidirish (faqat ko‘rish) |
 
 ### Har doim bepul va 30 kunlik sinov
 

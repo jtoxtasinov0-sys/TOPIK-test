@@ -1,6 +1,6 @@
 import "server-only";
-import { computeAccess, DAY_MS, extendTrial, TRIAL_DAYS, type Access } from "@/lib/access";
-import { getStore, withLock } from "./store";
+import { computeAccess, DAY_MS, TRIAL_DAYS, type Access } from "@/lib/access";
+import { getStore } from "./store";
 
 export type User = {
   id: string; // Google "sub"
@@ -57,15 +57,12 @@ export async function upsertGoogleUser(p: { sub: string; email: string; name?: s
   const kv = getStore();
   const email = p.email.toLowerCase();
   const name = (p.name || email.split("@")[0]).slice(0, 80);
-  if (await getUser(p.sub)) {
-    // Qulf ostida: shu payt admin uzaytirgan muddat ustidan yozib yubormaslik uchun
-    const user = await withLock(`user:${p.sub}`, async () => {
-      const existing = (await getUser(p.sub))!;
-      const u: User = { ...existing, email, name, picture: p.picture, lastLoginAt: now };
-      await kv.set(userKey(u.id), u);
-      if (existing.email !== email) await kv.set(emailKey(email), u.id);
-      return u;
-    });
+  const existing = await getUser(p.sub);
+  if (existing) {
+    // Sinov muddati (trialEndsAt) o'zgarmaydi — faqat ism, rasm va oxirgi kirish yangilanadi
+    const user: User = { ...existing, email, name, picture: p.picture, lastLoginAt: now };
+    await kv.set(userKey(user.id), user);
+    if (existing.email !== email) await kv.set(emailKey(email), user.id);
     return { user, created: false };
   }
   const fresh: User = {
@@ -83,15 +80,4 @@ export async function upsertGoogleUser(p: { sub: string; email: string; name?: s
   await kv.set(emailKey(email), fresh.id);
   await kv.zadd(USERS_INDEX, now, fresh.id);
   return { user: fresh, created: true };
-}
-
-/** Admin sinov muddatini qo'lda uzaytiradi. Manfiy son — qisqartirish. */
-export async function addDays(id: string, days: number, now = Date.now()) {
-  return withLock(`user:${id}`, async () => {
-    const u = await getUser(id);
-    if (!u) return null;
-    const next: User = { ...u, trialEndsAt: extendTrial(u.trialEndsAt, days, now) };
-    await getStore().set(userKey(id), next);
-    return next;
-  });
 }

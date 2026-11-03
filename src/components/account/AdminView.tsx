@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ApiError, postJson, useAiErrorText } from "@/components/ui";
+import { ApiError, useAiErrorText } from "@/components/ui";
 import { Avatar, useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import type { Access } from "@/lib/access";
@@ -24,11 +24,8 @@ export function AdminView() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [q, setQ] = useState("");
   const [found, setFound] = useState<{ user: AUser | null } | null>(null);
-  const [days, setDays] = useState("30");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const [reload, setReload] = useState(0);
   const isAdmin = !!me?.admin;
 
   useEffect(() => {
@@ -40,7 +37,7 @@ export function AdminView() {
     return () => {
       alive = false;
     };
-  }, [isAdmin, reload]);
+  }, [isAdmin]);
 
   const search = async (email = q) => {
     if (!email.trim()) return;
@@ -48,24 +45,6 @@ export function AdminView() {
     setBusy(true);
     try {
       setFound(await getJson<{ user: AUser | null }>(`/api/admin?q=${encodeURIComponent(email.trim())}`));
-    } catch (e) {
-      setMsg(errText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const grant = async (n: number) => {
-    const u = found?.user;
-    if (!u || !n) return;
-    if (!window.confirm(L(`${u.email} ga ${n > 0 ? "+" : ""}${n} kun?`, `${u.email}: ${n > 0 ? "+" : ""}${n} дн.?`))) return;
-    setBusy(true);
-    setMsg("");
-    try {
-      const r = await postJson<{ user: AUser }>("/api/admin", { email: u.email, days: n });
-      setFound({ user: r.user });
-      setMsg(L(`Saqlandi: ${fmtDate(r.user.access.until, lang)} gacha`, `Сохранено: до ${fmtDate(r.user.access.until, lang)}`));
-      setReload((x) => x + 1);
     } catch (e) {
       setMsg(errText(e));
     } finally {
@@ -105,7 +84,7 @@ export function AdminView() {
       </div>
 
       <div className="card" style={{ marginTop: 18 }}>
-        <h2 className="h3" style={{ marginBottom: 12 }}>{L("Bepul sinovni uzaytirish", "Продление пробного периода")}</h2>
+        <h2 className="h3" style={{ marginBottom: 12 }}>{L("Foydalanuvchini qidirish", "Поиск пользователя")}</h2>
         <form
           className="row"
           onSubmit={(e) => {
@@ -119,30 +98,17 @@ export function AdminView() {
         {msg && <div className="callout info" style={{ marginTop: 12 }}>{msg}</div>}
         {found && !found.user && <p className="muted">{L("Topilmadi. Foydalanuvchi avval saytga Google orqali kirishi kerak.", "Не найден. Пользователь должен сначала войти на сайт через Google.")}</p>}
         {found?.user && (
-          <div className="stack" style={{ marginTop: 16, gap: 14 }}>
-            <div className="row" style={{ gap: 14 }}>
-              <Avatar user={found.user} size={48} />
-              <div className="grow">
-                <b>{found.user.name}</b> {statusBadge(found.user.access)}
-                <div className="small muted">
-                  {found.user.email} · {L("gacha", "до")} {fmtDate(found.user.access.until, lang)}
-                </div>
+          <div className="row" style={{ marginTop: 16, gap: 14 }}>
+            <Avatar user={found.user} size={48} />
+            <div className="grow">
+              <b>{found.user.name}</b> {statusBadge(found.user.access)}
+              <div className="small muted">
+                {found.user.email} · {L("sinov", "пробный период до")} {fmtDate(found.user.access.until, lang)} {L("gacha", "")}
+              </div>
+              <div className="tiny muted">
+                {L("Ro‘yxatdan:", "Регистрация:")} {fmtDate(found.user.createdAt, lang)} · {L("Oxirgi kirish:", "Последний вход:")} {fmtDate(found.user.lastLoginAt, lang)}
               </div>
             </div>
-            <div className="row-wrap">
-              {[30, 90, 180].map((n) => (
-                <button key={n} className="btn btn-soft btn-sm" disabled={busy} onClick={() => void grant(n)}>
-                  +{n} {L("kun", "дн.")}
-                </button>
-              ))}
-              <input className="input" style={{ width: 110, padding: "8px 12px" }} type="number" value={days} onChange={(e) => setDays(e.target.value)} aria-label={L("Kunlar", "Дни")} />
-              <button className="btn btn-sm" disabled={busy} onClick={() => void grant(Math.trunc(Number(days)))}>
-                {L("Qo‘llash", "Применить")}
-              </button>
-            </div>
-            <p className="tiny muted" style={{ margin: 0 }}>
-              {L("Manfiy son sinovni qisqartiradi (masalan, -30).", "Отрицательное число сокращает пробный период (например, -30).")}
-            </p>
           </div>
         )}
       </div>

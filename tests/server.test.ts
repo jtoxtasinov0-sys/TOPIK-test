@@ -9,7 +9,7 @@ process.env.ADMIN_EMAILS = "boss@gmail.com";
 
 const { createMemoryStore, setStore } = await import("../src/lib/server/store");
 const session = await import("../src/lib/server/session");
-const { computeAccess, DAY_MS, extendTrial, TRIAL_DAYS } = await import("../src/lib/access");
+const { computeAccess, DAY_MS, TRIAL_DAYS } = await import("../src/lib/access");
 const users = await import("../src/lib/server/users");
 const { validateIdToken } = await import("../src/lib/server/google");
 const { mergeData } = await import("../src/lib/sync-merge");
@@ -46,14 +46,6 @@ describe("bepul sinov", () => {
     assert.equal(computeAccess(u, u.trialEndsAt + 1).status, "expired");
     assert.equal(computeAccess(u, u.trialEndsAt + 1).daysLeft, 0);
   });
-
-  test("uzaytirish tugash sanasidan yoki bugundan hisoblanadi", () => {
-    const end = T0 + 10 * DAY_MS;
-    assert.equal(extendTrial(end, 30, T0), end + 30 * DAY_MS, "sinov davomida — tugash sanasidan");
-    assert.equal(extendTrial(end, 30, end + 5 * DAY_MS), end + 35 * DAY_MS, "tugagandan keyin — bugundan");
-    assert.equal(extendTrial(end, -4, T0), end - 4 * DAY_MS);
-    assert.equal(extendTrial(DAY_MS, -10, T0), 0, "manfiyga tushmaydi");
-  });
 });
 
 describe("users", () => {
@@ -73,15 +65,6 @@ describe("users", () => {
   test("admin har doim kira oladi", async () => {
     const { user } = await users.upsertGoogleUser({ sub: "g-9", email: "boss@gmail.com" }, T0);
     assert.equal(users.canUseAi(user, T0 + 365 * DAY_MS), true);
-  });
-
-  test("admin sinovni uzaytiradi va qisqartiradi", async () => {
-    await users.upsertGoogleUser({ sub: "g-2", email: "b@gmail.com" }, T0);
-    const plus = await users.addDays("g-2", 30, T0);
-    assert.equal(plus?.trialEndsAt, T0 + (TRIAL_DAYS + 30) * DAY_MS);
-    const minus = await users.addDays("g-2", -10, T0);
-    assert.equal(minus?.trialEndsAt, T0 + (TRIAL_DAYS + 20) * DAY_MS);
-    assert.equal(await users.addDays("nobody", 5, T0), null);
   });
 });
 

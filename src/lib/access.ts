@@ -19,8 +19,3 @@ export function computeAccess(u: { trialEndsAt: number }, now = Date.now()): Acc
     daysLeft: until > now ? Math.ceil((until - now) / DAY_MS) : 0,
   };
 }
-
-/** Admin sinovni uzaytirganda: bugundan yoki hozirgi tugash sanasidan (qaysi biri keyin bo'lsa) qo'shiladi. Manfiy son — qisqartirish. */
-export function extendTrial(trialEndsAt: number, days: number, now = Date.now()) {
-  return days >= 0 ? Math.max(now, trialEndsAt || 0) + days * DAY_MS : Math.max(0, (trialEndsAt || 0) + days * DAY_MS);
-}

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { useLang } from "./i18n";
 import type { Access } from "./access";
 import { startSync, stopSync } from "./sync";
 
@@ -127,19 +126,17 @@ export function GoogleMark({ size = 20 }: { size?: number }) {
 }
 
 export function GoogleButton({ next, block, label }: { next?: string; block?: boolean; label?: string }) {
-  const { L } = useLang();
   const { login } = useAuth();
   return (
     <button type="button" className={`btn google-btn btn-lg ${block ? "btn-block" : ""}`} onClick={() => login(next)}>
       <GoogleMark size={22} />
-      {label ?? L("Google bilan kirish", "Войти через Google")}
+      {label ?? "Google bilan kirish"}
     </button>
   );
 }
 
 // ---------- Kirish / sinov tugadi oynasi ----------
 function PaywallSheet({ reason, onClose }: { reason: Reason; onClose: () => void }) {
-  const { L } = useLang();
   const { me } = useAuth();
   const trialDays = me?.trialDays ?? 30;
   return (
@@ -148,41 +145,35 @@ function PaywallSheet({ reason, onClose }: { reason: Reason; onClose: () => void
       <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
         <div className="sheet-handle" />
         <div className="row between" style={{ marginBottom: 6 }}>
-          <span className="badge">{reason === "AUTH" ? `🎁 ${L(`${trialDays} kun bepul`, `${trialDays} дней бесплатно`)}` : `⏳ ${L("Sinov tugadi", "Пробный период")}`}</span>
-          <button className="icon-btn sm" onClick={onClose} aria-label={L("Yopish", "Закрыть")}>
+          <span className="badge">{reason === "AUTH" ? `🎁 ${trialDays} kun bepul` : "⏳ Sinov tugadi"}</span>
+          <button className="icon-btn sm" onClick={onClose} aria-label="Yopish">
             <Icon name="x" size={18} />
           </button>
         </div>
         {reason === "AUTH" ? (
           <div className="stack" style={{ gap: 14 }}>
             <h3 className="h2" id="paywall-title" style={{ fontSize: "1.5rem" }}>
-              {L("Hisobingizga kiring", "Войдите в аккаунт")}
+              Hisobingizga kiring
             </h3>
             <p className="muted" style={{ margin: 0 }}>
-              {L(
-                `AI tekshiruv, Gemini bilan suhbat, AI Ustoz va cheksiz AI variantlar uchun Gmail orqali kiring. Birinchi ${trialDays} kun — to‘liq bepul, karta talab qilinmaydi.`,
-                `Для AI-проверки, разговора с Gemini, AI Учителя и бесконечных вариантов войдите через Gmail. Первые ${trialDays} дней — полностью бесплатно, карта не нужна.`
-              )}
+              {`AI tekshiruv, Gemini bilan suhbat, AI Ustoz va cheksiz AI variantlar uchun Gmail orqali kiring. Birinchi ${trialDays} kun — to‘liq bepul, karta talab qilinmaydi.`}
             </p>
             <ul className="check-list">
-              <li>{L("Natijalaringiz barcha qurilmalarda saqlanadi", "Результаты сохраняются на всех устройствах")}</li>
-              <li>{L("Parol o‘ylab topish shart emas", "Не нужно придумывать пароль")}</li>
+              <li>Natijalaringiz barcha qurilmalarda saqlanadi</li>
+              <li>Parol o‘ylab topish shart emas</li>
             </ul>
             <GoogleButton block />
           </div>
         ) : (
           <div className="stack" style={{ gap: 14 }}>
             <h3 className="h2" id="paywall-title" style={{ fontSize: "1.5rem" }}>
-              {L("Bepul sinov tugadi", "Пробный период закончился")}
+              Bepul sinov tugadi
             </h3>
             <p className="muted" style={{ margin: 0 }}>
-              {L(
-                `${trialDays} kunlik bepul sinov muddati tugadi, AI funksiyalari yopildi. Hangul, darslar, so‘zlar va mock testlar bepul ishlashda davom etadi.`,
-                `${trialDays}-дневный пробный период закончился, AI-функции закрыты. Хангыль, уроки, слова и пробные тесты продолжают работать бесплатно.`
-              )}
+              {`${trialDays} kunlik bepul sinov muddati tugadi, AI funksiyalari yopildi. Hangul, darslar, so‘zlar va mock testlar bepul ishlashda davom etadi.`}
             </p>
             <Link href="/account" className="btn btn-primary btn-lg btn-block" onClick={onClose}>
-              {L("Profilni ko‘rish", "Открыть профиль")} <Icon name="right" size={18} />
+              Profilni ko‘rish <Icon name="right" size={18} />
             </Link>
           </div>
         )}

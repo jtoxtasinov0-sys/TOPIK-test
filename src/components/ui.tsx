@@ -4,7 +4,6 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import type { NoticeSpec } from "@/lib/exam";
 import { playKorean, stopAudio, type TtsOpts } from "@/lib/audio";
 import { TRIAL_DAYS } from "@/lib/access";
-import { useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
 
 // ---------- AI so'rovlari uchun yordamchi ----------
@@ -37,27 +36,23 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
 }
 
 export function useAiErrorText() {
-  const { L } = useLang();
   return (e: unknown) => {
     if (e instanceof ApiError) {
       if (e.status === 401 && e.code === "AUTH")
-        return L(`Bu AI funksiya uchun Google orqali kiring — ${TRIAL_DAYS} kun bepul.`, `Для этой AI-функции войдите через Google — ${TRIAL_DAYS} дней бесплатно.`);
+        return `Bu AI funksiya uchun Google orqali kiring — ${TRIAL_DAYS} kun bepul.`;
       if (e.status === 402)
-        return L("Bepul sinov muddati tugadi — AI funksiyalari yopildi.", "Пробный период закончился — AI-функции закрыты.");
+        return "Bepul sinov muddati tugadi — AI funksiyalari yopildi.";
       if (e.code === "QUOTA")
-        return L("Bugungi AI limiti tugadi. Ertaga yana davom eting 🙏", "Дневной лимит AI исчерпан. Продолжите завтра 🙏");
+        return "Bugungi AI limiti tugadi. Ertaga yana davom eting 🙏";
       if (e.code === "NO_DB")
-        return L("Server ma’lumotlar bazasi sozlanmagan (README’ga qarang).", "На сервере не настроена база данных (см. README).");
+        return "Server ma’lumotlar bazasi sozlanmagan (README’ga qarang).";
       if (e.code === "NO_KEY" || e.status === 503)
-        return L(
-          "AI hali ulanmagan: serverda GEMINI_API_KEY sozlanishi kerak (README’ga qarang).",
-          "AI ещё не подключён: на сервере нужно задать GEMINI_API_KEY (см. README)."
-        );
-      if (e.status === 429) return L("Juda ko‘p so‘rov. 1-2 daqiqadan keyin urinib ko‘ring.", "Слишком много запросов. Попробуйте через 1–2 минуты.");
-      if (e.status === 0) return L("Internet aloqasini tekshiring.", "Проверьте подключение к интернету.");
-      return L("AI xatosi: ", "Ошибка AI: ") + e.message;
+        return "AI hali ulanmagan: serverda GEMINI_API_KEY sozlanishi kerak (README’ga qarang).";
+      if (e.status === 429) return "Juda ko‘p so‘rov. 1-2 daqiqadan keyin urinib ko‘ring.";
+      if (e.status === 0) return "Internet aloqasini tekshiring.";
+      return "AI xatosi: " + e.message;
     }
-    return L("Kutilmagan xato yuz berdi.", "Произошла непредвиденная ошибка.");
+    return "Kutilmagan xato yuz berdi.";
   };
 }
 

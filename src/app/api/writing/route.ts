@@ -27,13 +27,12 @@ export async function POST(req: Request) {
       task: WritingTask;
       text?: string;
       images?: { data: string; mime: string }[];
-      lang: "uz" | "ru";
     };
-    const { task, text, images = [], lang } = body;
+    const { task, text, images = [] } = body;
     if (!task || ![51, 52, 53, 54].includes(task.n)) return Response.json({ error: "Topshiriq noto'g'ri" }, { status: 400 });
     if (!text?.trim() && !images.length) return Response.json({ error: "Javob bo'sh" }, { status: 400 });
     if (images.length > 4) return Response.json({ error: "Ko'pi bilan 4 ta rasm" }, { status: 400 });
-    const L = LANG_NAME[lang] ?? LANG_NAME.uz;
+    const L = LANG_NAME;
 
     const taskText = [
       `문제 ${task.n}. ${task.instruction}`,

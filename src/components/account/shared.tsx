@@ -1,7 +1,6 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { Lang } from "@/lib/i18n";
 
 const noop = () => () => {};
 
@@ -20,7 +19,7 @@ export function safePath(p: string | null | undefined, fallback = "/") {
   return p && p.startsWith("/") && !p.startsWith("//") && !p.startsWith("/\\") ? p : fallback;
 }
 
-export function fmtDate(ms: number | undefined, lang: Lang) {
+export function fmtDate(ms: number | undefined) {
   if (!ms) return "—";
-  return new Date(ms).toLocaleDateString(lang === "ru" ? "ru-RU" : "uz-UZ", { day: "numeric", month: "long", year: "numeric" });
+  return new Date(ms).toLocaleDateString("uz-UZ", { day: "numeric", month: "long", year: "numeric" });
 }

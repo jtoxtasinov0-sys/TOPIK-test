@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
-import { useLang } from "@/lib/i18n";
 import { daysUntil, DEFAULT_PROFILE, KEYS, type Profile, useStored } from "@/lib/store";
 import { TRIAL_DAYS } from "@/lib/access";
 import type { HistoryItem } from "@/lib/exam";
@@ -95,7 +94,6 @@ function PhoneMock() {
 }
 
 export default function Home() {
-  const { L } = useLang();
   const [profile, setProfile] = useStored<Profile>(KEYS.profile, DEFAULT_PROFILE);
   const [history] = useStored<HistoryItem[]>(KEYS.history, []);
   const [streak] = useStored<{ last: string; count: number }>(KEYS.streak, { last: "", count: 0 });
@@ -103,13 +101,13 @@ export default function Home() {
   const last = history.find((h) => h.total > 0);
 
   const actions = [
-    { href: "/test", e: "📝", t: L("Mock test", "Тест") },
-    { href: "/writing", e: "✍️", t: L("Yozish", "Письмо") },
-    { href: "/speak", e: "🗣️", t: L("Gaplashish", "Разговор") },
-    { href: "/learn/hangul", e: "한", t: L("Hangul", "Хангыль") },
-    { href: "/words", e: "🃏", t: L("So‘zlar", "Слова") },
-    { href: "/tutor", e: "🤖", t: L("AI Ustoz", "AI Учитель") },
-    { href: "/guide", e: "🇰🇷", t: L("Koreya", "Корея") },
+    { href: "/test", e: "📝", t: "Mock test" },
+    { href: "/writing", e: "✍️", t: "Yozish" },
+    { href: "/speak", e: "🗣️", t: "Gaplashish" },
+    { href: "/learn/hangul", e: "한", t: "Hangul" },
+    { href: "/words", e: "🃏", t: "So‘zlar" },
+    { href: "/tutor", e: "🤖", t: "AI Ustoz" },
+    { href: "/guide", e: "🇰🇷", t: "Koreya" },
   ];
 
   return (
@@ -127,41 +125,38 @@ export default function Home() {
         <div className="container hero-grid">
           <div className="stack" style={{ gap: 20 }}>
             <span className="badge white" style={{ alignSelf: "flex-start", padding: "7px 14px" }}>
-              ✨ TOPIK I · TOPIK II · {L("0 dan", "с нуля")} · AI
+              ✨ TOPIK I · TOPIK II · 0 dan · AI
             </span>
             <h1 className="h1">
-              {L("Imtihondan oldin", "Узнайте свой")}
+              Imtihondan oldin
               <br />
               <span style={{ background: "linear-gradient(90deg,#fff,#ffd6f5,#bfe3ff)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
-                {L("darajangizni biling", "уровень до экзамена")}
+                darajangizni biling
               </span>
             </h1>
             <p className="lead" style={{ maxWidth: 540 }}>
-              {L(
-                `Haqiqiy TOPIK formatidagi mock testlar, daftardagi yozma ishni AI tekshiruvi, Gemini bilan jonli suhbat va koreys tilini noldan o‘rganish — hammasi bitta joyda. Gmail orqali kiring — ${TRIAL_DAYS} kun bepul.`,
-                `Пробные тесты в формате настоящего TOPIK, проверка письма из тетради с AI, живой разговор с Gemini и корейский с нуля — всё в одном месте. Войдите через Gmail — ${TRIAL_DAYS} дней бесплатно.`
-              )}
+              Haqiqiy TOPIK formatidagi mock testlar, daftardagi yozma ishni AI tekshiruvi, Gemini bilan jonli suhbat va koreys tilini noldan o‘rganish — hammasi bitta joyda. Gmail orqali kiring — AI {TRIAL_DAYS} kun bepul.
             </p>
             <div className="row-wrap">
               <Link href="/test" className="btn btn-white btn-lg">
-                {L("Testni boshlash", "Начать тест")} <Icon name="right" size={20} />
+                Testni boshlash <Icon name="right" size={20} />
               </Link>
               <Link href="/learn" className="btn btn-glass btn-lg">
-                🌱 {L("0 dan o‘rganish", "Учить с нуля")}
+                🌱 0 dan o‘rganish
               </Link>
             </div>
             <div className="stat-row" style={{ marginTop: 6 }}>
               <div>
                 <div className="n">174+</div>
-                <div className="l">{L("TOPIK savollari", "вопроса TOPIK")}</div>
+                <div className="l">TOPIK savollari</div>
               </div>
               <div>
                 <div className="n">∞</div>
-                <div className="l">{L("AI variantlar", "вариантов с AI")}</div>
+                <div className="l">AI variantlar</div>
               </div>
               <div>
-                <div className="n">UZ · RU</div>
-                <div className="l">{L("tushuntirishlar", "объяснения")}</div>
+                <div className="n">AI</div>
+                <div className="l">o‘zbekcha tushuntirish</div>
               </div>
             </div>
           </div>
@@ -174,14 +169,14 @@ export default function Home() {
         <div className="grid-3">
           <div className="level-card" style={{ minHeight: 170 }}>
             <div className="row between">
-              <span className="small" style={{ opacity: 0.9, fontWeight: 700 }}>{L("Imtihongacha", "До экзамена")}</span>
+              <span className="small" style={{ opacity: 0.9, fontWeight: 700 }}>Imtihongacha</span>
               <Icon name="calendar" size={18} />
             </div>
             <div className="display" style={{ fontSize: "2.4rem", fontWeight: 700, margin: "6px 0" }}>
-              {days === null ? "—" : days > 0 ? days : 0} <span style={{ fontSize: "1rem" }}>{L("kun", "дн.")}</span>
+              {days === null ? "—" : days > 0 ? days : 0} <span style={{ fontSize: "1rem" }}>kun</span>
             </div>
             <label className="small" style={{ display: "flex", gap: 8, alignItems: "center", opacity: 0.95 }}>
-              {L("Sana:", "Дата:")}
+              Sana:
               <input
                 type="date"
                 value={profile.examDate}
@@ -192,12 +187,12 @@ export default function Home() {
           </div>
           <div className="level-card violet" style={{ minHeight: 170 }}>
             <div className="row between">
-              <span className="small" style={{ opacity: 0.9, fontWeight: 700 }}>{L("So‘nggi natija", "Последний результат")}</span>
+              <span className="small" style={{ opacity: 0.9, fontWeight: 700 }}>So‘nggi natija</span>
               <Icon name="trophy" size={18} />
             </div>
             {last ? (
               <>
-                <div className="kr" style={{ fontSize: "2.4rem", fontWeight: 800, margin: "4px 0" }}>{last.level ?? L("—", "—")}</div>
+                <div className="kr" style={{ fontSize: "2.4rem", fontWeight: 800, margin: "4px 0" }}>{last.level ?? "—"}</div>
                 <div className="small" style={{ opacity: 0.9 }}>
                   {last.title} · {last.total}/{last.max}
                   {last.estimated ? "*" : ""}
@@ -205,24 +200,24 @@ export default function Home() {
               </>
             ) : (
               <>
-                <div style={{ fontWeight: 700, margin: "10px 0" }}>{L("Hali test topshirmadingiz", "Вы ещё не проходили тест")}</div>
+                <div style={{ fontWeight: 700, margin: "10px 0" }}>Hali test topshirmadingiz</div>
                 <Link href="/test" className="btn btn-white btn-sm">
-                  {L("Darajani aniqlash", "Узнать уровень")}
+                  Darajani aniqlash
                 </Link>
               </>
             )}
           </div>
           <div className="card" style={{ minHeight: 170, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div className="row between">
-              <span className="small muted" style={{ fontWeight: 700 }}>{L("Faollik seriyasi", "Серия активности")}</span>
+              <span className="small muted" style={{ fontWeight: 700 }}>Faollik seriyasi</span>
               <span style={{ color: "var(--rose)" }}>
                 <Icon name="flame" size={20} />
               </span>
             </div>
             <div className="display" style={{ fontSize: "2.4rem", fontWeight: 700 }}>
-              {streak.count} <span style={{ fontSize: "1rem" }} className="muted">{L("kun", "дн.")}</span>
+              {streak.count} <span style={{ fontSize: "1rem" }} className="muted">kun</span>
             </div>
-            <div className="small muted">{L("Har kuni kamida bitta mashq qiling 🔥", "Занимайтесь хотя бы раз в день 🔥")}</div>
+            <div className="small muted">Har kuni kamida bitta mashq qiling 🔥</div>
           </div>
         </div>
 
@@ -245,16 +240,16 @@ export default function Home() {
           <div className="section-head">
             <span className="eyebrow">📝 Mock test</span>
             <h2 className="h2">
-              {L("Xuddi haqiqiy ", "Как на настоящем ")}
+              Xuddi haqiqiy 
               <span className="gradient-text">TOPIK</span>
-              {L(" kabi", "")}
+               kabi
             </h2>
-            <p className="lead">{L("Savollar tartibi, yo‘riqnomalar, vaqt va ball tizimi — rasmiy formatda.", "Порядок вопросов, инструкции, время и баллы — в официальном формате.")}</p>
+            <p className="lead">Savollar tartibi, yo‘riqnomalar, vaqt va ball tizimi — rasmiy formatda.</p>
           </div>
           <div className="grid-2">
             {[
-              { href: "/test/topik1", t: "TOPIK I", lv: "1–2급", q: "70", m: "100", max: 200, d: L("Boshlovchilar uchun: tinglash (30) va o‘qish (40)", "Для начинающих: аудирование (30) и чтение (40)"), g: "var(--grad-mint)" },
-              { href: "/test/topik2", t: "TOPIK II", lv: "3–6급", q: "104", m: "180", max: 300, d: L("Tinglash (50), yozish (4) va o‘qish (50)", "Аудирование (50), письмо (4) и чтение (50)"), g: "var(--grad)" },
+              { href: "/test/topik1", t: "TOPIK I", lv: "1–2급", q: "70", m: "100", max: 200, d: "Boshlovchilar uchun: tinglash (30) va o‘qish (40)", g: "var(--grad-mint)" },
+              { href: "/test/topik2", t: "TOPIK II", lv: "3–6급", q: "104", m: "180", max: 300, d: "Tinglash (50), yozish (4) va o‘qish (50)", g: "var(--grad)" },
             ].map((x) => (
               <Link key={x.href} href={x.href} className="card hover" style={{ padding: 0, overflow: "hidden" }}>
                 <div style={{ background: x.g, color: "#fff", padding: "26px 24px", position: "relative", overflow: "hidden" }}>
@@ -265,9 +260,9 @@ export default function Home() {
                 </div>
                 <div className="row between" style={{ padding: "16px 24px" }}>
                   <div className="row" style={{ gap: 20 }}>
-                    <div><b className="display">{x.q}</b> <span className="small muted">{L("savol", "вопр.")}</span></div>
-                    <div><b className="display">{x.m}</b> <span className="small muted">{L("daqiqa", "мин")}</span></div>
-                    <div><b className="display">{x.max}</b> <span className="small muted">{L("ball", "баллов")}</span></div>
+                    <div><b className="display">{x.q}</b> <span className="small muted">savol</span></div>
+                    <div><b className="display">{x.m}</b> <span className="small muted">daqiqa</span></div>
+                    <div><b className="display">{x.max}</b> <span className="small muted">ball</span></div>
                   </div>
                   <span className="icon-btn primary sm"><Icon name="right" size={18} /></span>
                 </div>
@@ -276,8 +271,8 @@ export default function Home() {
           </div>
           <div className="card" style={{ marginTop: 20 }}>
             <div className="row between" style={{ marginBottom: 12, flexWrap: "wrap" }}>
-              <b>{L("Darajalar shkalasi", "Шкала уровней")}</b>
-              <span className="small muted">TOPIK I: 200 · TOPIK II: 300 {L("ball", "баллов")}</span>
+              <b>Darajalar shkalasi</b>
+              <span className="small muted">TOPIK I: 200 · TOPIK II: 300 ball</span>
             </div>
             <div className="levels">
               {LEVELS.map((l) => (
@@ -297,23 +292,20 @@ export default function Home() {
           <div className="stack" style={{ gap: 16 }}>
             <span className="eyebrow">✍️ 쓰기 · Writing</span>
             <h2 className="h2">
-              {L("Daftarga yozing — ", "Пишите в тетради — ")}
-              <span className="gradient-text">{L("AI tekshiradi", "AI проверит")}</span>
+              Daftarga yozing — 
+              <span className="gradient-text">AI tekshiradi</span>
             </h2>
             <p className="lead">
-              {L(
-                "51–54-topshiriqlarni vaqt bilan yozing, rasmga oling va yuklang. Gemini qo‘lyozmangizni o‘qiydi, rasmiy TOPIK mezonlari bo‘yicha ball qo‘yadi, xatolarni tuzatadi va namunaviy javob beradi.",
-                "Пишите задания 51–54 на время, сфотографируйте и загрузите. Gemini распознает почерк, выставит баллы по официальным критериям TOPIK, исправит ошибки и покажет образец."
-              )}
+              51–54-topshiriqlarni vaqt bilan yozing, rasmga oling va yuklang. Gemini qo‘lyozmangizni o‘qiydi, rasmiy TOPIK mezonlari bo‘yicha ball qo‘yadi, xatolarni tuzatadi va namunaviy javob beradi.
             </p>
             <div className="row-wrap">
-              <span className="chip">⏱️ {L("Vaqt bilan", "На время")}</span>
-              <span className="chip">📸 {L("Rasm yuklash", "Фото")}</span>
-              <span className="chip">📊 {L("Mezonlar bo‘yicha ball", "Баллы по критериям")}</span>
+              <span className="chip">⏱️ Vaqt bilan</span>
+              <span className="chip">📸 Rasm yuklash</span>
+              <span className="chip">📊 Mezonlar bo‘yicha ball</span>
               <span className="chip kr">원고지</span>
             </div>
             <Link href="/writing" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
-              {L("Yozishni boshlash", "Начать письмо")} <Icon name="right" size={18} />
+              Yozishni boshlash <Icon name="right" size={18} />
             </Link>
           </div>
           <div className="feature-visual">
@@ -353,17 +345,14 @@ export default function Home() {
           <div className="stack" style={{ gap: 16 }}>
             <span className="eyebrow">🗣️ 말하기 · Gemini</span>
             <h2 className="h2">
-              {L("AI bilan ", "Говорите с AI ")}
-              <span className="gradient-text">{L("jonli gaplashing", "вживую")}</span>
+              AI bilan 
+              <span className="gradient-text">jonli gaplashing</span>
             </h2>
             <p className="lead">
-              {L(
-                "Restoran, kasalxona, bank, migratsiya xizmati, zavod, ish suhbati… Gapiring — Gemini 3.5 Transcribe nutqingizni yozadi, AI xatolaringizni o‘zbekcha yoki ruscha tushuntiradi va koreyscha javob beradi.",
-                "Ресторан, больница, банк, миграционная служба, завод, собеседование… Говорите — Gemini 3.5 Transcribe распознаёт речь, AI объясняет ошибки по-русски и отвечает по-корейски."
-              )}
+              Restoran, kasalxona, bank, migratsiya xizmati, zavod, ish suhbati… Gapiring — Gemini 3.5 Transcribe nutqingizni yozadi, AI xatolaringizni o‘zbekcha tushuntiradi va koreyscha javob beradi.
             </p>
             <Link href="/speak" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
-              <Icon name="mic" size={18} /> {L("Suhbatni boshlash", "Начать разговор")}
+              <Icon name="mic" size={18} /> Suhbatni boshlash
             </Link>
           </div>
           <div className="feature-visual" style={{ background: "var(--grad-night)" }}>
@@ -372,7 +361,7 @@ export default function Home() {
                 <div className="bubble">
                   <div className="ko">어서 오세요! 몇 분이세요?</div>
                   <div className="rom">eoseo oseyo! myeot buniseyo?</div>
-                  <div className="tr">{L("Xush kelibsiz! Necha kishisiz?", "Добро пожаловать! Сколько вас?")}</div>
+                  <div className="tr">Xush kelibsiz! Necha kishisiz?</div>
                 </div>
               </div>
               <div className="msg me" style={{ maxWidth: "100%" }}>
@@ -381,7 +370,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="feedback" style={{ alignSelf: "flex-end" }}>
-                <span className="badge green">96 / 100</span> {L("Juda yaxshi! Tabiiy jumla 👏", "Отлично! Естественная фраза 👏")}
+                <span className="badge green">96 / 100</span> Juda yaxshi! Tabiiy jumla 👏
               </div>
               <div className="row" style={{ justifyContent: "center", marginTop: 6 }}>
                 <span className="mic rec" style={{ width: 64, height: 64 }}>
@@ -397,21 +386,21 @@ export default function Home() {
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
           <div className="section-head center" style={{ alignItems: "center" }}>
-            <span className="eyebrow">💜 {L("Kimlar uchun", "Для кого")}</span>
-            <h2 className="h2">{L("Har bir bosqichda yoningizda", "Рядом на каждом этапе")}</h2>
+            <span className="eyebrow">💜 Kimlar uchun</span>
+            <h2 className="h2">Har bir bosqichda yoningizda</h2>
           </div>
           <div className="grid-3">
             {[
-              { e: "🌱", c: "mint", t: L("Noldan boshlovchilar", "Начинающие с нуля"), d: L("Hangul alifbosi, bo‘g‘in yasash, 12 ta hayotiy dars va ovozli talaffuz.", "Алфавит хангыль, сборка слогов, 12 жизненных уроков и озвучка."), href: "/learn" },
-              { e: "🎓", c: "", t: L("TOPIK’ka tayyorlanuvchilar", "Готовящиеся к TOPIK"), d: L("To‘liq mock testlar, AI variantlar, yozma ish tekshiruvi va xatolar tahlili.", "Полные пробные тесты, варианты AI, проверка письма и разбор ошибок."), href: "/test" },
-              { e: "🇰🇷", c: "pink", t: L("Koreyada yashayotganlar", "Живущие в Корее"), d: L("Kasalxona, bank, ish, uy ijarasi iboralari, favqulodda raqamlar va foydali ilovalar.", "Фразы для больницы, банка, работы, аренды, экстренные номера и приложения."), href: "/guide" },
+              { e: "🌱", c: "mint", t: "Noldan boshlovchilar", d: "Hangul alifbosi, bo‘g‘in yasash, 12 ta hayotiy dars va ovozli talaffuz.", href: "/learn" },
+              { e: "🎓", c: "", t: "TOPIK’ka tayyorlanuvchilar", d: "To‘liq mock testlar, AI variantlar, yozma ish tekshiruvi va xatolar tahlili.", href: "/test" },
+              { e: "🇰🇷", c: "pink", t: "Koreyada yashayotganlar", d: "Kasalxona, bank, ish, uy ijarasi iboralari, favqulodda raqamlar va foydali ilovalar.", href: "/guide" },
             ].map((x) => (
               <Link key={x.href} href={x.href} className="card hover stack" style={{ gap: 12 }}>
                 <span className={`icon-tile ${x.c}`}>{x.e}</span>
                 <h3 className="h3">{x.t}</h3>
                 <p className="muted" style={{ margin: 0 }}>{x.d}</p>
                 <span className="small" style={{ color: "var(--p1)", fontWeight: 800 }}>
-                  {L("Boshlash", "Начать")} →
+                  Boshlash →
                 </span>
               </Link>
             ))}
@@ -425,26 +414,23 @@ export default function Home() {
           <div className="result-hero" style={{ padding: "34px 26px" }}>
             <div className="feature" style={{ gap: 24 }}>
               <div className="stack" style={{ gap: 14 }}>
-                <span className="badge white" style={{ alignSelf: "flex-start" }}>🎁 {L("Bepul sinov", "Пробный период")}</span>
+                <span className="badge white" style={{ alignSelf: "flex-start" }}>🎁 Bepul sinov</span>
                 <h2 className="h2" style={{ color: "#fff" }}>
-                  {L(`${TRIAL_DAYS} kun — barcha AI imkoniyatlar bepul`, `${TRIAL_DAYS} дней — все AI-возможности бесплатно`)}
+                  {`${TRIAL_DAYS} kun — barcha AI imkoniyatlar bepul`}
                 </h2>
                 <p style={{ margin: 0, opacity: 0.9 }}>
-                  {L(
-                    "Gmail orqali kiring — karta kerak emas. AI tekshiruv, Gemini bilan suhbat, AI Ustoz va AI variantlar darhol ochiladi.",
-                    "Войдите через Gmail — карта не нужна. AI-проверка, разговор с Gemini, AI Учитель и AI-варианты откроются сразу."
-                  )}
+                  Gmail orqali kiring — karta kerak emas. AI tekshiruv, Gemini bilan suhbat, AI Ustoz va AI variantlar darhol ochiladi.
                 </p>
                 <div className="row-wrap">
                   <Link href="/login" className="btn btn-white btn-lg">
-                    {L("Bepul boshlash", "Начать бесплатно")} <Icon name="right" size={20} />
+                    Bepul boshlash <Icon name="right" size={20} />
                   </Link>
                 </div>
               </div>
               <ul className="check-list" style={{ color: "#fff" }}>
-                <li>{L("Parolsiz, bir bosishda kirish", "Вход в один клик, без пароля")}</li>
-                <li>{L("Natijalar barcha qurilmalarda sinxron", "Результаты синхронизируются на всех устройствах")}</li>
-                <li>{L("Hangul, darslar, so‘zlar va mock testlar har doim bepul", "Хангыль, уроки, слова и пробные тесты всегда бесплатны")}</li>
+                <li>Parolsiz, bir bosishda kirish</li>
+                <li>Natijalar barcha qurilmalarda sinxron</li>
+                <li>Hangul, darslar, so‘zlar va mock testlar har doim bepul</li>
               </ul>
             </div>
           </div>
@@ -458,10 +444,7 @@ export default function Home() {
             <span>Gemini 3.8 Flash · Gemini 3.5 Transcribe · Gemini TTS</span>
           </div>
           <div>
-            {L(
-              "HanUstoz — mustaqil o‘quv loyiha, rasmiy TOPIK (NIIED) sayti emas. Barcha test savollari original mashq materiallaridir. Natijalar taxminiy.",
-              "HanUstoz — независимый учебный проект, не официальный сайт TOPIK (NIIED). Все вопросы — оригинальные учебные материалы. Результаты примерные."
-            )}
+            HanUstoz — mustaqil o‘quv loyiha, rasmiy TOPIK (NIIED) sayti emas. Barcha test savollari original mashq materiallaridir. Natijalar taxminiy.
           </div>
         </div>
       </footer>

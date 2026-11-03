@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Avatar, useAuth } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
 
 export function Logo() {
@@ -18,29 +17,14 @@ export function Logo() {
   );
 }
 
-export function LangSwitch() {
-  const { lang, setLang } = useLang();
-  return (
-    <div className="lang-switch" role="group" aria-label="Til / Язык">
-      <button className={lang === "uz" ? "on" : ""} onClick={() => setLang("uz")}>
-        UZ
-      </button>
-      <button className={lang === "ru" ? "on" : ""} onClick={() => setLang("ru")}>
-        RU
-      </button>
-    </div>
-  );
-}
-
 /** Yuqori paneldagi hisob tugmasi: kirish yoki avatar + qolgan kunlar */
 function AccountButton() {
-  const { L } = useLang();
   const { me, login } = useAuth();
   if (!me?.authEnabled) return null;
   if (!me.user) {
     return (
       <button className="btn btn-primary btn-sm login-btn" onClick={() => login()}>
-        <Icon name="user" size={16} /> {L("Kirish", "Войти")}
+        <Icon name="user" size={16} /> Kirish
       </button>
     );
   }
@@ -49,8 +33,8 @@ function AccountButton() {
     me.admin || !a
       ? null
       : a.status === "expired"
-        ? { cls: "red", text: L("Sinov tugadi", "Пробный период истёк") }
-        : { cls: a.daysLeft <= 5 ? "amber" : "", text: `🎁 ${a.daysLeft} ${L("kun", "дн.")}` };
+        ? { cls: "red", text: "Sinov tugadi" }
+        : { cls: a.daysLeft <= 5 ? "amber" : "", text: `🎁 ${a.daysLeft} kun` };
   return (
     <>
       {pill && (
@@ -58,33 +42,29 @@ function AccountButton() {
           {pill.text}
         </Link>
       )}
-      <Link href="/account" aria-label={L("Profil", "Профиль")} className="avatar-link">
+      <Link href="/account" aria-label="Profil" className="avatar-link">
         <Avatar user={me.user} size={36} />
       </Link>
     </>
   );
 }
 
-export function useNav() {
-  const { L } = useLang();
-  return [
-    { href: "/", icon: "home", label: L("Bosh sahifa", "Главная"), emoji: "🏠" },
-    { href: "/test", icon: "test", label: L("Testlar", "Тесты"), emoji: "📝" },
-    { href: "/writing", icon: "pen", label: L("Yozish", "Письмо"), emoji: "✍️" },
-    { href: "/speak", icon: "mic", label: L("Gaplashish", "Разговор"), emoji: "🗣️" },
-    { href: "/learn", icon: "book", label: L("0 dan o‘rganish", "С нуля"), emoji: "🌱" },
-    { href: "/words", icon: "cards", label: L("So‘zlar", "Слова"), emoji: "🃏" },
-    { href: "/tutor", icon: "spark", label: L("AI Ustoz", "AI Учитель"), emoji: "🤖" },
-    { href: "/guide", icon: "map", label: L("Koreyada hayot", "Жизнь в Корее"), emoji: "🇰🇷" },
-    { href: "/progress", icon: "chart", label: L("Natijalarim", "Мои результаты"), emoji: "📈" },
-    { href: "/account", icon: "user", label: L("Profil", "Профиль"), emoji: "👤" },
-  ];
-}
+export const NAV = [
+  { href: "/", icon: "home", label: "Bosh sahifa", emoji: "🏠" },
+  { href: "/test", icon: "test", label: "Testlar", emoji: "📝" },
+  { href: "/writing", icon: "pen", label: "Yozish", emoji: "✍️" },
+  { href: "/speak", icon: "mic", label: "Gaplashish", emoji: "🗣️" },
+  { href: "/learn", icon: "book", label: "0 dan o‘rganish", emoji: "🌱" },
+  { href: "/words", icon: "cards", label: "So‘zlar", emoji: "🃏" },
+  { href: "/tutor", icon: "spark", label: "AI Ustoz", emoji: "🤖" },
+  { href: "/guide", icon: "map", label: "Koreyada hayot", emoji: "🇰🇷" },
+  { href: "/progress", icon: "chart", label: "Natijalarim", emoji: "📈" },
+  { href: "/account", icon: "user", label: "Profil", emoji: "👤" },
+];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { L } = useLang();
-  const nav = useNav();
+  const nav = NAV;
   const [more, setMore] = useState(false);
 
   const isOn = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
@@ -103,9 +83,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
           <div className="grow" />
-          <LangSwitch />
           <AccountButton />
-          <button className="icon-btn sm hide-mobile" onClick={() => setMore(true)} aria-label={L("Barcha bo‘limlar", "Все разделы")}>
+          <button className="icon-btn sm hide-mobile" onClick={() => setMore(true)} aria-label="Barcha bo‘limlar">
             <Icon name="grid" size={18} />
           </button>
         </div>
@@ -126,7 +105,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Link href="/learn" className={isOn("/learn") ? "on" : ""} aria-label={nav[4].label}>
           <Icon name="book" />
         </Link>
-        <button className={more ? "on" : ""} onClick={() => setMore(true)} aria-label={L("Yana", "Ещё")}>
+        <button className={more ? "on" : ""} onClick={() => setMore(true)} aria-label="Yana">
           <Icon name="grid" />
         </button>
       </nav>
@@ -137,7 +116,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="sheet" role="dialog" aria-modal="true">
             <div className="sheet-handle" />
             <div className="row between" style={{ marginBottom: 14 }}>
-              <h3 className="h3">{L("Barcha bo‘limlar", "Все разделы")}</h3>
+              <h3 className="h3">Barcha bo‘limlar</h3>
               <button className="icon-btn sm" onClick={() => setMore(false)} aria-label="Yopish">
                 <Icon name="x" size={18} />
               </button>

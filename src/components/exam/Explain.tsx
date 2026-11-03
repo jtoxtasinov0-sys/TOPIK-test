@@ -3,7 +3,6 @@
 import { useState } from "react";
 import type { Group, Question } from "@/lib/exam";
 import { CIRCLED } from "@/lib/exam";
-import { useLang } from "@/lib/i18n";
 import { hash } from "@/lib/audio";
 import { Icon } from "../Icon";
 import { postJson, useAiErrorText } from "../ui";
@@ -39,10 +38,9 @@ export function questionContext(g: Group, q: Question) {
 }
 
 export function Explain({ group, question, userAnswer }: { group: Group; question: Question; userAnswer?: number }) {
-  const { L, lang } = useLang();
   const errText = useAiErrorText();
   const ctx = questionContext(group, question);
-  const key = hash(`${lang}|${ctx}`);
+  const key = hash(ctx);
   const [data, setData] = useState<Explanation | null>(() => cache.get(key) ?? null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -51,7 +49,7 @@ export function Explain({ group, question, userAnswer }: { group: Group; questio
     setLoading(true);
     setErr("");
     try {
-      const r = await postJson<Explanation>("/api/explain", { context: ctx, answer: question.answer, user: userAnswer, lang });
+      const r = await postJson<Explanation>("/api/explain", { context: ctx, answer: question.answer, user: userAnswer });
       cache.set(key, r);
       setData(r);
     } catch (e) {
@@ -66,7 +64,7 @@ export function Explain({ group, question, userAnswer }: { group: Group; questio
       <div className="stack" style={{ gap: 8 }}>
         <button className="btn btn-soft btn-sm" onClick={run} disabled={loading} style={{ alignSelf: "flex-start" }}>
           {loading ? <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : <Icon name="spark" size={16} />}
-          {loading ? L("AI tushuntirmoqda…", "AI объясняет…") : L("AI tushuntirsin (o‘zbekcha)", "Объяснение AI (на русском)")}
+          {loading ? "AI tushuntirmoqda…" : "AI tushuntirsin (o‘zbekcha)"}
         </button>
         {err && <div className="callout">{err}</div>}
       </div>
@@ -78,23 +76,23 @@ export function Explain({ group, question, userAnswer }: { group: Group; questio
         <span className="badge">
           <Icon name="spark" size={13} /> AI
         </span>
-        <b className="small">{L("Tushuntirish", "Объяснение")}</b>
+        <b className="small">Tushuntirish</b>
       </div>
       <div className="stack" style={{ gap: 10, fontSize: "0.93rem" }}>
         <div>
-          <div className="tiny muted" style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em" }}>{L("Tarjima", "Перевод")}</div>
+          <div className="tiny muted" style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em" }}>Tarjima</div>
           <div style={{ whiteSpace: "pre-line" }}>{data.translation}</div>
         </div>
         <div>
           <div className="tiny" style={{ fontWeight: 800, color: "var(--green)", textTransform: "uppercase", letterSpacing: ".06em" }}>
-            ✓ {L("Nega to‘g‘ri", "Почему верно")}
+            ✓ Nega to‘g‘ri
           </div>
           <div>{data.correct_reason}</div>
         </div>
         {data.wrong_options && (
           <div>
             <div className="tiny" style={{ fontWeight: 800, color: "var(--red)", textTransform: "uppercase", letterSpacing: ".06em" }}>
-              ✗ {L("Boshqa variantlar", "Другие варианты")}
+              ✗ Boshqa variantlar
             </div>
             <div>{data.wrong_options}</div>
           </div>

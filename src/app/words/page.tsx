@@ -5,14 +5,12 @@ import { Icon } from "@/components/Icon";
 import { SpeakBtn } from "@/components/ui";
 import { DECKS, type Deck } from "@/data/words";
 import { playKorean } from "@/lib/audio";
-import { useLang } from "@/lib/i18n";
 import { KEYS, touchStreak, useStored } from "@/lib/store";
 
 // Leitner tizimi: 0..5 quti. Har to'g'ri javobda quti oshadi.
 type Boxes = Record<string, number>;
 
 export default function WordsPage() {
-  const { L, tr, lang } = useLang();
   const [boxes, setBoxes] = useStored<Boxes>(KEYS.words, {});
   const [deck, setDeck] = useState<Deck>(DECKS[0]);
   const [flip, setFlip] = useState(false);
@@ -35,13 +33,13 @@ export default function WordsPage() {
   return (
     <main className="container page">
       <div className="section-head">
-        <span className="eyebrow">🃏 {L("So‘z kartochkalari", "Карточки слов")}</span>
+        <span className="eyebrow">🃏 So‘z kartochkalari</span>
         <h1 className="h1">
-          {L("So‘zlarni ", "Запоминайте ")}
-          <span className="gradient-text">{L("yodda saqlang", "слова")}</span>
+          So‘zlarni 
+          <span className="gradient-text">yodda saqlang</span>
         </h1>
         <p className="lead">
-          {L(`Jami o‘rganilgan: ${totalLearned} ta so‘z. Kartani bosing — tarjimasi ochiladi.`, `Всего выучено: ${totalLearned} слов. Нажмите на карточку — увидите перевод.`)}
+          {`Jami o‘rganilgan: ${totalLearned} ta so‘z. Kartani bosing — tarjimasi ochiladi.`}
         </p>
       </div>
 
@@ -60,7 +58,7 @@ export default function WordsPage() {
               }}
             >
               <span className="em">{d.emoji}</span>
-              <b className="small">{tr(d.title)}</b>
+              <b className="small">{d.title}</b>
               <span className="tiny" style={{ opacity: 0.8 }}>
                 {d.level} · {n}/{d.words.length}
               </span>
@@ -72,10 +70,10 @@ export default function WordsPage() {
       <div className="row between" style={{ marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <div className="seg">
           <button className={view === "cards" ? "on" : ""} onClick={() => setView("cards")}>
-            🃏 {L("Kartalar", "Карточки")}
+            🃏 Kartalar
           </button>
           <button className={view === "list" ? "on" : ""} onClick={() => setView("list")}>
-            📋 {L("Ro‘yxat", "Список")}
+            📋 Ro‘yxat
           </button>
         </div>
         <div className="row" style={{ minWidth: 200 }}>
@@ -100,28 +98,27 @@ export default function WordsPage() {
             <div className="flip-in">
               <div className="flip-face front">
                 <span className="badge white">
-                  {L("Quti", "Ящик")} {boxes[word.id] ?? 0}/5
+                  Quti {boxes[word.id] ?? 0}/5
                 </span>
                 <div className="kr" style={{ fontSize: "3.4rem", fontWeight: 800 }}>{word.ko}</div>
-                <div className="small" style={{ opacity: 0.85 }}>{L("Bosing — tarjima", "Нажмите — перевод")}</div>
+                <div className="small" style={{ opacity: 0.85 }}>Bosing — tarjima</div>
               </div>
               <div className="flip-face back">
                 <div className="kr" style={{ fontSize: "2rem", fontWeight: 800 }}>{word.ko}</div>
                 <div className="muted" style={{ fontStyle: "italic" }}>[{word.rom}]</div>
                 <div style={{ fontSize: "1.4rem", fontWeight: 800 }} className="gradient-text">
-                  {lang === "ru" ? word.ru : word.uz}
+                  {word.uz}
                 </div>
-                <div className="small muted">{lang === "ru" ? `UZ: ${word.uz}` : `RU: ${word.ru}`}</div>
               </div>
             </div>
           </div>
           <div className="row" style={{ gap: 12, marginTop: 6 }}>
             <button className="btn btn-danger btn-lg" onClick={() => answer(false)}>
-              <Icon name="x" size={18} /> {L("Bilmayman", "Не знаю")}
+              <Icon name="x" size={18} /> Bilmayman
             </button>
             <SpeakBtn text={word.ko} opts={{ slow: true }} size="md" />
             <button className="btn btn-primary btn-lg" onClick={() => answer(true)}>
-              <Icon name="check" size={18} /> {L("Bilaman", "Знаю")}
+              <Icon name="check" size={18} /> Bilaman
             </button>
           </div>
         </div>
@@ -132,7 +129,7 @@ export default function WordsPage() {
               <div className="grow">
                 <div className="kr" style={{ fontWeight: 800, fontSize: "1.15rem" }}>{w.ko}</div>
                 <div className="tiny muted">[{w.rom}]</div>
-                <div className="small">{lang === "ru" ? w.ru : w.uz}</div>
+                <div className="small">{w.uz}</div>
               </div>
               {(boxes[w.id] ?? 0) >= 3 && <span className="badge green">✓</span>}
               <SpeakBtn text={w.ko} opts={{ slow: true }} />

@@ -10,7 +10,6 @@ type Body = {
   text?: string;
   scenario: { id: string; ko: string; role: string; goal: string };
   level: "beginner" | "intermediate" | "advanced";
-  lang: "uz" | "ru";
   history: { role: "ai" | "me"; ko: string }[];
 };
 
@@ -32,7 +31,7 @@ export async function POST(req: Request) {
     rateLimit(req, "speak", 50, 5 * 60_000);
     await aiAccess(req, "speak");
     const b = (await req.json()) as Body;
-    const L = LANG_NAME[b.lang] ?? LANG_NAME.uz;
+    const L = LANG_NAME;
     if (b.audio && b.audio.data.length > 8_000_000) return Response.json({ error: "Audio juda uzun" }, { status: 400 });
 
     // 1) Nutqni matnga aylantirish — Gemini 3.5 Transcribe

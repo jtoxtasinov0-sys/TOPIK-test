@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { type HistoryItem, SECTION_LABEL, type SectionId } from "@/lib/exam";
-import { useLang } from "@/lib/i18n";
 import { daysUntil, DEFAULT_PROFILE, KEYS, type Profile, useStored } from "@/lib/store";
 
 function Trend({ items }: { items: HistoryItem[] }) {
@@ -41,7 +40,6 @@ function Trend({ items }: { items: HistoryItem[] }) {
 }
 
 export default function ProgressPage() {
-  const { L, lang } = useLang();
   const [history, setHistory] = useStored<HistoryItem[]>(KEYS.history, []);
   const [profile, setProfile] = useStored<Profile>(KEYS.profile, DEFAULT_PROFILE);
   const done = history.filter((h) => h.total > 0 || Object.keys(h.sections).length);
@@ -51,21 +49,21 @@ export default function ProgressPage() {
   return (
     <main className="container page">
       <div className="section-head">
-        <span className="eyebrow">📈 {L("Natijalarim", "Мои результаты")}</span>
+        <span className="eyebrow">📈 Natijalarim</span>
         <h1 className="h1">
-          {L("Sizning ", "Ваш ")}
-          <span className="gradient-text">{L("progressingiz", "прогресс")}</span>
+          Sizning 
+          <span className="gradient-text">progressingiz</span>
         </h1>
-        <p className="lead small">{L("Ma’lumotlar faqat shu qurilmada saqlanadi.", "Данные хранятся только на этом устройстве.")}</p>
+        <p className="lead small">Ma’lumotlar faqat shu qurilmada saqlanadi.</p>
       </div>
 
       <div className="grid-3">
         <div className="card stack">
-          <b>🎯 {L("Maqsad va imtihon sanasi", "Цель и дата экзамена")}</b>
-          <input className="input" placeholder={L("Ismingiz", "Ваше имя")} value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
+          <b>🎯 Maqsad va imtihon sanasi</b>
+          <input className="input" placeholder="Ismingiz" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
           <input className="input" type="date" value={profile.examDate} onChange={(e) => setProfile({ ...profile, examDate: e.target.value })} />
           <select className="select" value={profile.target} onChange={(e) => setProfile({ ...profile, target: e.target.value })}>
-            <option value="">{L("Maqsad daraja", "Целевой уровень")}</option>
+            <option value="">Maqsad daraja</option>
             {["1급", "2급", "3급", "4급", "5급", "6급"].map((l) => (
               <option key={l} value={l}>
                 {l}
@@ -74,7 +72,7 @@ export default function ProgressPage() {
           </select>
           {days !== null && (
             <div className="badge" style={{ alignSelf: "flex-start" }}>
-              ⏳ {days > 0 ? L(`Imtihongacha ${days} kun`, `До экзамена ${days} дн.`) : L("Imtihon kuni o‘tdi", "Дата экзамена прошла")}
+              ⏳ {days > 0 ? `Imtihongacha ${days} kun` : "Imtihon kuni o‘tdi"}
             </div>
           )}
         </div>
@@ -83,19 +81,19 @@ export default function ProgressPage() {
           return (
             <div key={ex} className={`level-card ${ex === "topik2" ? "violet" : ""}`}>
               <div className="small" style={{ fontWeight: 800, opacity: 0.9 }}>
-                🏆 {ex === "topik1" ? "TOPIK I" : "TOPIK II"} · {L("eng yaxshi", "лучший")}
+                🏆 {ex === "topik1" ? "TOPIK I" : "TOPIK II"} · eng yaxshi
               </div>
               {b ? (
                 <>
                   <div className="kr" style={{ fontSize: "2.6rem", fontWeight: 800 }}>{b.level ?? "—"}</div>
                   <div className="small">
                     {b.total} / {b.max}
-                    {b.estimated ? "*" : ""} · {new Date(b.date).toLocaleDateString(lang === "ru" ? "ru-RU" : "uz-UZ")}
+                    {b.estimated ? "*" : ""} · {new Date(b.date).toLocaleDateString("uz-UZ")}
                   </div>
                 </>
               ) : (
                 <Link href={`/test/${ex}`} className="btn btn-white btn-sm" style={{ marginTop: 18 }}>
-                  {L("Topshirish", "Пройти")} →
+                  Topshirish →
                 </Link>
               )}
             </div>
@@ -105,29 +103,29 @@ export default function ProgressPage() {
 
       {done.length >= 2 && (
         <div className="card" style={{ marginTop: 18 }}>
-          <b>{L("Ball dinamikasi", "Динамика баллов")}</b>
+          <b>Ball dinamikasi</b>
           <Trend items={done} />
         </div>
       )}
 
       <div className="card" style={{ marginTop: 18 }}>
         <div className="row between" style={{ marginBottom: 10 }}>
-          <b>{L("Tarix", "История")}</b>
+          <b>Tarix</b>
           {done.length > 0 && (
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => window.confirm(L("Tarixni tozalaysizmi?", "Очистить историю?")) && setHistory([])}
+              onClick={() => window.confirm("Tarixni tozalaysizmi?") && setHistory([])}
             >
-              <Icon name="x" size={16} /> {L("Tozalash", "Очистить")}
+              <Icon name="x" size={16} /> Tozalash
             </button>
           )}
         </div>
         {done.length === 0 ? (
           <div className="empty">
             <div style={{ fontSize: "2.4rem" }}>📝</div>
-            <p>{L("Hali natija yo‘q. Birinchi testni topshiring!", "Пока нет результатов. Пройдите первый тест!")}</p>
+            <p>Hali natija yo‘q. Birinchi testni topshiring!</p>
             <Link href="/test" className="btn btn-primary">
-              {L("Testlar", "Тесты")}
+              Testlar
             </Link>
           </div>
         ) : (
@@ -138,7 +136,7 @@ export default function ProgressPage() {
                 <div className="grow" style={{ minWidth: 160 }}>
                   <b className="small">{h.title}</b>
                   <div className="tiny muted">
-                    {new Date(h.date).toLocaleString(lang === "ru" ? "ru-RU" : "uz-UZ")} · {h.mode === "exam" ? L("imtihon", "экзамен") : L("mashq", "практика")}
+                    {new Date(h.date).toLocaleString("uz-UZ")} · {h.mode === "exam" ? "imtihon" : "mashq"}
                   </div>
                 </div>
                 <div className="row-wrap" style={{ gap: 6 }}>
@@ -157,7 +155,7 @@ export default function ProgressPage() {
             ))}
           </div>
         )}
-        {done.some((h) => h.estimated) && <div className="tiny muted" style={{ marginTop: 8 }}>* {L("taxminiy ball", "примерный балл")}</div>}
+        {done.some((h) => h.estimated) && <div className="tiny muted" style={{ marginTop: 8 }}>* taxminiy ball</div>}
       </div>
     </main>
   );

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ExamId, Section, SectionId, Test } from "@/lib/exam";
 import { EXAM_INFO, levelFor, nextLevelGap, qKey, scoreSection, SECTION_LABEL } from "@/lib/exam";
-import { useLang } from "@/lib/i18n";
 import { updateHistory } from "@/lib/store";
 import { Icon } from "../Icon";
 import { Confetti, ScoreRing, useAiErrorText } from "../ui";
@@ -56,7 +55,6 @@ export function Results({
   onRetry: () => void;
   onNewAi: () => void;
 }) {
-  const { L, lang } = useLang();
   const errText = useAiErrorText();
   const writingSection = sections.find((s) => s.id === "writing");
   const [ws, setWs] = useState<Record<number, WState>>({});
@@ -67,7 +65,7 @@ export function Results({
     if (!task) return;
     setWs((p) => ({ ...p, [n]: { status: "loading" } }));
     try {
-      const result = await gradeWriting(task, writing[n], lang);
+      const result = await gradeWriting(task, writing[n]);
       setWs((p) => ({ ...p, [n]: { status: "done", result } }));
     } catch (e) {
       setWs((p) => ({ ...p, [n]: { status: "error", error: errText(e) } }));
@@ -127,29 +125,29 @@ export function Results({
           />
           <div style={{ minWidth: 240, flex: 1 }}>
             <div className="badge white">
-              {test.title} · {mode === "exam" ? L("Imtihon rejimi", "Режим экзамена") : L("Mashq rejimi", "Режим практики")}
+              {test.title} · {mode === "exam" ? "Imtihon rejimi" : "Mashq rejimi"}
             </div>
             <h1 className="h1" style={{ marginTop: 12, fontSize: "clamp(2rem,6vw,3.2rem)" }}>
-              {pending ? L("Yozma ish tekshirilmoqda…", "Проверяем письмо…") : totals.level ? <span className="kr">{totals.level}</span> : L("Daraja yo‘q", "Без уровня")}
+              {pending ? "Yozma ish tekshirilmoqda…" : totals.level ? <span className="kr">{totals.level}</span> : "Daraja yo‘q"}
             </h1>
             <p className="lead" style={{ color: "rgba(255,255,255,.88)", marginTop: 8 }}>
               {pending
-                ? L("AI daftaringizdagi javoblarni o‘qib, TOPIK mezonlari bo‘yicha baholamoqda.", "AI читает ваши ответы и оценивает по критериям TOPIK.")
+                ? "AI daftaringizdagi javoblarni o‘qib, TOPIK mezonlari bo‘yicha baholamoqda."
                 : totals.level
-                  ? L(`Tabriklaymiz! Sizning taxminiy darajangiz — ${totals.level}.`, `Поздравляем! Ваш примерный уровень — ${totals.level}.`)
-                  : L("Hozircha daraja uchun ball yetmadi — lekin bu boshlanish! Xatolarni tahlil qiling.", "Пока баллов на уровень не хватило — это только начало! Разберите ошибки.")}
+                  ? `Tabriklaymiz! Sizning taxminiy darajangiz — ${totals.level}.`
+                  : "Hozircha daraja uchun ball yetmadi — lekin bu boshlanish! Xatolarni tahlil qiling."}
             </p>
             {!pending && gap && (
               <div className="badge white" style={{ marginTop: 10 }}>
-                🎯 {L(`${gap.level} uchun yana ${gap.need} ball kerak`, `До ${gap.level} не хватает ${gap.need} баллов`)}
+                🎯 {`${gap.level} uchun yana ${gap.need} ball kerak`}
               </div>
             )}
             {totals.estimated && !pending && (
               <div className="tiny" style={{ marginTop: 10, opacity: 0.85 }}>
                 *{" "}
                 {writingFailed
-                  ? L("Yozma ish baholanmadi — umumiy ball 듣기+읽기 asosida taxminiy hisoblandi.", "Письмо не оценено — общий балл рассчитан примерно по 듣기+읽기.")
-                  : L("Faqat ayrim bo‘limlar topshirildi — umumiy ball taxminiy.", "Сданы не все разделы — общий балл примерный.")}
+                  ? "Yozma ish baholanmadi — umumiy ball 듣기+읽기 asosida taxminiy hisoblandi."
+                  : "Faqat ayrim bo‘limlar topshirildi — umumiy ball taxminiy."}
               </div>
             )}
           </div>
@@ -169,7 +167,7 @@ export function Results({
                   </span>
                   <div>
                     <div className="kr" style={{ fontWeight: 800 }}>{lab.ko}</div>
-                    <div className="tiny muted">{L(lab.uz, lab.ru)}</div>
+                    <div className="tiny muted">{lab.uz}</div>
                   </div>
                 </div>
                 <div className="display" style={{ fontSize: "1.3rem", fontWeight: 700 }}>
@@ -182,7 +180,7 @@ export function Results({
               </div>
               {r?.total !== undefined && (
                 <div className="small muted" style={{ marginTop: 8 }}>
-                  {L(`${r.correct} / ${r.total} ta to‘g‘ri javob`, `${r.correct} из ${r.total} верно`)}
+                  {`${r.correct} / ${r.total} ta to‘g‘ri javob`}
                 </div>
               )}
             </div>
@@ -192,20 +190,20 @@ export function Results({
 
       <div className="row-wrap" style={{ marginTop: 18 }}>
         <button className="btn btn-primary" onClick={onRetry}>
-          <Icon name="replay" size={18} /> {L("Qayta topshirish", "Пройти заново")}
+          <Icon name="replay" size={18} /> Qayta topshirish
         </button>
         <button className="btn" onClick={onNewAi}>
-          <Icon name="spark" size={18} /> {L("AI yangi variant", "Новый вариант AI")}
+          <Icon name="spark" size={18} /> AI yangi variant
         </button>
         <Link className="btn btn-ghost" href="/progress">
-          <Icon name="chart" size={18} /> {L("Natijalarim", "Мои результаты")}
+          <Icon name="chart" size={18} /> Natijalarim
         </Link>
       </div>
 
       {writingSection && (
         <section style={{ marginTop: 34 }}>
           <h2 className="h2" style={{ marginBottom: 14 }}>
-            ✍️ {L("Yozma ish natijalari", "Результаты письма")}
+            ✍️ Yozma ish natijalari
           </h2>
           <div className="stack">
             {writingSection.writing!.map((t) => {
@@ -213,14 +211,14 @@ export function Results({
               if (!st || st.status === "empty")
                 return (
                   <div key={t.n} className="card flat row">
-                    <b>{t.n}.</b> <span className="muted">{L("Javob berilmagan — 0 ball", "Нет ответа — 0 баллов")}</span>
+                    <b>{t.n}.</b> <span className="muted">Javob berilmagan — 0 ball</span>
                   </div>
                 );
               if (st.status === "loading" || st.status === "idle")
                 return (
                   <div key={t.n} className="card row">
                     <span className="spinner" />
-                    <b>{t.n}.</b> {L("AI tekshirmoqda… (20–40 soniya)", "AI проверяет… (20–40 секунд)")}
+                    <b>{t.n}.</b> AI tekshirmoqda… (20–40 soniya)
                   </div>
                 );
               if (st.status === "error")
@@ -230,7 +228,7 @@ export function Results({
                       {t.n}. {st.error}
                     </div>
                     <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => runGrade(t.n)}>
-                      <Icon name="replay" size={16} /> {L("Qayta urinish", "Повторить")}
+                      <Icon name="replay" size={16} /> Qayta urinish
                     </button>
                   </div>
                 );
@@ -243,7 +241,7 @@ export function Results({
       {objective.length > 0 && (
         <section style={{ marginTop: 34 }}>
           <div className="row between" style={{ flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
-            <h2 className="h2">🔎 {L("Tahlil", "Разбор")}</h2>
+            <h2 className="h2">🔎 Tahlil</h2>
             <div className="row-wrap">
               {objective.length > 1 && (
                 <div className="seg">
@@ -256,16 +254,16 @@ export function Results({
               )}
               <div className="seg">
                 <button className={onlyWrong ? "on" : ""} onClick={() => setOnlyWrong(true)}>
-                  {L("Xatolar", "Ошибки")}
+                  Xatolar
                 </button>
                 <button className={!onlyWrong ? "on" : ""} onClick={() => setOnlyWrong(false)}>
-                  {L("Hammasi", "Все")}
+                  Hammasi
                 </button>
               </div>
             </div>
           </div>
           <div className="stack">
-            {rs && shownGroups.length === 0 && <div className="card empty">🎉 {L("Bu bo‘limda xato yo‘q!", "В этом разделе нет ошибок!")}</div>}
+            {rs && shownGroups.length === 0 && <div className="card empty">🎉 Bu bo‘limda xato yo‘q!</div>}
             {rs &&
               shownGroups.map((g) => (
                 <GroupView key={`${rs.id}-${g.from}`} exam={test.exam} section={rs.id} group={g} answers={answers} onAnswer={() => {}} plays={{}} onPlay={() => {}} practice review />

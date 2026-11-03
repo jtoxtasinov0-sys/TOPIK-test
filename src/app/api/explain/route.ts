@@ -8,14 +8,13 @@ export async function POST(req: Request) {
   try {
     rateLimit(req, "ai", 60, 5 * 60_000);
     await aiAccess(req, "explain");
-    const { context, answer, user, lang } = (await req.json()) as {
+    const { context, answer, user } = (await req.json()) as {
       context: string;
       answer: number;
       user?: number;
-      lang: "uz" | "ru";
     };
     if (!context || context.length > 6000) return Response.json({ error: "Kontekst noto'g'ri" }, { status: 400 });
-    const L = LANG_NAME[lang] ?? LANG_NAME.uz;
+    const L = LANG_NAME;
 
     const result = await generateJson({
       system: `You are an expert TOPIK (Test of Proficiency in Korean) teacher for ${L}-speaking learners from Uzbekistan and Central Asia.

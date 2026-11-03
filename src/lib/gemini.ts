@@ -295,4 +295,5 @@ export function errorResponse(e: unknown) {
   return Response.json({ error: message, code }, { status });
 }
 
-export const LANG_NAME = { uz: "Uzbek (Latin script)", ru: "Russian" } as const;
+/** AI tushuntirishlari tili */
+export const LANG_NAME = "Uzbek (Latin script)";

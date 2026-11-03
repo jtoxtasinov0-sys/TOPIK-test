@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import type { WritingTask } from "@/lib/exam";
-import { useLang } from "@/lib/i18n";
 import { ChartView } from "../ChartView";
 import { Icon } from "../Icon";
 import { compressImage, postJson, ScoreRing } from "../ui";
@@ -35,13 +34,12 @@ export function hasWritingAnswer(w?: WritingAnswer) {
   return w.images.length > 0 || !!w.text.trim() || !!w.a.trim() || !!w.b.trim();
 }
 
-export async function gradeWriting(task: WritingTask, w: WritingAnswer, lang: "uz" | "ru") {
+export async function gradeWriting(task: WritingTask, w: WritingAnswer) {
   const text = task.kind === "blank" ? (w.a || w.b ? `㉠: ${w.a}\n㉡: ${w.b}` : "") : w.text;
   return postJson<WritingResult>("/api/writing", {
     task,
     text: text.trim() ? text : undefined,
     images: w.images.map((i) => ({ data: i.data, mime: i.mime })),
-    lang,
   });
 }
 
@@ -94,7 +92,6 @@ export function WritingTaskView({
   locked?: boolean;
   uploadOnly?: boolean;
 }) {
-  const { L } = useLang();
   const camRef = useRef<HTMLInputElement>(null);
   const galRef = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
@@ -123,14 +120,14 @@ export function WritingTaskView({
       <div className="row between" style={{ margin: "18px 0 12px", flexWrap: "wrap", gap: 10 }}>
         <div className="seg">
           <button className={mode === "photo" ? "on" : ""} onClick={() => onChange({ ...value, mode: "photo" })}>
-            📸 {L("Daftardan rasm", "Фото из тетради")}
+            📸 Daftardan rasm
           </button>
           <button className={mode === "type" ? "on" : ""} onClick={() => !uploadOnly && onChange({ ...value, mode: "type" })} disabled={uploadOnly}>
-            ⌨️ {L("Shu yerda yozish", "Писать здесь")}
+            ⌨️ Shu yerda yozish
           </button>
         </div>
         <span className="badge">
-          {task.pts} {L("ball", "баллов")}
+          {task.pts} ball
         </span>
       </div>
 
@@ -151,17 +148,14 @@ export function WritingTaskView({
           >
             <div style={{ fontSize: "2rem" }}>📝</div>
             <p className="small" style={{ margin: "6px 0 14px", color: "var(--ink-2)" }}>
-              {L(
-                "Javobni daftarga (yoki 원고지 varag‘iga) qo‘lda yozing, so‘ng rasmga oling. AI yozuvingizni o‘qib, TOPIK mezonlari bo‘yicha baholaydi.",
-                "Напишите ответ от руки в тетради (или на 원고지), затем сфотографируйте. AI распознает почерк и оценит по критериям TOPIK."
-              )}
+              Javobni daftarga (yoki 원고지 varag‘iga) qo‘lda yozing, so‘ng rasmga oling. AI yozuvingizni o‘qib, TOPIK mezonlari bo‘yicha baholaydi.
             </p>
             <div className="row-wrap" style={{ justifyContent: "center" }}>
               <button className="btn btn-primary btn-sm" onClick={() => camRef.current?.click()} disabled={busy || value.images.length >= 4}>
-                <Icon name="camera" size={18} /> {L("Kamera", "Камера")}
+                <Icon name="camera" size={18} /> Kamera
               </button>
               <button className="btn btn-sm" onClick={() => galRef.current?.click()} disabled={busy || value.images.length >= 4}>
-                <Icon name="upload" size={18} /> {L("Fayldan", "Из файла")}
+                <Icon name="upload" size={18} /> Fayldan
               </button>
             </div>
             <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => addFiles(e.target.files)} />
@@ -169,7 +163,7 @@ export function WritingTaskView({
           </div>
           {busy && (
             <div className="row small muted">
-              <span className="spinner" /> {L("Rasm tayyorlanmoqda…", "Обработка фото…")}
+              <span className="spinner" /> Rasm tayyorlanmoqda…
             </div>
           )}
           {value.images.length > 0 && (
@@ -185,7 +179,7 @@ export function WritingTaskView({
               ))}
             </div>
           )}
-          <div className="tiny muted">{L("Ko‘pi bilan 4 sahifa. Yorug‘ joyda, tekis suratga oling.", "До 4 страниц. Фотографируйте ровно и при хорошем свете.")}</div>
+          <div className="tiny muted">Ko‘pi bilan 4 sahifa. Yorug‘ joyda, tekis suratga oling.</div>
         </div>
       ) : task.kind === "blank" ? (
         <div className="stack">
@@ -204,13 +198,13 @@ export function WritingTaskView({
             value={value.text}
             disabled={locked}
             onChange={(e) => onChange({ ...value, text: e.target.value })}
-            placeholder={L("Javobingizni koreys tilida yozing…", "Напишите ответ на корейском…")}
+            placeholder="Javobingizni koreys tilida yozing…"
           />
           <div className="row between">
             <span className={`badge ${inRange ? "green" : count ? "amber" : ""}`}>
-              {count} / {task.minChars}~{task.maxChars} {L("belgi", "знаков")}
+              {count} / {task.minChars}~{task.maxChars} belgi
             </span>
-            <span className="tiny muted">{L("Bo‘sh joylar ham hisoblanadi (원고지 kabi)", "Пробелы тоже считаются (как в 원고지)")}</span>
+            <span className="tiny muted">Bo‘sh joylar ham hisoblanadi (원고지 kabi)</span>
           </div>
           <Wongoji text={value.text} max={task.maxChars ?? 300} />
         </div>
@@ -220,7 +214,6 @@ export function WritingTaskView({
 }
 
 export function WritingResultView({ task, result }: { task: WritingTask; result: WritingResult }) {
-  const { L } = useLang();
   const [showModel, setShowModel] = useState(false);
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -234,7 +227,7 @@ export function WritingResultView({ task, result }: { task: WritingTask; result:
         />
         <div className="grow" style={{ minWidth: 200 }}>
           <div className="badge white">
-            {L("Topshiriq", "Задание")} {task.n}
+            Topshiriq {task.n}
           </div>
           <div style={{ marginTop: 8, fontWeight: 600 }}>{result.summary}</div>
           {result.level_hint && <div className="small" style={{ opacity: 0.85, marginTop: 6 }}>🎯 {result.level_hint}</div>}
@@ -261,7 +254,7 @@ export function WritingResultView({ task, result }: { task: WritingTask; result:
         {result.recognized_text && (
           <details>
             <summary className="small" style={{ fontWeight: 700, cursor: "pointer" }}>
-              🔍 {L("AI o‘qigan matn", "Распознанный текст")} {result.char_count ? `(${result.char_count} ${L("belgi", "знаков")})` : ""}
+              🔍 AI o‘qigan matn {result.char_count ? `(${result.char_count} belgi)` : ""}
             </summary>
             <div className="script-box" style={{ marginTop: 8 }}>
               {result.recognized_text}
@@ -272,7 +265,7 @@ export function WritingResultView({ task, result }: { task: WritingTask; result:
         {result.strengths?.length > 0 && (
           <div>
             <div className="small" style={{ fontWeight: 800, color: "var(--green)" }}>
-              💪 {L("Kuchli tomonlar", "Сильные стороны")}
+              💪 Kuchli tomonlar
             </div>
             <ul className="small" style={{ margin: "6px 0 0", paddingLeft: 18 }}>
               {result.strengths.map((s, i) => (
@@ -285,7 +278,7 @@ export function WritingResultView({ task, result }: { task: WritingTask; result:
         {result.mistakes?.length > 0 && (
           <div className="stack" style={{ gap: 8 }}>
             <div className="small" style={{ fontWeight: 800, color: "var(--red)" }}>
-              ✏️ {L("Xatolar va tuzatishlar", "Ошибки и исправления")}
+              ✏️ Xatolar va tuzatishlar
             </div>
             {result.mistakes.map((m, i) => (
               <div key={i} className="card flat" style={{ padding: 12, borderRadius: 14 }}>
@@ -301,7 +294,7 @@ export function WritingResultView({ task, result }: { task: WritingTask; result:
         )}
 
         <button className="btn btn-soft btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setShowModel((s) => !s)}>
-          <Icon name="star" size={16} /> {showModel ? L("Namunani yashirish", "Скрыть образец") : L("Namunaviy javob (yuqori ball)", "Образцовый ответ (высокий балл)")}
+          <Icon name="star" size={16} /> {showModel ? "Namunani yashirish" : "Namunaviy javob (yuqori ball)"}
         </button>
         {showModel && <div className="passage">{result.model_answer}</div>}
       </div>

@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { Avatar, GoogleButton, useAuth } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
 import { TRIAL_DAYS } from "@/lib/access";
 import { fmtDate, safePath, useSearch } from "./shared";
 
 export function AccountView() {
-  const { L, lang } = useLang();
   const { me, loading, logout } = useAuth();
   const q = useSearch();
   const welcome = q.get("welcome") === "1";
@@ -29,18 +27,18 @@ export function AccountView() {
         <div className="card stack center" style={{ alignItems: "center", gap: 16, padding: 32 }}>
           <span className="icon-tile">👤</span>
           <h1 className="h2" style={{ fontSize: "1.6rem" }}>
-            {L("Profilga kirish", "Вход в профиль")}
+            Profilga kirish
           </h1>
           {me?.authEnabled ? (
             <>
               <p className="muted" style={{ margin: 0 }}>
-                {L(`Gmail orqali kiring — ${TRIAL_DAYS} kunlik bepul sinov darhol boshlanadi.`, `Войдите через Gmail — пробный период на ${TRIAL_DAYS} дней начнётся сразу.`)}
+                {`Gmail orqali kiring — ${TRIAL_DAYS} kunlik bepul sinov darhol boshlanadi.`}
               </p>
               <GoogleButton next="/account" />
             </>
           ) : (
             <p className="muted" style={{ margin: 0 }}>
-              {L("Hisob tizimi hali sozlanmagan. Barcha bo‘limlar kirmasdan ishlaydi.", "Система аккаунтов ещё не настроена. Все разделы работают без входа.")}
+              Hisob tizimi hali sozlanmagan. Barcha bo‘limlar kirmasdan ishlaydi.
             </p>
           )}
         </div>
@@ -53,10 +51,10 @@ export function AccountView() {
   const trialUsed = a?.status === "trial" ? Math.min(TRIAL_DAYS, Math.max(0, TRIAL_DAYS - a.daysLeft)) : 0;
 
   const statusText = me.admin
-    ? L("Admin — cheksiz kirish", "Админ — безлимитный доступ")
+    ? "Admin — cheksiz kirish"
     : a?.status === "trial"
-      ? L("Bepul sinov", "Пробный период")
-      : L("Bepul sinov tugagan", "Пробный период закончился");
+      ? "Bepul sinov"
+      : "Bepul sinov tugagan";
 
   return (
     <main className="container page" style={{ maxWidth: 860 }}>
@@ -65,16 +63,13 @@ export function AccountView() {
           <div className="stack" style={{ gap: 10 }}>
             <span style={{ fontSize: "2rem" }}>🎉</span>
             <h1 className="h2" style={{ color: "#fff" }}>
-              {L(`Xush kelibsiz, ${u.name}!`, `Добро пожаловать, ${u.name}!`)}
+              {`Xush kelibsiz, ${u.name}!`}
             </h1>
             <p style={{ margin: 0, opacity: 0.9 }}>
-              {L(
-                `${TRIAL_DAYS} kunlik bepul sinov boshlandi — ${fmtDate(a?.until, lang)} gacha barcha AI imkoniyatlar ochiq. Natijalaringiz endi bulutda saqlanadi.`,
-                `Пробный период на ${TRIAL_DAYS} дней начался — до ${fmtDate(a?.until, lang)} открыты все AI-функции. Результаты теперь сохраняются в облаке.`
-              )}
+              {`${TRIAL_DAYS} kunlik bepul sinov boshlandi — ${fmtDate(a?.until)} gacha barcha AI imkoniyatlar ochiq. Natijalaringiz endi bulutda saqlanadi.`}
             </p>
             <Link href={next === "/account" ? "/" : next} className="btn btn-white" style={{ alignSelf: "flex-start" }}>
-              {L("O‘qishni davom ettirish", "Продолжить обучение")} <Icon name="right" size={18} />
+              O‘qishni davom ettirish <Icon name="right" size={18} />
             </Link>
           </div>
         </div>
@@ -87,7 +82,7 @@ export function AccountView() {
             <h2 className="h3" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{u.name}</h2>
             <div className="small muted" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{u.email}</div>
             <div className="tiny muted" style={{ marginTop: 6 }}>
-              {L("A’zo bo‘lgan sana:", "С нами с")} {fmtDate(u.createdAt, lang)}
+              A’zo bo‘lgan sana: {fmtDate(u.createdAt)}
             </div>
           </div>
         </div>
@@ -104,10 +99,10 @@ export function AccountView() {
           ) : a && a.status !== "expired" ? (
             <>
               <div className="display" style={{ fontSize: "2.4rem", fontWeight: 700, margin: "6px 0 0" }}>
-                {a.daysLeft} <span style={{ fontSize: "1rem" }}>{L("kun qoldi", "дн. осталось")}</span>
+                {a.daysLeft} <span style={{ fontSize: "1rem" }}>kun qoldi</span>
               </div>
               <div className="small" style={{ opacity: 0.9 }}>
-                {fmtDate(a.until, lang)} {L("gacha", "— до этой даты")}
+                {fmtDate(a.until)} gacha
               </div>
               <div style={{ marginTop: 10, height: 6, borderRadius: 9, background: "rgba(255,255,255,.25)" }}>
                 <div style={{ width: `${(trialUsed / TRIAL_DAYS) * 100}%`, height: "100%", borderRadius: 9, background: "#fff" }} />
@@ -115,7 +110,7 @@ export function AccountView() {
             </>
           ) : (
             <p style={{ margin: "10px 0 0" }}>
-              {L("AI funksiyalari yopildi. Hangul, darslar, so‘zlar va mock testlar bepul ishlashda davom etadi.", "AI-функции закрыты. Хангыль, уроки, слова и пробные тесты продолжают работать бесплатно.")}
+              AI funksiyalari yopildi. Hangul, darslar, so‘zlar va mock testlar bepul ishlashda davom etadi.
             </p>
           )}
         </div>
@@ -125,23 +120,23 @@ export function AccountView() {
         <div className="card row" style={{ gap: 14 }}>
           <span className="icon-tile mint">☁️</span>
           <div>
-            <b>{L("Natijalar bulutda", "Результаты в облаке")}</b>
+            <b>Natijalar bulutda</b>
             <div className="small muted">
-              {L("Testlar tarixi, so‘zlar va streak barcha qurilmalaringizda bir xil.", "История тестов, слова и серия одинаковы на всех ваших устройствах.")}
+              Testlar tarixi, so‘zlar va streak barcha qurilmalaringizda bir xil.
             </div>
           </div>
         </div>
         <div className="card stack" style={{ gap: 10, justifyContent: "center" }}>
           {me.admin && (
             <Link href="/admin" className="btn btn-soft btn-block">
-              🛠️ {L("Admin panel", "Админ-панель")}
+              🛠️ Admin panel
             </Link>
           )}
           <Link href="/progress" className="btn btn-block">
-            <Icon name="chart" size={18} /> {L("Natijalarim", "Мои результаты")}
+            <Icon name="chart" size={18} /> Natijalarim
           </Link>
           <button className="btn btn-danger btn-block" onClick={() => void logout()}>
-            {L("Hisobdan chiqish", "Выйти из аккаунта")}
+            Hisobdan chiqish
           </button>
         </div>
       </div>

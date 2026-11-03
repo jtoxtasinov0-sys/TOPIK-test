@@ -72,7 +72,7 @@ export function LoginView() {
                   한
                 </span>
                 <h2 className="h2" style={{ fontSize: "1.6rem" }}>
-                  {L("HanQadam’ga kirish", "Вход в HanQadam")}
+                  {L("HanUstoz’ga kirish", "Вход в HanUstoz")}
                 </h2>
                 <p className="muted" style={{ margin: 0 }}>
                   {L("Gmail hisobingiz bilan bir bosishda kiring. Parol o‘ylab topish shart emas.", "Войдите в один клик через аккаунт Gmail. Пароль придумывать не нужно.")}

@@ -9,10 +9,10 @@ import { Icon } from "./Icon";
 
 export function Logo() {
   return (
-    <Link href="/" className="logo" aria-label="HanQadam">
+    <Link href="/" className="logo" aria-label="HanUstoz">
       <span className="logo-mark">한</span>
       <span>
-        Han<span className="gradient-text">Qadam</span>
+        Han<span className="gradient-text">Ustoz</span>
       </span>
     </Link>
   );

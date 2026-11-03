@@ -454,13 +454,13 @@ export default function Home() {
       <footer className="footer">
         <div className="container stack" style={{ gap: 8 }}>
           <div className="row between" style={{ flexWrap: "wrap", gap: 12 }}>
-            <span style={{ fontWeight: 800, color: "var(--ink)" }}>HanQadam · 한걸음</span>
+            <span style={{ fontWeight: 800, color: "var(--ink)" }}>HanUstoz · 한국어 선생님</span>
             <span>Gemini 3.8 Flash · Gemini 3.5 Transcribe · Gemini TTS</span>
           </div>
           <div>
             {L(
-              "HanQadam — mustaqil o‘quv loyiha, rasmiy TOPIK (NIIED) sayti emas. Barcha test savollari original mashq materiallaridir. Natijalar taxminiy.",
-              "HanQadam — независимый учебный проект, не официальный сайт TOPIK (NIIED). Все вопросы — оригинальные учебные материалы. Результаты примерные."
+              "HanUstoz — mustaqil o‘quv loyiha, rasmiy TOPIK (NIIED) sayti emas. Barcha test savollari original mashq materiallaridir. Natijalar taxminiy.",
+              "HanUstoz — независимый учебный проект, не официальный сайт TOPIK (NIIED). Все вопросы — оригинальные учебные материалы. Результаты примерные."
             )}
           </div>
         </div>

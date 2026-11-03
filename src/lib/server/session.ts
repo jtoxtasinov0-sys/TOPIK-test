@@ -7,7 +7,7 @@ export const SESSION_COOKIE = "hq_session";
 export const OAUTH_COOKIE = "hq_oauth";
 export const SESSION_TTL_SEC = 60 * 60 * 24 * 60; // 60 kun
 
-const DEV_SECRET = "hanqadam-dev-secret-faqat-lokal-uchun";
+const DEV_SECRET = "hanustoz-dev-secret-faqat-lokal-uchun";
 
 function secret() {
   const s = process.env.AUTH_SECRET;

@@ -7,7 +7,7 @@ import { before, describe, test } from "node:test";
 process.env.AUTH_SECRET = "test-secret-0123456789abcdef";
 process.env.GOOGLE_CLIENT_ID = "cid.apps.googleusercontent.com";
 process.env.GOOGLE_CLIENT_SECRET = "csecret";
-process.env.APP_URL = "https://hanqadam.uz";
+process.env.APP_URL = "https://hanustoz.uz";
 process.env.GEMINI_API_KEY = "";
 
 const { createMemoryStore, setStore } = await import("../src/lib/server/store");
@@ -21,7 +21,7 @@ const usageRoute = await import("../src/app/api/usage/route");
 const { usageSummary } = await import("../src/lib/server/usage");
 const { DAY_MS, TRIAL_DAYS } = await import("../src/lib/access");
 
-const BASE = "https://hanqadam.uz";
+const BASE = "https://hanustoz.uz";
 const cookieOf = (res: Response, name: string) =>
   res.headers.getSetCookie().find((c) => c.startsWith(`${name}=`))?.split(";")[0] ?? "";
 

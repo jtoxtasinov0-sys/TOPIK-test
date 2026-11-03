@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "HanQadam — TOPIK va koreys tili",
-    short_name: "HanQadam",
+    name: "HanUstoz — TOPIK va koreys tili",
+    short_name: "HanUstoz",
     description: "TOPIK I/II mock testlari, AI yozma ish tekshiruvi, Gemini bilan suhbat va koreys tilini 0 dan o‘rganish.",
     start_url: "/",
     display: "standalone",

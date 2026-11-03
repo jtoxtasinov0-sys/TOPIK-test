@@ -12,11 +12,11 @@ const kr = Noto_Sans_KR({ variable: "--font-noto-kr", weight: ["400", "500", "70
 
 export const metadata: Metadata = {
   title: {
-    default: "HanQadam — TOPIK mock test va koreys tili 0 dan",
-    template: "%s · HanQadam",
+    default: "HanUstoz — TOPIK mock test va koreys tili 0 dan",
+    template: "%s · HanUstoz",
   },
   description: `TOPIK I va TOPIK II mock testlari (bepul), AI yozma ish tekshiruvi, Gemini bilan ovozli suhbat, Hangul va koreys tilini 0 dan o‘rganish. Gmail orqali kiring — AI ${TRIAL_DAYS} kun bepul. Пробные тесты TOPIK, AI-проверка и корейский с нуля.`,
-  applicationName: "HanQadam",
+  applicationName: "HanUstoz",
   keywords: ["TOPIK", "TOPIK mock test", "koreys tili", "корейский язык", "TOPIK II", "EPS-TOPIK", "Hangul"],
 };
 

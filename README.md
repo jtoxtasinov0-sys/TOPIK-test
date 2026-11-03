@@ -1,4 +1,4 @@
-# 한 HanQadam — TOPIK mock test va koreys tili 0 dan
+# 한 HanUstoz — TOPIK mock test va koreys tili 0 dan
 
 Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yashayotgan o‘zbek va rus tilli foydalanuvchilar uchun veb-ilova. Gmail orqali kiriladi: **birinchi 30 kun barcha AI imkoniyatlari bepul**. Telefon va kompyuterda ishlaydi, uni telefonga ilova sifatida o‘rnatish ham mumkin.
 
@@ -95,4 +95,4 @@ tests/            npm test — Node’ning o‘zida, qo‘shimcha kutubxonasiz
 
 ## Eslatma
 
-HanQadam — mustaqil o‘quv loyiha, rasmiy TOPIK (NIIED) sayti emas. Barcha test savollari shu loyiha uchun yozilgan original mashq materiallari. Natijalar taxminiy.
+HanUstoz — mustaqil o‘quv loyiha, rasmiy TOPIK (NIIED) sayti emas. Barcha test savollari shu loyiha uchun yozilgan original mashq materiallari. Natijalar taxminiy.

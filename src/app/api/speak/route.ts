@@ -1,5 +1,6 @@
 import { errorResponse, generateJson, LANG_NAME, rateLimit, transcribe, type ContentPart } from "@/lib/gemini";
 import { speakSchema } from "@/lib/schemas";
+import { premium } from "@/lib/server/guard";
 
 export const maxDuration = 60;
 
@@ -29,6 +30,7 @@ function normalizeMime(m: string) {
 export async function POST(req: Request) {
   try {
     rateLimit(req, "speak", 50, 5 * 60_000);
+    await premium(req, "speak");
     const b = (await req.json()) as Body;
     const L = LANG_NAME[b.lang] ?? LANG_NAME.uz;
     if (b.audio && b.audio.data.length > 8_000_000) return Response.json({ error: "Audio juda uzun" }, { status: 400 });

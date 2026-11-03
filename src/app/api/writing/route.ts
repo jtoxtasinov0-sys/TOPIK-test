@@ -1,6 +1,7 @@
 import { errorResponse, generateJson, LANG_NAME, rateLimit, type ContentPart } from "@/lib/gemini";
 import { writingResultSchema } from "@/lib/schemas";
 import type { WritingTask } from "@/lib/exam";
+import { premium } from "@/lib/server/guard";
 
 export const maxDuration = 60;
 
@@ -21,6 +22,7 @@ Deduct points for being under 600 or over 700 characters, copying the prompt, or
 export async function POST(req: Request) {
   try {
     rateLimit(req, "ai", 60, 5 * 60_000);
+    await premium(req, "writing");
     const body = (await req.json()) as {
       task: WritingTask;
       text?: string;

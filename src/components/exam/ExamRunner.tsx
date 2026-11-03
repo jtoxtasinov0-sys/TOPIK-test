@@ -260,7 +260,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
             out.sections[j.si].writing![j.gi] = await postJson<WritingTask>("/api/generate", { exam, writing: w });
           }
         } catch (e) {
-          if (e instanceof ApiError && (e.status === 503 || e.status === 429)) fatal = e;
+          if (e instanceof ApiError && [401, 402, 429, 503].includes(e.status)) fatal = e;
           failed++;
         }
         setGen((p) => ({ ...p, done: p.done + 1, failed }));

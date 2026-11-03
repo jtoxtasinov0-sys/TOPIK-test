@@ -12,7 +12,7 @@ export const MODELS = {
 };
 
 export class AiError extends Error {
-  constructor(message: string, public status = 500) {
+  constructor(message: string, public status = 500, public code?: string) {
     super(message);
   }
 }
@@ -285,9 +285,14 @@ export function rateLimit(req: Request, bucket: string, max: number, windowMs: n
 }
 
 export function errorResponse(e: unknown) {
+  // Ma'lumotlar bazasi sozlanmagan / ishlamayapti
+  if (e instanceof Error && e.name === "StoreError") {
+    return Response.json({ error: e.message, code: "NO_DB" }, { status: 503 });
+  }
   const status = e instanceof AiError ? e.status : 500;
   const message = e instanceof Error ? e.message : "Noma'lum xato";
-  return Response.json({ error: message, code: status === 503 ? "NO_KEY" : undefined }, { status });
+  const code = e instanceof AiError && e.code ? e.code : status === 503 ? "NO_KEY" : undefined;
+  return Response.json({ error: message, code }, { status });
 }
 
 export const LANG_NAME = { uz: "Uzbek (Latin script)", ru: "Russian" } as const;

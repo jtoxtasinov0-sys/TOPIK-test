@@ -1,8 +1,8 @@
 # 한 HanQadam — TOPIK mock test va koreys tili 0 dan
 
-Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yashayotgan o‘zbek va rus tilli foydalanuvchilar uchun bepul veb-ilova. Telefon va kompyuterda ishlaydi, uni telefonga ilova sifatida o‘rnatish ham mumkin.
+Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yashayotgan o‘zbek va rus tilli foydalanuvchilar uchun veb-ilova. Gmail orqali kiriladi: **birinchi 30 kun bepul**, keyin AI imkoniyatlari oylik obuna bilan (Payme / Click). Telefon va kompyuterda ishlaydi, uni telefonga ilova sifatida o‘rnatish ham mumkin.
 
-> Бесплатное веб-приложение для подготовки к TOPIK и изучения корейского с нуля. Интерфейс на узбекском и русском.
+> Веб-приложение для подготовки к TOPIK и изучения корейского с нуля. Вход через Gmail, 30 дней бесплатно, затем подписка. Интерфейс на узбекском и русском.
 
 ## Imkoniyatlar
 
@@ -19,6 +19,19 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | **🤖 AI Ustoz** | Grammatika, TOPIK strategiyasi va gaplarni tekshirish bo‘yicha chat (javob oqim bilan chiqadi) |
 | **🇰🇷 Koreyada hayot** | Favqulodda raqamlar (112, 119, 1345, 1350, 1330), foydali ilovalar, birinchi qadamlar, ovozli iboralar |
 | **📈 Natijalarim** | Natijalar tarixi, ball grafigi, imtihongacha qolgan kunlar, kunlik seriya (streak) |
+| **🔐 Gmail orqali kirish** | Google OAuth (PKCE), parolsiz. Birinchi kirishda 30 kunlik bepul sinov avtomatik boshlanadi, karta so‘ralmaydi |
+| **💎 Premium obuna** | 1 / 3 / 6 oylik tariflar, Payme va Click orqali to‘lov. Avtomatik yechib olish yo‘q — oldindan to‘lanadi, sinov kunlari kuymaydi |
+| **☁️ Bulutda saqlash** | Kirgan foydalanuvchining testlar tarixi, so‘zlari, profili va streak’i barcha qurilmalarda sinxron |
+| **🛠️ Admin panel** | `/admin`: foydalanuvchilar, 30 kunlik tushum, qo‘lda kun qo‘shish/ayirish (naqd to‘lov, promo) |
+
+### Bepul va Premium
+
+| Bepul (kirmasdan ham) | Premium (30 kun sinov, keyin obuna) |
+|---|---|
+| Hangul, 12 ta dars, so‘z kartochkalari, Koreyada hayot | AI tushuntirish, yozma ishni AI baholash, Gemini bilan suhbat |
+| TOPIK I / II mock testlar (brauzer ovozi bilan) | AI Ustoz, cheksiz AI variantlar, tabiiy Gemini ovozi |
+
+AI yo‘llari (`/api/explain`, `writing`, `speak`, `tutor`, `generate`, `tts`) serverda tekshiriladi: kirilmagan bo‘lsa `401`, sinov/obuna tugagan bo‘lsa `402`. Har bir foydalanuvchi uchun kunlik adolatli limit bor (`src/lib/server/guard.ts`, masalan kuniga 25 ta yozma ish tekshiruvi) — bu AI xarajatini nazoratda ushlaydi.
 
 ## Texnologiyalar
 
@@ -27,7 +40,10 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
   - `gemini-3.8-flash` — tushuntirish, yozma ishni baholash, suhbat, test yaratish, AI Ustoz
   - `gemini-3.5-transcribe` — nutqni matnga aylantirish
   - `gemini-3.8-flash-tts` — tinglash audiosi (ikki kishilik dialog)
-- Ma’lumotlar foydalanuvchi qurilmasida (`localStorage`) saqlanadi, ro‘yxatdan o‘tish shart emas
+- Google OAuth 2.0 / OpenID Connect (PKCE) va HMAC-imzolangan sessiya cookie — qo‘shimcha kutubxonasiz
+- Foydalanuvchilar, obunalar, to‘lovlar: **Upstash Redis** (REST, kutubxonasiz); lokalda `.data/db.json`
+- To‘lov: **Payme Merchant API** va **Click SHOP API**
+- Progress avval qurilmada (`localStorage`), kirgandan keyin bulut bilan sinxronlanadi
 
 ## Ishga tushirish
 
@@ -39,22 +55,52 @@ npm run dev                  # http://localhost:3000
 
 API kalitni [Google AI Studio](https://aistudio.google.com/apikey) dan olasiz. Kalitsiz ham testlar, Hangul, darslar va so‘zlar ishlaydi, ovozni esa brauzer o‘zi o‘qiydi. AI funksiyalar kalit qo‘shilgandan keyin yoqiladi.
 
+`GOOGLE_CLIENT_ID` bo‘sh bo‘lsa, login va obuna o‘chadi — ilova eski “hammaga ochiq” rejimda ishlaydi (lokal ishlab chiqish uchun qulay). Lokalda Redis shart emas: ma’lumotlar `.data/db.json` ga yoziladi.
+
+```bash
+npm test   # server mantiqi testlari: sessiya, sinov, Payme, Click, login oqimi (Node 22.18+)
+```
+
+### Gmail orqali kirishni sozlash
+
+1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → **Create credentials → OAuth client ID → Web application**.
+2. **Authorized redirect URIs**: `https://<sayt>/api/auth/callback` (va lokal uchun `http://localhost:3000/api/auth/callback`).
+3. **OAuth consent screen**’da ilova nomi va logotipni kiriting, keyin **Publish app** (aks holda faqat test foydalanuvchilari kira oladi).
+4. `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET` (`openssl rand -base64 32`), `APP_URL` va `ADMIN_EMAILS` ni yozing.
+
+### To‘lovni ulash
+
+To‘lov tizimlari bilan shartnoma uchun YaTT yoki MChJ kerak. Ulanguncha `/admin` sahifasidan foydalanuvchiga qo‘lda kun qo‘shib turish mumkin (`NEXT_PUBLIC_SUPPORT_URL` — “Administratorga yozish” tugmasi).
+
+- **Payme** ([business.payme.uz](https://business.payme.uz)): kassa yarating, *Endpoint URL* = `https://<sayt>/api/billing/payme`, hisob maydoni (account) = `order_id`. `PAYME_MERCHANT_ID` va `PAYME_KEY` ni yozing. Avval `PAYME_TEST=1` va test kaliti bilan [sandbox](https://test.paycom.uz)’da barcha ssenariylarni o‘tkazing.
+- **Click** ([merchant.click.uz](https://merchant.click.uz)): servis yarating, *Prepare URL* va *Complete URL* = `https://<sayt>/api/billing/click`. `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` ni yozing.
+
+Narxlar bitta joyda: `src/lib/plans.ts` (`PLANS`, `TRIAL_DAYS`).
+
 ## Internetga joylash (Vercel)
 
 1. [vercel.com/new](https://vercel.com/new) sahifasida ushbu GitHub repozitoriyani import qiling.
-2. **Environment Variables** bo‘limiga `GEMINI_API_KEY` ni qo‘shing.
-3. **Deploy** tugmasini bosing.
+2. **Storage → Marketplace → Upstash Redis** ni ulang (`KV_REST_API_URL` / `KV_REST_API_TOKEN` avtomatik qo‘shiladi).
+3. **Environment Variables** bo‘limiga `.env.example` dagi qiymatlarni qo‘shing: `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, `APP_URL`, `ADMIN_EMAILS` va to‘lov kalitlari.
+4. **Deploy** tugmasini bosing.
 
-Kalit faqat serverda saqlanadi va brauzerga yuborilmaydi. AI yo‘llarida IP bo‘yicha oddiy so‘rov cheklovi (rate limit) bor.
+Kalitlar faqat serverda saqlanadi va brauzerga yuborilmaydi. AI yo‘llarida IP bo‘yicha so‘rov cheklovi va har bir foydalanuvchi uchun kunlik limit bor.
 
 ## Tuzilma
 
 ```
 src/
-  app/            sahifalar va API (api/tts, api/explain, api/writing, api/speak, api/tutor, api/generate)
-  components/     AppShell, ChartView, exam/ (ExamRunner, GroupView, Writing, Results, Explain)
+  app/            sahifalar (login, pricing, account, admin, ...) va API:
+                  api/auth/{google,callback,logout}, api/me, api/sync, api/admin,
+                  api/billing/{checkout,payme,click}, api/{tts,explain,writing,speak,tutor,generate}
+  components/     AppShell, ChartView, exam/ (ExamRunner, GroupView, Writing, Results, Explain),
+                  account/ (LoginView, PricingView, AccountView, AdminView)
   data/           topik1.ts, topik2.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts
-  lib/            gemini.ts (server), audio.ts, exam.ts, i18n.tsx, store.ts
+  lib/            gemini.ts (server), audio.ts, exam.ts, i18n.tsx, store.ts, plans.ts (narxlar),
+                  auth.tsx (AuthProvider, paywall), sync.ts (bulut sinxron)
+  lib/server/     store.ts (Redis/fayl), session.ts, google.ts, users.ts, guard.ts,
+                  billing.ts, payme.ts, click.ts
+tests/            npm test — Node’ning o‘zida, qo‘shimcha kutubxonasiz
 ```
 
 ## Eslatma

@@ -47,7 +47,8 @@ async function fetchServerAudio(text: string, opts: TtsOpts): Promise<string | n
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, ...opts }),
       });
-      if (res.status === 503) {
+      // 503: AI ulanmagan; 401/402: kirilmagan yoki obuna yo'q — brauzer ovozi ishlatiladi
+      if (res.status === 503 || res.status === 401 || res.status === 402) {
         serverTtsOff = true;
         return null;
       }

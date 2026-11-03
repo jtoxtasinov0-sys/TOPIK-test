@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, Noto_Sans_KR, Unbounded } from "next/font/google";
 import "./globals.css";
 import { LangProvider } from "@/lib/i18n";
+import { AuthProvider } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 
 const display = Unbounded({ variable: "--font-unbounded", subsets: ["latin", "cyrillic"], weight: ["500", "600", "700"] });
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
     template: "%s · HanQadam",
   },
   description:
-    "TOPIK I va TOPIK II bepul mock testlari, AI yozma ish tekshiruvi, Gemini bilan ovozli suhbat, Hangul va koreys tilini 0 dan o‘rganish. Бесплатные пробные тесты TOPIK и корейский с нуля.",
+    "TOPIK I va TOPIK II mock testlari, AI yozma ish tekshiruvi, Gemini bilan ovozli suhbat, Hangul va koreys tilini 0 dan o‘rganish. Gmail orqali kiring — 30 kun bepul. Пробные тесты TOPIK, AI-проверка и корейский с нуля — 30 дней бесплатно.",
   applicationName: "HanQadam",
   keywords: ["TOPIK", "TOPIK mock test", "koreys tili", "корейский язык", "TOPIK II", "EPS-TOPIK", "Hangul"],
 };
@@ -31,7 +32,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="uz" className={`${display.variable} ${body.variable} ${kr.variable}`}>
       <body>
         <LangProvider>
-          <AppShell>{children}</AppShell>
+          <AuthProvider>
+            <AppShell>{children}</AppShell>
+          </AuthProvider>
         </LangProvider>
       </body>
     </html>

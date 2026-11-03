@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { Avatar, useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
 
@@ -31,6 +32,41 @@ export function LangSwitch() {
   );
 }
 
+/** Yuqori paneldagi hisob tugmasi: kirish yoki avatar + qolgan kunlar */
+function AccountButton() {
+  const { L } = useLang();
+  const { me, login } = useAuth();
+  if (!me?.authEnabled) return null;
+  if (!me.user) {
+    return (
+      <button className="btn btn-primary btn-sm login-btn" onClick={() => login()}>
+        <Icon name="user" size={16} /> {L("Kirish", "Войти")}
+      </button>
+    );
+  }
+  const a = me.access;
+  const pill =
+    me.admin || !a
+      ? null
+      : a.status === "expired"
+        ? { cls: "red", text: L("Obuna", "Подписка") }
+        : a.status === "trial" || a.daysLeft <= 5
+          ? { cls: a.daysLeft <= 5 ? "amber" : "", text: `${a.status === "trial" ? "🎁" : "💎"} ${a.daysLeft} ${L("kun", "дн.")}` }
+          : null;
+  return (
+    <>
+      {pill && (
+        <Link href={a?.status === "expired" ? "/pricing" : "/account"} className={`badge ${pill.cls} hide-mobile`} style={{ padding: "7px 12px" }}>
+          {pill.text}
+        </Link>
+      )}
+      <Link href="/account" aria-label={L("Profil", "Профиль")} className="avatar-link">
+        <Avatar user={me.user} size={36} />
+      </Link>
+    </>
+  );
+}
+
 export function useNav() {
   const { L } = useLang();
   return [
@@ -43,6 +79,8 @@ export function useNav() {
     { href: "/tutor", icon: "spark", label: L("AI Ustoz", "AI Учитель"), emoji: "🤖" },
     { href: "/guide", icon: "map", label: L("Koreyada hayot", "Жизнь в Корее"), emoji: "🇰🇷" },
     { href: "/progress", icon: "chart", label: L("Natijalarim", "Мои результаты"), emoji: "📈" },
+    { href: "/pricing", icon: "star", label: L("Tariflar", "Тарифы"), emoji: "💎" },
+    { href: "/account", icon: "user", label: L("Profil", "Профиль"), emoji: "👤" },
   ];
 }
 
@@ -53,7 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [more, setMore] = useState(false);
 
   const isOn = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
-  const desktop = nav.filter((n) => !["/", "/progress"].includes(n.href));
+  const desktop = nav.filter((n) => !["/", "/progress", "/account"].includes(n.href));
 
   return (
     <>
@@ -69,6 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="grow" />
           <LangSwitch />
+          <AccountButton />
           <button className="icon-btn sm hide-mobile" onClick={() => setMore(true)} aria-label={L("Barcha bo‘limlar", "Все разделы")}>
             <Icon name="grid" size={18} />
           </button>

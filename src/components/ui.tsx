@@ -13,6 +13,13 @@ export class ApiError extends Error {
   }
 }
 
+/** Kirish yoki obuna kerak bo'lsa — global oynani ochadi (AuthProvider tinglaydi) */
+export function notifyAccess(status: number, code?: string) {
+  if (typeof window === "undefined") return;
+  if (status === 401 && code === "AUTH") window.dispatchEvent(new CustomEvent("hq:paywall", { detail: "AUTH" }));
+  if (status === 402) window.dispatchEvent(new CustomEvent("hq:paywall", { detail: "PAYWALL" }));
+}
+
 export async function postJson<T>(url: string, body: unknown): Promise<T> {
   let res: Response;
   try {
@@ -21,7 +28,10 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
     throw new ApiError("network", 0);
   }
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(json?.error || `HTTP ${res.status}`, res.status, json?.code);
+  if (!res.ok) {
+    notifyAccess(res.status, json?.code);
+    throw new ApiError(json?.error || `HTTP ${res.status}`, res.status, json?.code);
+  }
   return json as T;
 }
 
@@ -29,6 +39,14 @@ export function useAiErrorText() {
   const { L } = useLang();
   return (e: unknown) => {
     if (e instanceof ApiError) {
+      if (e.status === 401 && e.code === "AUTH")
+        return L("Bu AI funksiya uchun Google orqali kiring — 30 kun bepul.", "Для этой AI-функции войдите через Google — 30 дней бесплатно.");
+      if (e.status === 402)
+        return L("Bepul sinov muddati tugadi. Davom etish uchun obunani faollashtiring.", "Пробный период закончился. Оформите подписку, чтобы продолжить.");
+      if (e.code === "QUOTA")
+        return L("Bugungi AI limiti tugadi. Ertaga yana davom eting 🙏", "Дневной лимит AI исчерпан. Продолжите завтра 🙏");
+      if (e.code === "NO_DB")
+        return L("Server ma’lumotlar bazasi sozlanmagan (README’ga qarang).", "На сервере не настроена база данных (см. README).");
       if (e.code === "NO_KEY" || e.status === 503)
         return L(
           "AI hali ulanmagan: serverda GEMINI_API_KEY sozlanishi kerak (README’ga qarang).",

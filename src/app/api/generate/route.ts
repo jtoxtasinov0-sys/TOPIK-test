@@ -1,6 +1,7 @@
 import { AiError, errorResponse, generateJson, rateLimit } from "@/lib/gemini";
 import { groupSchema, writingTaskSchema } from "@/lib/schemas";
 import type { Group, Question, WritingTask } from "@/lib/exam";
+import { premium } from "@/lib/server/guard";
 
 export const maxDuration = 60;
 
@@ -18,6 +19,7 @@ Rules:
 export async function POST(req: Request) {
   try {
     rateLimit(req, "gen", 120, 10 * 60_000);
+    await premium(req, "generate");
     const body = (await req.json()) as { exam: string; group?: Group; writing?: WritingTask };
 
     if (body.writing) {

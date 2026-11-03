@@ -1,11 +1,13 @@
 import { errorResponse, generateJson, LANG_NAME, rateLimit } from "@/lib/gemini";
 import { explainSchema } from "@/lib/schemas";
+import { premium } from "@/lib/server/guard";
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
     rateLimit(req, "ai", 60, 5 * 60_000);
+    await premium(req, "explain");
     const { context, answer, user, lang } = (await req.json()) as {
       context: string;
       answer: number;

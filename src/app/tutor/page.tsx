@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { Md, useAiErrorText, ApiError } from "@/components/ui";
+import { Md, useAiErrorText, ApiError, notifyAccess } from "@/components/ui";
 import { useLang } from "@/lib/i18n";
 import { touchStreak } from "@/lib/store";
 
@@ -44,6 +44,7 @@ export default function TutorPage() {
       });
       if (!res.ok || !res.body) {
         const j = await res.json().catch(() => ({}));
+        notifyAccess(res.status, j?.code);
         throw new ApiError(j?.error || `HTTP ${res.status}`, res.status, j?.code);
       }
       const reader = res.body.getReader();

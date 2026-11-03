@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { NoticeSpec } from "@/lib/exam";
 import { playKorean, stopAudio, type TtsOpts } from "@/lib/audio";
+import { TRIAL_DAYS } from "@/lib/access";
 import { useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
 
@@ -40,7 +41,7 @@ export function useAiErrorText() {
   return (e: unknown) => {
     if (e instanceof ApiError) {
       if (e.status === 401 && e.code === "AUTH")
-        return L("Bu AI funksiya uchun Google orqali kiring — 30 kun bepul.", "Для этой AI-функции войдите через Google — 30 дней бесплатно.");
+        return L(`Bu AI funksiya uchun Google orqali kiring — ${TRIAL_DAYS} kun bepul.`, `Для этой AI-функции войдите через Google — ${TRIAL_DAYS} дней бесплатно.`);
       if (e.status === 402)
         return L("Bepul sinov muddati tugadi — AI funksiyalari yopildi.", "Пробный период закончился — AI-функции закрыты.");
       if (e.code === "QUOTA")

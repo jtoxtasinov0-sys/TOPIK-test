@@ -4,6 +4,7 @@ import "./globals.css";
 import { LangProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
+import { TRIAL_DAYS } from "@/lib/access";
 
 const display = Unbounded({ variable: "--font-unbounded", subsets: ["latin", "cyrillic"], weight: ["500", "600", "700"] });
 const body = Manrope({ variable: "--font-manrope", subsets: ["latin", "cyrillic"], weight: ["400", "500", "600", "700", "800"] });
@@ -14,8 +15,7 @@ export const metadata: Metadata = {
     default: "HanQadam — TOPIK mock test va koreys tili 0 dan",
     template: "%s · HanQadam",
   },
-  description:
-    "TOPIK I va TOPIK II mock testlari, AI yozma ish tekshiruvi, Gemini bilan ovozli suhbat, Hangul va koreys tilini 0 dan o‘rganish. Gmail orqali kiring — 30 kun bepul. Пробные тесты TOPIK, AI-проверка и корейский с нуля — 30 дней бесплатно.",
+  description: `TOPIK I va TOPIK II mock testlari (bepul), AI yozma ish tekshiruvi, Gemini bilan ovozli suhbat, Hangul va koreys tilini 0 dan o‘rganish. Gmail orqali kiring — AI ${TRIAL_DAYS} kun bepul. Пробные тесты TOPIK, AI-проверка и корейский с нуля.`,
   applicationName: "HanQadam",
   keywords: ["TOPIK", "TOPIK mock test", "koreys tili", "корейский язык", "TOPIK II", "EPS-TOPIK", "Hangul"],
 };

@@ -8,7 +8,8 @@ import type { Access } from "@/lib/access";
 import { fmtDate } from "./shared";
 
 type AUser = { id: string; email: string; name: string; picture?: string; createdAt: number; lastLoginAt: number; access: Access };
-type Stats = { total: number; new30: number; recent: AUser[] };
+type Totals = Record<string, number | undefined>;
+type Stats = { total: number; new30: number; recent: AUser[]; usage?: { today: Totals; week: Totals; month: Totals } };
 
 async function getJson<T>(url: string): Promise<T> {
   const r = await fetch(url, { cache: "no-store" });
@@ -52,6 +53,20 @@ export function AdminView() {
     }
   };
 
+  // Statistika qatorlari: kalit serverdagi USAGE_EVENTS bilan bir xil
+  const usageRows: [string, string][] = [
+    ["test_topik1", L("TOPIK I mock test yakunlandi", "Пройден пробный TOPIK I")],
+    ["test_topik2", L("TOPIK II mock test yakunlandi", "Пройден пробный TOPIK II")],
+    ["explain", L("AI tushuntirish", "AI-объяснение")],
+    ["writing", L("Yozma ishni AI baholash", "AI-оценка письма")],
+    ["speak", L("Gemini bilan suhbat (xabarlar)", "Разговор с Gemini (реплики)")],
+    ["tutor", L("AI Ustoz (savollar)", "AI Учитель (вопросы)")],
+    ["generate", L("AI variant so‘rovlari (1 variant ≈ 40–60)", "Запросы AI-вариантов (1 вариант ≈ 40–60)")],
+    ["tts", L("AI ovoz (yangi audio)", "AI-голос (новое аудио)")],
+    ["need_login", L("Kirmasdan AI funksiyasini bosgan", "Нажали AI-функцию без входа")],
+    ["trial_over", L("Sinovi tugab, AI funksiyasini bosgan", "Пробный период истёк, но нажали AI-функцию")],
+  ];
+
   const statusBadge = (a: Access) =>
     a.status === "trial" ? <span className="badge">🎁 {a.daysLeft}</span> : <span className="badge red">{L("tugagan", "истёк")}</span>;
 
@@ -81,6 +96,38 @@ export function AdminView() {
             <div className="display" style={{ fontSize: "1.7rem", fontWeight: 700, marginTop: 6 }}>{v}</div>
           </div>
         ))}
+      </div>
+
+      <div className="card" style={{ marginTop: 18 }}>
+        <h2 className="h3" style={{ marginBottom: 10 }}>{L("Faollik", "Активность")}</h2>
+        <div className="table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th />
+                <th>{L("Bugun", "Сегодня")}</th>
+                <th>{L("7 kun", "7 дн.")}</th>
+                <th>{L("30 kun", "30 дн.")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usageRows.map(([k, label]) => (
+                <tr key={k} style={k === "trial_over" ? { fontWeight: 800 } : undefined}>
+                  <td>{label}</td>
+                  <td>{stats?.usage?.today[k] ?? 0}</td>
+                  <td>{stats?.usage?.week[k] ?? 0}</td>
+                  <td>{stats?.usage?.month[k] ?? 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="tiny muted" style={{ margin: "10px 0 0" }}>
+          {L(
+            "«Sinovi tugab, AI funksiyasini bosgan» — to‘lov ulanganda pul to‘lashga tayyor odamlar soni haqida eng muhim ko‘rsatkich. Faqat sonlar saqlanadi, shaxsiy ma’lumot emas.",
+            "«Пробный период истёк, но нажали AI-функцию» — главный показатель того, сколько людей готовы платить, когда появится оплата. Хранятся только числа, без личных данных."
+          )}
+        </p>
       </div>
 
       <div className="card" style={{ marginTop: 18 }}>

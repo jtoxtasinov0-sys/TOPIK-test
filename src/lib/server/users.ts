@@ -51,7 +51,7 @@ export async function findUserByEmail(email: string) {
 
 /**
  * Google orqali kirgan foydalanuvchini yaratadi yoki yangilaydi.
- * Birinchi kirishda 30 kunlik bepul sinov avtomatik boshlanadi (har bir Google hisobga bir marta).
+ * Birinchi kirishda TRIAL_DAYS kunlik bepul sinov avtomatik boshlanadi (har bir Google hisobga bir marta).
  */
 export async function upsertGoogleUser(p: { sub: string; email: string; name?: string; picture?: string }, now = Date.now()) {
   const kv = getStore();

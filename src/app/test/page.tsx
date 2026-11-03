@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
+import { TRIAL_DAYS } from "@/lib/access";
 import { useLang } from "@/lib/i18n";
 
 export default function TestHub() {
@@ -46,6 +47,27 @@ export default function TestHub() {
           )}
         </p>
       </div>
+      <div className="grid-2" style={{ marginBottom: 20 }}>
+        <div className="callout info">
+          <span>🆓</span>
+          <span>
+            {L(
+              `TOPIK I va TOPIK II asosiy variantlari — bepul, kirmasdan ham ishlaydi. AI tushuntirish, yozma ishni AI baholash va yangi AI variantlar — Gmail orqali kirib, ${TRIAL_DAYS} kun bepul.`,
+              `Основные варианты TOPIK I и TOPIK II — бесплатно, даже без входа. AI-объяснения, AI-оценка письма и новые AI-варианты — после входа через Gmail, ${TRIAL_DAYS} дней бесплатно.`
+            )}
+          </span>
+        </div>
+        <div className="callout">
+          <span>ℹ️</span>
+          <span>
+            {L(
+              "Bu — mashq (mock) testi, rasmiy TOPIK imtihoni emas. Rasmiy imtihonni NIIED o‘tkazadi; bu sayt unga ro‘yxatdan o‘tkazmaydi. Natijalar taxminiy.",
+              "Это пробный (mock) тест, а не официальный экзамен TOPIK. Официальный экзамен проводит NIIED; этот сайт не регистрирует на него. Результаты примерные."
+            )}
+          </span>
+        </div>
+      </div>
+
       <div className="grid-2">
         {cards.map((c) => (
           <Link key={c.href} href={c.href} className="card hover" style={{ padding: 0, overflow: "hidden" }}>

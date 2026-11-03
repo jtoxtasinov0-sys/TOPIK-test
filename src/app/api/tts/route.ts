@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { errorResponse, hasKey, rateLimit, synthesize } from "@/lib/gemini";
 import { parseScript } from "@/lib/exam";
 import { chargeQuota, requireAiAccess } from "@/lib/server/guard";
+import { trackUsage } from "@/lib/server/usage";
 
 export const maxDuration = 60;
 
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
     if (!buf) {
       rateLimit(req, "tts", 90, 5 * 60_000);
       await chargeQuota(user, "tts");
+      await trackUsage("tts");
       buf = await synthesize(parseScript(text), { slow: !!slow, voice });
       cache.set(key, buf);
       if (cache.size > 400) cache.delete(cache.keys().next().value as string);

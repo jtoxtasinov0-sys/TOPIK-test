@@ -39,6 +39,10 @@ describe("session", () => {
 });
 
 describe("bepul sinov", () => {
+  test("standart sinov muddati 30 kun", () => {
+    assert.equal(TRIAL_DAYS, 30);
+  });
+
   test("sinov → tugash", () => {
     const u = { trialEndsAt: T0 + TRIAL_DAYS * DAY_MS };
     assert.deepEqual(computeAccess(u, T0), { status: "trial", until: u.trialEndsAt, daysLeft: TRIAL_DAYS });
@@ -129,5 +133,14 @@ describe("store", () => {
     assert.deepEqual(await kv2.get("a"), { x: 1 });
     await kv2.set("tmp", 1, { ttlSec: 1 });
     assert.equal(await kv2.get("tmp"), 1);
+  });
+
+  test("hash hisoblagichlar (statistika)", async () => {
+    const kv = createMemoryStore();
+    await kv.hincr("h", "a", 60);
+    await kv.hincr("h", "a", 60);
+    await kv.hincr("h", "b");
+    assert.deepEqual(await kv.hgetall("h"), { a: 2, b: 1 });
+    assert.deepEqual(await kv.hgetall("none"), {});
   });
 });

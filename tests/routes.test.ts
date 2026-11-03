@@ -17,6 +17,8 @@ const meRoute = await import("../src/app/api/me/route");
 const explainRoute = await import("../src/app/api/explain/route");
 const logoutRoute = await import("../src/app/api/auth/logout/route");
 const users = await import("../src/lib/server/users");
+const usageRoute = await import("../src/app/api/usage/route");
+const { usageSummary } = await import("../src/lib/server/usage");
 const { DAY_MS, TRIAL_DAYS } = await import("../src/lib/access");
 
 const BASE = "https://hanqadam.uz";
@@ -95,6 +97,20 @@ describe("Google login oqimi", () => {
     const expired = await explainRoute.POST(new Request(`${BASE}/api/explain`, { method: "POST", body, headers: { cookie: session } }));
     assert.equal(expired.status, 402);
     assert.equal(((await expired.json()) as { code: string }).code, "PAYWALL");
+
+    // Statistika: kirmagan, sinov davomida va sinov tugagandan keyingi so'rovlar alohida sanaladi
+    const { today } = await usageSummary();
+    assert.equal(today.need_login, 1);
+    assert.equal(today.explain, 1);
+    assert.equal(today.trial_over, 1);
+  });
+
+  test("brauzerdan test yakunlandi hodisasi", async () => {
+    const ok = await usageRoute.POST(new Request(`${BASE}/api/usage`, { method: "POST", body: JSON.stringify({ event: "test_topik2" }) }));
+    assert.equal(ok.status, 204);
+    const bad = await usageRoute.POST(new Request(`${BASE}/api/usage`, { method: "POST", body: JSON.stringify({ event: "trial_over" }) }));
+    assert.equal(bad.status, 400, "server hodisalarini brauzer yubora olmaydi");
+    assert.equal((await usageSummary()).today.test_topik2, 1);
   });
 
   test("chiqish cookie'ni o'chiradi", async () => {

@@ -195,6 +195,13 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
       estimated: true,
     });
     remove(KEYS.attempt(exam));
+    // Statistika: nechta mock test yakunlanganini /admin da ko'rish uchun (faqat son)
+    void fetch("/api/usage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: `test_${exam}` }),
+      keepalive: true,
+    }).catch(() => {});
     setPhase("results");
     window.scrollTo({ top: 0 });
   }, [test, exam, mode]);
@@ -370,6 +377,9 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
               {exam === "topik1"
                 ? L("1–2-daraja. Tinglash va o‘qish — haqiqiy TOPIK I tuzilmasi va vaqti bilan.", "Уровни 1–2. Аудирование и чтение — как на настоящем TOPIK I.")
                 : L("3–6-daraja. Tinglash, yozish (daftardan rasm bilan) va o‘qish — haqiqiy TOPIK II tuzilmasida.", "Уровни 3–6. Аудирование, письмо (фото из тетради) и чтение — как на настоящем TOPIK II.")}
+            </p>
+            <p className="small" style={{ marginTop: 10, opacity: 0.8 }}>
+              {L("Mashq testi · rasmiy TOPIK imtihoni emas · natijalar taxminiy", "Пробный тест · не официальный экзамен TOPIK · результаты примерные")}
             </p>
           </div>
         </div>

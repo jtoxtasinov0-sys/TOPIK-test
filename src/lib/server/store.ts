@@ -18,6 +18,9 @@ export interface Kv {
   set(key: string, value: unknown, opts?: { nx?: boolean; ttlSec?: number }): Promise<boolean>;
   del(key: string): Promise<void>;
   incr(key: string, ttlSec?: number): Promise<number>;
+  /** Hash ichidagi hisoblagichni 1 ga oshiradi (statistika uchun) */
+  hincr(key: string, field: string, ttlSec?: number): Promise<void>;
+  hgetall(key: string): Promise<Record<string, number>>;
   zadd(key: string, score: number, member: string): Promise<void>;
   zrange(key: string, opts?: ZRangeOpts): Promise<string[]>;
   zcard(key: string): Promise<number>;
@@ -79,6 +82,23 @@ function upstash(url: string, token: string): Kv {
         ["EXPIRE", key, ttlSec],
       ]);
       return Number(n);
+    },
+    async hincr(key, field, ttlSec) {
+      if (!ttlSec) {
+        await cmd("HINCRBY", key, field, 1);
+        return;
+      }
+      await pipeline([
+        ["HINCRBY", key, field, 1],
+        ["EXPIRE", key, ttlSec],
+      ]);
+    },
+    async hgetall(key) {
+      // Upstash HGETALL'ni [maydon, qiymat, maydon, qiymat, ...] ko'rinishida qaytaradi
+      const flat = (await cmd<string[] | null>("HGETALL", key)) ?? [];
+      const out: Record<string, number> = {};
+      for (let i = 0; i + 1 < flat.length; i += 2) out[flat[i]] = Number(flat[i + 1]) || 0;
+      return out;
     },
     async zadd(key, score, member) {
       await cmd("ZADD", key, score, member);
@@ -173,6 +193,27 @@ export function createMemoryStore(file?: string): Kv {
         data.kv[key] = { v: JSON.stringify(n), ...(ttlSec ? { exp: now + ttlSec * 1000 } : cur?.exp ? { exp: cur.exp } : {}) };
         return n;
       }, true);
+    },
+    hincr(key, field, ttlSec) {
+      return run((now) => {
+        const cur = data.kv[key];
+        let h: Record<string, number> = {};
+        try {
+          if (cur) h = JSON.parse(cur.v) as Record<string, number>;
+        } catch {}
+        h[field] = (h[field] ?? 0) + 1;
+        data.kv[key] = { v: JSON.stringify(h), ...(ttlSec ? { exp: now + ttlSec * 1000 } : cur?.exp ? { exp: cur.exp } : {}) };
+      }, true);
+    },
+    hgetall(key) {
+      return run(() => {
+        const cur = data.kv[key];
+        try {
+          return cur ? (JSON.parse(cur.v) as Record<string, number>) : {};
+        } catch {
+          return {};
+        }
+      });
     },
     zadd(key, score, member) {
       return run(() => {

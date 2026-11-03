@@ -21,7 +21,7 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | **📈 Natijalarim** | Natijalar tarixi, ball grafigi, imtihongacha qolgan kunlar, kunlik seriya (streak) |
 | **🔐 Gmail orqali kirish** | Google OAuth (PKCE), parolsiz. Birinchi kirishda 30 kunlik bepul sinov avtomatik boshlanadi, karta so‘ralmaydi |
 | **☁️ Bulutda saqlash** | Kirgan foydalanuvchining testlar tarixi, so‘zlari, profili va streak’i barcha qurilmalarda sinxron |
-| **🛠️ Admin panel** | `/admin`: foydalanuvchilar soni, so‘nggi ro‘yxatdan o‘tganlar va email bo‘yicha qidirish (faqat ko‘rish) |
+| **🛠️ Admin panel** | `/admin` (faqat ko‘rish): foydalanuvchilar soni, faollik statistikasi (bugun / 7 / 30 kun: yakunlangan mock testlar, har bir AI funksiya, sinovi tugab AI so‘raganlar), so‘nggi ro‘yxatdan o‘tganlar, email bo‘yicha qidirish |
 
 ### Har doim bepul va 30 kunlik sinov
 
@@ -30,7 +30,7 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | Hangul, 12 ta dars, so‘z kartochkalari, Koreyada hayot | AI tushuntirish, yozma ishni AI baholash, Gemini bilan suhbat |
 | TOPIK I / II mock testlar (brauzer ovozi bilan) | AI Ustoz, cheksiz AI variantlar, tabiiy Gemini ovozi |
 
-AI yo‘llari (`/api/explain`, `writing`, `speak`, `tutor`, `generate`, `tts`) serverda tekshiriladi: kirilmagan bo‘lsa `401`, 30 kunlik sinov tugagan bo‘lsa `402`. To‘lov tizimi keyinroq qo‘shiladi. Har bir foydalanuvchi uchun kunlik adolatli limit bor (`src/lib/server/guard.ts`, masalan kuniga 25 ta yozma ish tekshiruvi) — bu AI xarajatini nazoratda ushlaydi.
+AI yo‘llari (`/api/explain`, `writing`, `speak`, `tutor`, `generate`, `tts`) serverda tekshiriladi: kirilmagan bo‘lsa `401`, bepul sinov tugagan bo‘lsa `402`. Sinov muddati — `NEXT_PUBLIC_TRIAL_DAYS` (standart 30). To‘lov tizimi keyinroq qo‘shiladi. Har bir foydalanuvchi uchun kunlik adolatli limit bor (`src/lib/server/guard.ts`, masalan kuniga 25 ta yozma ish tekshiruvi) — bu AI xarajatini nazoratda ushlaydi.
 
 ## Texnologiyalar
 
@@ -66,7 +66,7 @@ npm test   # server mantiqi testlari: sessiya, bepul sinov, login oqimi (Node 22
 3. **OAuth consent screen**’da ilova nomi va logotipni kiriting, keyin **Publish app** (aks holda faqat test foydalanuvchilari kira oladi).
 4. `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET` (`openssl rand -base64 32`), `APP_URL` va `ADMIN_EMAILS` ni yozing.
 
-Sinov muddati: `src/lib/access.ts` (`TRIAL_DAYS`).
+Sinov muddati: `NEXT_PUBLIC_TRIAL_DAYS` (standart 30, `src/lib/access.ts`). O‘zgartirilsa faqat yangi ro‘yxatdan o‘tganlarga ta’sir qiladi.
 
 ## Internetga joylash (Vercel)
 
@@ -82,14 +82,14 @@ Kalitlar faqat serverda saqlanadi va brauzerga yuborilmaydi. AI yo‘llarida IP 
 ```
 src/
   app/            sahifalar (login, account, admin, ...) va API:
-                  api/auth/{google,callback,logout}, api/me, api/sync, api/admin,
+                  api/auth/{google,callback,logout}, api/me, api/sync, api/admin, api/usage,
                   api/{tts,explain,writing,speak,tutor,generate}
   components/     AppShell, ChartView, exam/ (ExamRunner, GroupView, Writing, Results, Explain),
                   account/ (LoginView, AccountView, AdminView)
   data/           topik1.ts, topik2.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts
   lib/            gemini.ts (server), audio.ts, exam.ts, i18n.tsx, store.ts, access.ts (sinov muddati),
                   auth.tsx (AuthProvider, paywall), sync.ts (bulut sinxron)
-  lib/server/     store.ts (Redis/fayl), session.ts, google.ts, users.ts, guard.ts
+  lib/server/     store.ts (Redis/fayl), session.ts, google.ts, users.ts, guard.ts, usage.ts (statistika)
 tests/            npm test — Node’ning o‘zida, qo‘shimcha kutubxonasiz
 ```
 

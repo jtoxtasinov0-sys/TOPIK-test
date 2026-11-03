@@ -255,9 +255,6 @@ button.chip:hover { border-color: rgba(139, 61, 255, 0.45); }
 .nav-links a:hover { color: var(--ink); background: rgba(139, 61, 255, 0.07); }
 .nav-links a.on { color: var(--p1); background: rgba(139, 61, 255, 0.1); }
 
-.lang-switch { display: inline-flex; padding: 4px; border-radius: 999px; background: rgba(139, 61, 255, 0.1); }
-.lang-switch button { border: 0; background: transparent; padding: 6px 11px; border-radius: 999px; font-weight: 800; font-size: 0.78rem; color: var(--ink-2); }
-.lang-switch button.on { background: var(--surface); color: var(--p1); box-shadow: 0 3px 10px -3px rgba(60, 20, 160, 0.3); }
 
 .pillnav {
   position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%);

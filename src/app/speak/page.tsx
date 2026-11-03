@@ -5,7 +5,6 @@ import { Icon } from "@/components/Icon";
 import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { SCENARIOS, type Scenario } from "@/data/scenarios";
 import { playKorean, stopAudio } from "@/lib/audio";
-import { useLang } from "@/lib/i18n";
 import { touchStreak } from "@/lib/store";
 
 type Level = "beginner" | "intermediate" | "advanced";
@@ -29,7 +28,6 @@ function pickMime() {
 }
 
 export default function SpeakPage() {
-  const { L, lang } = useLang();
   const errText = useAiErrorText();
   const [scenario, setScenario] = useState<Scenario>(SCENARIOS[1]);
   const [level, setLevel] = useState<Level>("beginner");
@@ -75,11 +73,10 @@ export default function SpeakPage() {
         ...payload,
         scenario: { id: scenario.id, ko: scenario.ko, role: scenario.role, goal: scenario.goal },
         level,
-        lang,
         history: history(list),
       });
       if (r.empty) {
-        setErr(L("Ovoz eshitilmadi. Mikrofonga yaqinroq, aniqroq gapiring.", "Голос не распознан. Говорите ближе к микрофону и чётче."));
+        setErr("Ovoz eshitilmadi. Mikrofonga yaqinroq, aniqroq gapiring.");
         return;
       }
       const next = [...list];
@@ -117,7 +114,7 @@ export default function SpeakPage() {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks.current, { type: mr.mimeType || mime || "audio/webm" });
         if (blob.size < 2000) {
-          setErr(L("Juda qisqa yozuv. Tugmani bosib, gapiring, so‘ng yana bosing.", "Слишком короткая запись. Нажмите, говорите, затем нажмите снова."));
+          setErr("Juda qisqa yozuv. Tugmani bosib, gapiring, so‘ng yana bosing.");
           return;
         }
         const data = await blobToBase64(blob);
@@ -141,7 +138,7 @@ export default function SpeakPage() {
       setRec(true);
       setTimeout(() => mediaRef.current?.state === "recording" && stopRec(), 60000);
     } catch {
-      setErr(L("Mikrofonga ruxsat berilmadi. Brauzer sozlamalaridan ruxsat bering yoki matn bilan yozing.", "Нет доступа к микрофону. Разрешите его в браузере или пишите текстом."));
+      setErr("Mikrofonga ruxsat berilmadi. Brauzer sozlamalaridan ruxsat bering yoki matn bilan yozing.");
     }
   };
 
@@ -163,14 +160,11 @@ export default function SpeakPage() {
         <div className="section-head">
           <span className="eyebrow">🗣️ 말하기 · Gemini 3.5 Transcribe</span>
           <h1 className="h1">
-            {L("AI bilan ", "Разговор с ")}
-            <span className="gradient-text">{L("gaplashing", "AI")}</span>
+            AI bilan 
+            <span className="gradient-text">gaplashing</span>
           </h1>
           <p className="lead">
-            {L(
-              "Vaziyatni tanlang va koreyscha gapiring. AI sizni tushunadi, xatolarni o‘zbekcha tushuntiradi, talaffuz bo‘yicha maslahat beradi va suhbatni davom ettiradi.",
-              "Выберите ситуацию и говорите по-корейски. AI поймёт вас, объяснит ошибки по-русски, даст советы по произношению и продолжит разговор."
-            )}
+            Vaziyatni tanlang va koreyscha gapiring. AI sizni tushunadi, xatolarni o‘zbekcha tushuntiradi, talaffuz bo‘yicha maslahat beradi va suhbatni davom ettiradi.
           </p>
         </div>
 
@@ -178,7 +172,7 @@ export default function SpeakPage() {
           {SCENARIOS.map((s) => (
             <button key={s.id} className={`scenario ${scenario.id === s.id ? "on" : ""}`} onClick={() => setScenario(s)}>
               <span className="em">{s.emoji}</span>
-              <b>{L(s.title.uz, s.title.ru)}</b>
+              <b>{s.title}</b>
               <span className="kr small" style={{ opacity: 0.75 }}>{s.ko}</span>
             </button>
           ))}
@@ -186,13 +180,13 @@ export default function SpeakPage() {
 
         <div className="card row-wrap between" style={{ marginTop: 20, gap: 16 }}>
           <div className="stack" style={{ gap: 8 }}>
-            <b className="small">{L("Darajangiz", "Ваш уровень")}</b>
+            <b className="small">Darajangiz</b>
             <div className="seg">
               {(
                 [
-                  ["beginner", L("Boshlang‘ich", "Начальный")],
-                  ["intermediate", L("O‘rta", "Средний")],
-                  ["advanced", L("Yuqori", "Продвинутый")],
+                  ["beginner", "Boshlang‘ich"],
+                  ["intermediate", "O‘rta"],
+                  ["advanced", "Yuqori"],
                 ] as [Level, string][]
               ).map(([k, t]) => (
                 <button key={k} className={level === k ? "on" : ""} onClick={() => setLevel(k)}>
@@ -203,21 +197,21 @@ export default function SpeakPage() {
           </div>
           <div className="row-wrap">
             <button className={`chip ${showRom ? "active" : ""}`} onClick={() => setShowRom((v) => !v)}>
-              Aa {L("Lotincha o‘qilishi", "Транскрипция")}
+              Aa Lotincha o‘qilishi
             </button>
             <button className={`chip ${showTr ? "active" : ""}`} onClick={() => setShowTr((v) => !v)}>
-              🌐 {L("Tarjima", "Перевод")}
+              🌐 Tarjima
             </button>
             <button className={`chip ${autoPlay ? "active" : ""}`} onClick={() => setAutoPlay((v) => !v)}>
-              🔊 {L("Avto ovoz", "Автозвук")}
+              🔊 Avto ovoz
             </button>
           </div>
           <button className="btn btn-primary btn-lg" onClick={start}>
-            <Icon name="mic" size={20} /> {L("Boshlash", "Начать")}
+            <Icon name="mic" size={20} /> Boshlash
           </button>
         </div>
         <div className="callout info" style={{ marginTop: 16 }}>
-          💡 {L("Mikrofon tugmasini bosing → gapiring → yana bosing. Shovqinsiz joyda yaxshiroq ishlaydi.", "Нажмите микрофон → говорите → нажмите снова. Лучше в тихом месте.")}
+          💡 Mikrofon tugmasini bosing → gapiring → yana bosing. Shovqinsiz joyda yaxshiroq ishlaydi.
         </div>
       </main>
     );
@@ -227,7 +221,7 @@ export default function SpeakPage() {
       <div className="card row" style={{ padding: 14, marginBottom: 16, position: "sticky", top: 74, zIndex: 20 }}>
         <span className="icon-tile" style={{ width: 44, height: 44 }}>{scenario.emoji}</span>
         <div className="grow">
-          <b>{L(scenario.title.uz, scenario.title.ru)}</b>
+          <b>{scenario.title}</b>
           <div className="kr tiny muted">{scenario.ko}</div>
         </div>
         <button
@@ -237,7 +231,7 @@ export default function SpeakPage() {
             setStarted(false);
           }}
         >
-          <Icon name="rotate" size={16} /> <span className="hide-mobile">{L("Boshqa vaziyat", "Другая ситуация")}</span>
+          <Icon name="rotate" size={16} /> <span className="hide-mobile">Boshqa vaziyat</span>
         </button>
       </div>
 
@@ -257,7 +251,7 @@ export default function SpeakPage() {
               </div>
               {i === msgs.length - 1 && !!m.suggestions?.length && (
                 <div className="row-wrap" style={{ marginTop: 10, gap: 6 }}>
-                  <span className="tiny muted" style={{ width: "100%" }}>{L("Javob variantlari:", "Варианты ответа:")}</span>
+                  <span className="tiny muted" style={{ width: "100%" }}>Javob variantlari:</span>
                   {m.suggestions.map((s) => (
                     <button key={s.ko} className="chip" style={{ whiteSpace: "normal", textAlign: "left" }} onClick={() => playKorean(s.ko, { slow: true })} title={s.tr}>
                       <span className="kr">{s.ko}</span>
@@ -275,7 +269,7 @@ export default function SpeakPage() {
               {m.feedback && (m.feedback.corrected_ko || m.feedback.explanation) && (
                 <div className="feedback">
                   <div className="row between" style={{ marginBottom: 6 }}>
-                    <b className="small">{L("AI fikri", "Отзыв AI")}</b>
+                    <b className="small">AI fikri</b>
                     {typeof m.feedback.score === "number" && (
                       <span className={`badge ${m.feedback.score >= 80 ? "green" : m.feedback.score >= 50 ? "amber" : "red"}`}>{m.feedback.score} / 100</span>
                     )}
@@ -296,7 +290,7 @@ export default function SpeakPage() {
         {busy && (
           <div className="msg ai">
             <div className="bubble row">
-              <span className="spinner" /> <span className="small muted">{L("AI tinglamoqda va javob yozmoqda…", "AI слушает и отвечает…")}</span>
+              <span className="spinner" /> <span className="small muted">AI tinglamoqda va javob yozmoqda…</span>
             </div>
           </div>
         )}
@@ -316,7 +310,7 @@ export default function SpeakPage() {
           <div className="row" style={{ width: "100%", gap: 14 }}>
             <input
               className="input kr grow"
-              placeholder={L("Yoki koreyscha yozing…", "Или напишите по-корейски…")}
+              placeholder="Yoki koreyscha yozing…"
               value={text}
               disabled={busy || rec}
               onChange={(e) => setText(e.target.value)}
@@ -332,7 +326,7 @@ export default function SpeakPage() {
               </button>
             )}
           </div>
-          <div className="tiny muted">{rec ? `● ${L("Yozilmoqda", "Запись")} ${secs}s — ${L("to‘xtatish uchun bosing", "нажмите, чтобы остановить")}` : L("Mikrofonni bosing va gapiring", "Нажмите на микрофон и говорите")}</div>
+          <div className="tiny muted">{rec ? `● Yozilmoqda ${secs}s — to‘xtatish uchun bosing` : "Mikrofonni bosing va gapiring"}</div>
         </div>
       </div>
     </main>

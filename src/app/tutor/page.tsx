@@ -3,13 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Md, useAiErrorText, ApiError } from "@/components/ui";
-import { useLang } from "@/lib/i18n";
 import { touchStreak } from "@/lib/store";
 
 type M = { role: "user" | "ai"; text: string };
 
 export default function TutorPage() {
-  const { L, lang } = useLang();
   const errText = useAiErrorText();
   const [msgs, setMsgs] = useState<M[]>([]);
   const [text, setText] = useState("");
@@ -20,12 +18,12 @@ export default function TutorPage() {
   useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [msgs]);
 
   const chips = [
-    L("은/는 va 이/가 farqi nima?", "В чём разница между 은/는 и 이/가?"),
-    L("-아요/어요 qanday yasaladi?", "Как образуется -아요/어요?"),
-    L("TOPIK 54-esseni qanday yozish kerak?", "Как писать эссе 54 в TOPIK?"),
-    L("TOPIK I uchun 3 oylik reja tuzib ber", "Составь план подготовки к TOPIK I на 3 месяца"),
-    L("Bu gapni tekshir: 저는 어제 학교에 가요.", "Проверь фразу: 저는 어제 학교에 가요."),
-    L("Ishda boshliqqa qanday murojaat qilinadi?", "Как обращаться к начальнику на работе?"),
+    "은/는 va 이/가 farqi nima?",
+    "-아요/어요 qanday yasaladi?",
+    "TOPIK 54-esseni qanday yozish kerak?",
+    "TOPIK I uchun 3 oylik reja tuzib ber",
+    "Bu gapni tekshir: 저는 어제 학교에 가요.",
+    "Ishda boshliqqa qanday murojaat qilinadi?",
   ];
 
   const ask = async (q: string) => {
@@ -40,7 +38,7 @@ export default function TutorPage() {
       const res = await fetch("/api/tutor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next, lang }),
+        body: JSON.stringify({ messages: next }),
       });
       if (!res.ok || !res.body) {
         const j = await res.json().catch(() => ({}));
@@ -73,13 +71,10 @@ export default function TutorPage() {
             <Icon name="spark" size={44} />
           </div>
           <h1 className="h2" style={{ marginTop: 8 }}>
-            AI <span className="gradient-text">{L("Ustoz", "Учитель")}</span>
+            AI <span className="gradient-text">Ustoz</span>
           </h1>
           <p className="lead">
-            {L(
-              "Grammatika, TOPIK strategiyasi, gaplarni tekshirish, Koreyadagi hayot — istalgan savolni o‘zbekcha bering.",
-              "Грамматика, стратегия TOPIK, проверка фраз, жизнь в Корее — задавайте любые вопросы по-русски."
-            )}
+            Grammatika, TOPIK strategiyasi, gaplarni tekshirish, Koreyadagi hayot — istalgan savolni o‘zbekcha bering.
           </p>
           <div className="row-wrap" style={{ justifyContent: "center", marginTop: 8 }}>
             {chips.map((c) => (
@@ -115,7 +110,7 @@ export default function TutorPage() {
             className="textarea grow"
             style={{ minHeight: 48, maxHeight: 160, border: 0, boxShadow: "none", padding: "10px 12px" }}
             rows={1}
-            placeholder={L("Savolingizni yozing…", "Напишите вопрос…")}
+            placeholder="Savolingizni yozing…"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {

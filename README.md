@@ -1,8 +1,6 @@
 # 한 HanQadam — TOPIK mock test va koreys tili 0 dan
 
-Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yashayotgan o‘zbek va rus tilli foydalanuvchilar uchun bepul veb-ilova. Telefon va kompyuterda ishlaydi, uni telefonga ilova sifatida o‘rnatish ham mumkin.
-
-> Бесплатное веб-приложение для подготовки к TOPIK и изучения корейского с нуля. Интерфейс на узбекском и русском.
+Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yashayotgan o‘zbek tilli foydalanuvchilar uchun bepul veb-ilova. Telefon va kompyuterda ishlaydi, uni telefonga ilova sifatida o‘rnatish ham mumkin.
 
 ## Imkoniyatlar
 
@@ -12,7 +10,7 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | **🎧 Tinglash** | Audio Gemini TTS orqali (erkak va ayol ovozi). TOPIK I’da har bir audio 2 marta, TOPIK II’da 1–20 savol 1 marta, 21–50 savol 2 marta tinglanadi. API kalit bo‘lmasa, brauzerning o‘z ovozi ishlatiladi |
 | **✍️ Yozish (쓰기)** | 51–54 topshiriqlar vaqt bilan bajariladi. Javobni daftarga yozib, rasmini yuklaysiz (vaqt tugagach rasm uchun yana 3 daqiqa beriladi) yoki 원고지 ko‘rinishida shu yerda yozasiz. Gemini rasmiy mezonlar bo‘yicha baholaydi: ball, xatolar, tuzatishlar va namunaviy javob |
 | **✨ AI variantlar** | Gemini rasmiy format bo‘yicha cheksiz yangi test variantlarini tuzadi |
-| **🧠 AI tushuntirish** | Har bir savolga o‘zbek yoki rus tilida tarjima, nega to‘g‘ri, kerakli so‘zlar va grammatika |
+| **🧠 AI tushuntirish** | Har bir savolga o‘zbek tilida tarjima, nega to‘g‘ri, kerakli so‘zlar va grammatika |
 | **🗣️ Gaplashish** | 11 ta hayotiy vaziyat: restoran, kasalxona, bank, migratsiya xizmati, zavod, uy ijarasi, ish suhbati, TOPIK Speaking va boshqalar. Nutq **Gemini 3.5 Transcribe** orqali matnga aylanadi, AI xatolarni tuzatadi va talaffuz bo‘yicha maslahat beradi |
 | **🌱 0 dan o‘rganish** | Hangul (40 harf ovozi bilan), bo‘g‘in yasash, 받침, viktorina, 12 ta hayotiy dars va mini testlar |
 | **🃏 So‘zlar** | 80 ta so‘z (TOPIK I, ish joyi/EPS, TOPIK II), Leitner usulida takrorlash |
@@ -54,7 +52,7 @@ src/
   app/            sahifalar va API (api/tts, api/explain, api/writing, api/speak, api/tutor, api/generate)
   components/     AppShell, ChartView, exam/ (ExamRunner, GroupView, Writing, Results, Explain)
   data/           topik1.ts, topik2.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts
-  lib/            gemini.ts (server), audio.ts, exam.ts, i18n.tsx, store.ts
+  lib/            gemini.ts (server), audio.ts, exam.ts, store.ts
 ```
 
 ## Eslatma

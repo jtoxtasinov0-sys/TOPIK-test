@@ -6,11 +6,9 @@ import { Icon } from "@/components/Icon";
 import { SpeakBtn } from "@/components/ui";
 import { LESSONS, type Lesson } from "@/data/lessons";
 import { playKorean } from "@/lib/audio";
-import { useLang } from "@/lib/i18n";
 import { touchStreak } from "@/lib/store";
 
 function MiniQuiz({ lesson }: { lesson: Lesson }) {
-  const { L, lang } = useLang();
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [ok, setOk] = useState(0);
@@ -22,7 +20,7 @@ function MiniQuiz({ lesson }: { lesson: Lesson }) {
       <div className="card center stack" style={{ alignItems: "center" }}>
         <div style={{ fontSize: "2.4rem" }}>{ok === order.length ? "🏆" : "👏"}</div>
         <b>
-          {ok} / {order.length} {L("to‘g‘ri", "верно")}
+          {ok} / {order.length} to‘g‘ri
         </b>
         <button
           className="btn btn-primary btn-sm"
@@ -32,19 +30,19 @@ function MiniQuiz({ lesson }: { lesson: Lesson }) {
             setPicked(null);
           }}
         >
-          <Icon name="replay" size={16} /> {L("Qayta", "Заново")}
+          <Icon name="replay" size={16} /> Qayta
         </button>
       </div>
     );
 
   const p = lesson.phrases[order[idx]];
-  const meaning = (i: number) => (lang === "ru" ? lesson.phrases[i].ru : lesson.phrases[i].uz);
+  const meaning = (i: number) => lesson.phrases[i].uz;
   const opts = [order[idx], ...order.filter((x) => x !== order[idx]).slice(0, 3)].sort((a, b) => ((a * 7 + idx) % 5) - ((b * 7 + idx) % 5));
 
   return (
     <div className="card stack">
       <div className="row between">
-        <b className="small">🎯 {L("Mini test", "Мини-тест")}</b>
+        <b className="small">🎯 Mini test</b>
         <span className="badge">
           {idx + 1} / {order.length}
         </span>
@@ -83,7 +81,7 @@ function MiniQuiz({ lesson }: { lesson: Lesson }) {
             setPicked(null);
           }}
         >
-          {L("Keyingisi", "Дальше")} <Icon name="right" size={16} />
+          Keyingisi <Icon name="right" size={16} />
         </button>
       )}
     </div>
@@ -91,7 +89,6 @@ function MiniQuiz({ lesson }: { lesson: Lesson }) {
 }
 
 export default function LessonsPage() {
-  const { L, tr, lang } = useLang();
   const [sel, setSel] = useState<Lesson>(LESSONS[0]);
 
   useEffect(() => {
@@ -108,7 +105,7 @@ export default function LessonsPage() {
   return (
     <main className="container page">
       <Link href="/learn" className="btn btn-ghost btn-sm" style={{ paddingLeft: 6, marginBottom: 10 }}>
-        <Icon name="left" size={18} /> {L("O‘rganish", "Обучение")}
+        <Icon name="left" size={18} /> O‘rganish
       </Link>
       <div className="scroll-x" style={{ marginBottom: 18 }}>
         {LESSONS.map((l, i) => (
@@ -123,7 +120,7 @@ export default function LessonsPage() {
           >
             <span className="em">{l.emoji}</span>
             <b className="small">
-              {i + 1}. {tr(l.title)}
+              {i + 1}. {l.title}
             </b>
             <span className="kr tiny" style={{ opacity: 0.75 }}>{l.ko}</span>
           </button>
@@ -134,10 +131,10 @@ export default function LessonsPage() {
         <div className="card stack">
           <div className="row between">
             <h2 className="h2">
-              {sel.emoji} {tr(sel.title)}
+              {sel.emoji} {sel.title}
             </h2>
             <button className="btn btn-soft btn-sm" onClick={playAll}>
-              <Icon name="play" size={14} fill /> {L("Hammasini tinglash", "Слушать всё")}
+              <Icon name="play" size={14} fill /> Hammasini tinglash
             </button>
           </div>
           {sel.phrases.map((p) => (
@@ -145,7 +142,7 @@ export default function LessonsPage() {
               <div className="grow">
                 <div className="kr" style={{ fontWeight: 800, fontSize: "1.12rem" }}>{p.ko}</div>
                 <div className="tiny muted" style={{ fontStyle: "italic" }}>{p.rom}</div>
-                <div className="small" style={{ marginTop: 2 }}>{lang === "ru" ? p.ru : p.uz}</div>
+                <div className="small" style={{ marginTop: 2 }}>{p.uz}</div>
               </div>
               <SpeakBtn text={p.ko} opts={{ slow: true }} />
             </div>
@@ -153,17 +150,17 @@ export default function LessonsPage() {
         </div>
         <div className="stack">
           <div className="level-card violet">
-            <div className="small" style={{ fontWeight: 800, opacity: 0.9 }}>📐 {L("Grammatika", "Грамматика")}</div>
+            <div className="small" style={{ fontWeight: 800, opacity: 0.9 }}>📐 Grammatika</div>
             <div style={{ marginTop: 8, lineHeight: 1.6 }} className="kr">
-              {tr(sel.grammar)}
+              {sel.grammar}
             </div>
           </div>
           <MiniQuiz key={sel.id} lesson={sel} />
           <Link href="/speak" className="card hover row">
             <span className="icon-tile pink">🗣️</span>
             <div className="grow">
-              <b>{L("Endi gapirib ko‘ring", "Теперь попробуйте сказать")}</b>
-              <div className="small muted">{L("AI bilan shu mavzuda suhbat", "Разговор с AI на эту тему")}</div>
+              <b>Endi gapirib ko‘ring</b>
+              <div className="small muted">AI bilan shu mavzuda suhbat</div>
             </div>
             <Icon name="right" size={18} />
           </Link>

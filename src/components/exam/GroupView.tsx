@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import type { ExamId, Group, Question, SectionId } from "@/lib/exam";
 import { CIRCLED, qKey } from "@/lib/exam";
 import { playKorean, prefetchAudio, stopAudio } from "@/lib/audio";
-import { useLang } from "@/lib/i18n";
 import { ChartView } from "../ChartView";
 import { Icon } from "../Icon";
 import { Notice, RichKo } from "../ui";
@@ -17,7 +16,6 @@ export function maxPlays(exam: ExamId, n: number) {
 }
 
 export function ListenPlayer({ text, max, used, onUse, practice }: { text: string; max: number; used: number; onUse: () => void; practice: boolean }) {
-  const { L } = useLang();
   const [st, setSt] = useState<"idle" | "load" | "play">("idle");
   const [slow, setSlow] = useState(false);
   const left = Math.max(0, max - used);
@@ -39,15 +37,15 @@ export function ListenPlayer({ text, max, used, onUse, practice }: { text: strin
 
   return (
     <div className="player">
-      <button className="play" onClick={toggle} disabled={!can && st === "idle"} aria-label={L("Tinglash", "Слушать")}>
+      <button className="play" onClick={toggle} disabled={!can && st === "idle"} aria-label="Tinglash">
         {st === "load" ? <span className="spinner" /> : <Icon name={st === "play" ? "pause" : "play"} size={22} fill={st !== "play"} />}
       </button>
       <div className="grow">
         <div style={{ fontWeight: 800, fontSize: "0.92rem" }}>
-          {st === "load" ? L("Audio tayyorlanmoqda…", "Готовим аудио…") : st === "play" ? L("Tinglang…", "Слушайте…") : L("Audioni tinglang", "Прослушайте аудио")}
+          {st === "load" ? "Audio tayyorlanmoqda…" : st === "play" ? "Tinglang…" : "Audioni tinglang"}
         </div>
         <div className="tiny" style={{ opacity: 0.75 }}>
-          {practice ? L("Mashq rejimi: cheksiz tinglash", "Режим практики: без ограничений") : L(`Qolgan tinglash: ${left} / ${max}`, `Осталось прослушиваний: ${left} / ${max}`)}
+          {practice ? "Mashq rejimi: cheksiz tinglash" : `Qolgan tinglash: ${left} / ${max}`}
         </div>
       </div>
       <div className={`eq ${st === "play" ? "on" : ""}`} aria-hidden>
@@ -61,7 +59,7 @@ export function ListenPlayer({ text, max, used, onUse, practice }: { text: strin
           style={{ background: slow ? "#fff" : "rgba(255,255,255,.14)", color: slow ? "var(--p1)" : "#fff", borderColor: "rgba(255,255,255,.3)", padding: "6px 10px" }}
           onClick={() => setSlow((s) => !s)}
         >
-          🐢 {L("Sekin", "Медленно")}
+          🐢 Sekin
         </button>
       )}
     </div>
@@ -137,7 +135,6 @@ export function GroupView({
   practice: boolean;
   review?: boolean;
 }) {
-  const { L } = useLang();
   const [showScript, setShowScript] = useState<Record<string, boolean>>({});
   const listening = section === "listening";
 
@@ -153,7 +150,7 @@ export function GroupView({
       {(review || (practice && answered)) && (
         <>
           <button className="btn btn-ghost btn-sm" style={{ marginBottom: 8, paddingLeft: 6 }} onClick={() => setShowScript((s) => ({ ...s, [key]: !s[key] }))}>
-            <Icon name="eye" size={16} /> {showScript[key] ? L("Matnni yashirish", "Скрыть текст") : L("Audio matnini ko‘rish", "Показать текст аудио")}
+            <Icon name="eye" size={16} /> {showScript[key] ? "Matnni yashirish" : "Audio matnini ko‘rish"}
           </button>
           {showScript[key] && <div className="script-box">{text}</div>}
         </>
@@ -199,7 +196,7 @@ export function GroupView({
               <span>{q.prompt ?? ""}</span>
               {reveal && (
                 <span className={`badge ${chosen === q.answer ? "green" : "red"}`} style={{ marginLeft: "auto" }}>
-                  {chosen === q.answer ? L("To‘g‘ri", "Верно") : chosen ? L("Xato", "Ошибка") : L("Javobsiz", "Без ответа")}
+                  {chosen === q.answer ? "To‘g‘ri" : chosen ? "Xato" : "Javobsiz"}
                 </span>
               )}
             </div>
@@ -228,7 +225,7 @@ export function GroupView({
               <div style={{ marginTop: 12 }}>
                 {chosen !== q.answer && (
                   <div className="small" style={{ marginBottom: 8 }}>
-                    {L("To‘g‘ri javob", "Правильный ответ")}: <b className="kr">{CIRCLED[q.answer - 1]} {q.optionStyle === "chart" ? "" : q.options[q.answer - 1]}</b>
+                    To‘g‘ri javob: <b className="kr">{CIRCLED[q.answer - 1]} {q.optionStyle === "chart" ? "" : q.options[q.answer - 1]}</b>
                   </div>
                 )}
                 <Explain group={group} question={q} userAnswer={chosen} />

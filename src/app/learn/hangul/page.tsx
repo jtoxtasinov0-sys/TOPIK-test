@@ -5,13 +5,11 @@ import { Icon } from "@/components/Icon";
 import { SpeakBtn } from "@/components/ui";
 import { BATCHIM, compose, CONSONANTS, DOUBLE_CONSONANTS, INITIALS, MEDIALS, romanize, SIMPLE_FINALS, VOWELS, type Jamo } from "@/data/hangul";
 import { playKorean } from "@/lib/audio";
-import { useLang } from "@/lib/i18n";
 import { touchStreak } from "@/lib/store";
 
 type Tab = "cons" | "vow" | "build" | "batchim" | "quiz";
 
 function Detail({ j }: { j: Jamo }) {
-  const { L, lang } = useLang();
   return (
     <div className="card" style={{ display: "grid", gap: 18, gridTemplateColumns: "auto 1fr", alignItems: "center" }}>
       <div className="syllable-box" key={j.g} style={{ width: 130, height: 130, fontSize: "4.4rem" }}>
@@ -23,15 +21,15 @@ function Detail({ j }: { j: Jamo }) {
           {j.name && <span className="badge dark kr">{j.name}</span>}
           <SpeakBtn text={j.say} opts={{ slow: true }} />
         </div>
-        <div className="small">{lang === "ru" ? j.tip.ru : j.tip.uz}</div>
+        <div className="small">{j.tip}</div>
         <div className="row" style={{ gap: 8 }}>
           <span className="kr" style={{ fontWeight: 800, fontSize: "1.2rem" }}>{j.ex.ko}</span>
           <span className="small muted">
-            [{j.ex.rom}] — {lang === "ru" ? j.ex.ru : j.ex.uz}
+            [{j.ex.rom}] — {j.ex.uz}
           </span>
           <SpeakBtn text={j.ex.ko} opts={{ slow: true }} />
         </div>
-        <div className="tiny muted">{L("Harfni bosing — tovushini eshitasiz", "Нажмите на букву — услышите звук")}</div>
+        <div className="tiny muted">Harfni bosing — tovushini eshitasiz</div>
       </div>
     </div>
   );
@@ -58,7 +56,6 @@ function Grid({ list, sel, onSel }: { list: Jamo[]; sel: Jamo; onSel: (j: Jamo) 
 }
 
 function Builder() {
-  const { L } = useLang();
   const [i, setI] = useState("ㅎ");
   const [v, setV] = useState("ㅏ");
   const [f, setF] = useState("ㄴ");
@@ -78,14 +75,11 @@ function Builder() {
           {f ? ` + ${f}` : ""} = {syl}
         </div>
         <div className="small muted" style={{ maxWidth: 360 }}>
-          {L(
-            "Koreys bo‘g‘ini: boshlang‘ich undosh + unli (+ oxirgi undosh — 받침). Unli boshlansa ㅇ yoziladi (아, 오).",
-            "Корейский слог: начальная согласная + гласная (+ конечная — 받침). Если слог начинается с гласной, пишется ㅇ (아, 오)."
-          )}
+          Koreys bo‘g‘ini: boshlang‘ich undosh + unli (+ oxirgi undosh — 받침). Unli boshlansa ㅇ yoziladi (아, 오).
         </div>
       </div>
       <div className="card stack">
-        <b className="small">1. {L("Boshlang‘ich undosh", "Начальная согласная")}</b>
+        <b className="small">1. Boshlang‘ich undosh</b>
         <div className="row-wrap" style={{ gap: 6 }}>
           {INITIALS.map((x) => (
             <button key={x} className={`chip kr ${i === x ? "active" : ""}`} style={{ padding: "6px 11px" }} onClick={() => setI(x)}>
@@ -93,7 +87,7 @@ function Builder() {
             </button>
           ))}
         </div>
-        <b className="small">2. {L("Unli", "Гласная")}</b>
+        <b className="small">2. Unli</b>
         <div className="row-wrap" style={{ gap: 6 }}>
           {MEDIALS.map((x) => (
             <button key={x} className={`chip kr ${v === x ? "active" : ""}`} style={{ padding: "6px 11px" }} onClick={() => setV(x)}>
@@ -101,7 +95,7 @@ function Builder() {
             </button>
           ))}
         </div>
-        <b className="small">3. {L("받침 (ixtiyoriy)", "받침 (необязательно)")}</b>
+        <b className="small">3. 받침 (ixtiyoriy)</b>
         <div className="row-wrap" style={{ gap: 6 }}>
           {SIMPLE_FINALS.map((x) => (
             <button key={x || "none"} className={`chip kr ${f === x ? "active" : ""}`} style={{ padding: "6px 11px" }} onClick={() => setF(x)}>
@@ -115,7 +109,6 @@ function Builder() {
 }
 
 function Quiz() {
-  const { L } = useLang();
   const pool = useMemo(() => [...CONSONANTS, ...VOWELS.slice(0, 10)], []);
   const [q, setQ] = useState<{ ans: Jamo; opts: Jamo[] } | null>(() => ({ ans: CONSONANTS[0], opts: [CONSONANTS[3], CONSONANTS[0], VOWELS[2], CONSONANTS[8]] }));
   const [picked, setPicked] = useState<string | null>(null);
@@ -134,7 +127,7 @@ function Quiz() {
     <div className="card center stack" style={{ alignItems: "center", maxWidth: 560, margin: "0 auto" }}>
       <div className="row between" style={{ width: "100%" }}>
         <span className="badge">🎯 {score.ok} / {score.all}</span>
-        <span className="small muted">{L("Eshiting va harfni tanlang", "Послушайте и выберите букву")}</span>
+        <span className="small muted">Eshiting va harfni tanlang</span>
       </div>
       <button className="mic" onClick={() => playKorean(q.ans.say, { slow: true })} aria-label="Tinglash">
         <Icon name="volume" size={32} />
@@ -161,14 +154,13 @@ function Quiz() {
         })}
       </div>
       <button className="btn btn-primary" onClick={next}>
-        {picked ? L("Keyingisi", "Следующий") : L("Boshlash / o‘tkazish", "Начать / пропустить")} <Icon name="right" size={18} />
+        {picked ? "Keyingisi" : "Boshlash / o‘tkazish"} <Icon name="right" size={18} />
       </button>
     </div>
   );
 }
 
 export default function HangulPage() {
-  const { L, lang } = useLang();
   const [tab, setTab] = useState<Tab>("cons");
   const [sel, setSel] = useState<Jamo>(CONSONANTS[0]);
 
@@ -183,24 +175,21 @@ export default function HangulPage() {
       <div className="section-head">
         <span className="eyebrow">한글 · Hangul</span>
         <h1 className="h1">
-          {L("Koreys ", "Корейский ")}
-          <span className="gradient-text">{L("alifbosi", "алфавит")}</span>
+          Koreys 
+          <span className="gradient-text">alifbosi</span>
         </h1>
         <p className="lead">
-          {L(
-            "Hangul — dunyodagi eng mantiqiy alifbolardan biri. 14 undosh + 10 unli asosini bilsangiz, istalgan so‘zni o‘qiy olasiz.",
-            "Хангыль — один из самых логичных алфавитов мира. Зная 14 согласных и 10 гласных, вы прочитаете любое слово."
-          )}
+          Hangul — dunyodagi eng mantiqiy alifbolardan biri. 14 undosh + 10 unli asosini bilsangiz, istalgan so‘zni o‘qiy olasiz.
         </p>
       </div>
       <div className="seg" style={{ marginBottom: 18 }}>
         {(
           [
-            ["cons", L("Undoshlar", "Согласные")],
-            ["vow", L("Unlilar", "Гласные")],
-            ["build", L("Bo‘g‘in yasash", "Слоги")],
+            ["cons", "Undoshlar"],
+            ["vow", "Unlilar"],
+            ["build", "Bo‘g‘in yasash"],
             ["batchim", "받침"],
-            ["quiz", L("Viktorina", "Викторина")],
+            ["quiz", "Viktorina"],
           ] as [Tab, string][]
         ).map(([k, t]) => (
           <button
@@ -222,16 +211,16 @@ export default function HangulPage() {
           <Detail j={sel} />
           {tab === "cons" ? (
             <>
-              <h3 className="h3">{L("Asosiy undoshlar (14)", "Базовые согласные (14)")}</h3>
+              <h3 className="h3">Asosiy undoshlar (14)</h3>
               <Grid list={CONSONANTS} sel={sel} onSel={setSel} />
-              <h3 className="h3">{L("Qo‘sh (taranglashgan) undoshlar (5)", "Двойные (напряжённые) согласные (5)")}</h3>
+              <h3 className="h3">Qo‘sh (taranglashgan) undoshlar (5)</h3>
               <Grid list={DOUBLE_CONSONANTS} sel={sel} onSel={setSel} />
             </>
           ) : (
             <>
-              <h3 className="h3">{L("Asosiy unlilar (10)", "Базовые гласные (10)")}</h3>
+              <h3 className="h3">Asosiy unlilar (10)</h3>
               <Grid list={VOWELS.slice(0, 10)} sel={sel} onSel={setSel} />
-              <h3 className="h3">{L("Murakkab unlilar (11)", "Сложные гласные (11)")}</h3>
+              <h3 className="h3">Murakkab unlilar (11)</h3>
               <Grid list={VOWELS.slice(10)} sel={sel} onSel={setSel} />
             </>
           )}
@@ -243,10 +232,7 @@ export default function HangulPage() {
       {tab === "batchim" && (
         <div className="stack">
           <div className="callout violet">
-            {L(
-              "받침 — bo‘g‘in oxiridagi undosh. Ko‘p harf bo‘lsa ham, oxirida faqat 7 xil tovush eshitiladi:",
-              "받침 — согласная в конце слога. Букв много, но в конце звучат только 7 звуков:"
-            )}
+            받침 — bo‘g‘in oxiridagi undosh. Ko‘p harf bo‘lsa ham, oxirida faqat 7 xil tovush eshitiladi:
           </div>
           <div className="grid-3">
             {BATCHIM.map((b) => (
@@ -259,7 +245,7 @@ export default function HangulPage() {
                   <div key={e.ko} className="row" style={{ gap: 8 }}>
                     <span className="kr" style={{ fontWeight: 800, fontSize: "1.15rem" }}>{e.ko}</span>
                     <span className="small muted grow">
-                      [{e.rom}] {lang === "ru" ? e.ru : e.uz}
+                      [{e.rom}] {e.uz}
                     </span>
                     <SpeakBtn text={e.ko} opts={{ slow: true }} />
                   </div>

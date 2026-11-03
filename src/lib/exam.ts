@@ -150,10 +150,10 @@ export type HistoryItem = {
   estimated?: boolean;
 };
 
-export const SECTION_LABEL: Record<SectionId, { ko: string; uz: string; ru: string; icon: string }> = {
-  listening: { ko: "듣기", uz: "Tinglab tushunish", ru: "Аудирование", icon: "🎧" },
-  reading: { ko: "읽기", uz: "O‘qib tushunish", ru: "Чтение", icon: "📖" },
-  writing: { ko: "쓰기", uz: "Yozish", ru: "Письмо", icon: "✍️" },
+export const SECTION_LABEL: Record<SectionId, { ko: string; uz: string; icon: string }> = {
+  listening: { ko: "듣기", uz: "Tinglab tushunish", icon: "🎧" },
+  reading: { ko: "읽기", uz: "O‘qib tushunish", icon: "📖" },
+  writing: { ko: "쓰기", uz: "Yozish", icon: "✍️" },
 };
 
 /** Tinglash matnini TTS uchun gaplarga ajratish */

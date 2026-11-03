@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExamId, Group, Section, SectionId, Test, WritingTask } from "@/lib/exam";
 import { allQuestions, EXAM_INFO, formatTime, qKey, SECTION_LABEL } from "@/lib/exam";
 import { prefetchAudio, stopAudio } from "@/lib/audio";
-import { useLang } from "@/lib/i18n";
 import { addHistory, KEYS, load, remove, save, saveAiTest, uid, useStored } from "@/lib/store";
 import { TOPIK1 } from "@/data/topik1";
 import { TOPIK2 } from "@/data/topik2";
@@ -36,7 +35,6 @@ const BUILTIN: Record<ExamId, Test> = { topik1: TOPIK1, topik2: TOPIK2 };
 const GRACE_SECONDS = 180;
 
 export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId }) {
-  const { L, lang } = useLang();
   const errText = useAiErrorText();
   const [aiTests, , aiReady] = useStored<Test[]>(KEYS.aiTests, []);
   const [test, setTest] = useState<Test>(BUILTIN[exam]);
@@ -244,7 +242,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
     out.id = `ai-${exam}-${uid()}`;
     out.ai = true;
     out.createdAt = Date.now();
-    out.title = `${examName} · AI ${new Date().toLocaleDateString(lang === "ru" ? "ru-RU" : "uz-UZ")}`;
+    out.title = `${examName} · AI ${new Date().toLocaleDateString("uz-UZ")}`;
     let failed = 0;
     let fatal: unknown = null;
     let cursor = 0;
@@ -273,7 +271,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
       return;
     }
     if (failed > jobs.length / 2) {
-      setGenError(L("AI variant yaratishda ko‘p xato bo‘ldi. Keyinroq urinib ko‘ring.", "Слишком много ошибок при создании варианта. Попробуйте позже."));
+      setGenError("AI variant yaratishda ko‘p xato bo‘ldi. Keyinroq urinib ko‘ring.");
       setPhase("intro");
       return;
     }
@@ -299,8 +297,8 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
     const left = totalCount(section) - answeredCount(section);
     const msg =
       left > 0
-        ? L(`${left} ta savolga javob berilmagan. Bo‘limni yakunlaysizmi?`, `Без ответа: ${left}. Завершить раздел?`)
-        : L("Bo‘limni yakunlaysizmi?", "Завершить раздел?");
+        ? `${left} ta savolga javob berilmagan. Bo‘limni yakunlaysizmi?`
+        : "Bo‘limni yakunlaysizmi?";
     if (window.confirm(msg)) nextSection();
   };
 
@@ -331,15 +329,15 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
           <div className="syllable-box" style={{ margin: "0 auto 22px", width: 120, height: 120, fontSize: "3.6rem", animation: "floatY 3s ease-in-out infinite" }}>
             시
           </div>
-          <h2 className="h2">{L("AI yangi variant tuzmoqda", "AI создаёт новый вариант")}</h2>
+          <h2 className="h2">AI yangi variant tuzmoqda</h2>
           <p className="lead" style={{ marginTop: 8 }}>
-            {L("Har bir savol bloki rasmiy TOPIK formatida yangidan yozilmoqda…", "Каждый блок вопросов пишется заново в официальном формате TOPIK…")}
+            Har bir savol bloki rasmiy TOPIK formatida yangidan yozilmoqda…
           </p>
           <div className="bar" style={{ margin: "22px 0 10px", height: 14 }}>
             <i style={{ width: `${pct}%` }} />
           </div>
           <div className="small muted">
-            {gen.done} / {gen.total} {L("blok", "блоков")} · {pct}%
+            {gen.done} / {gen.total} blok · {pct}%
           </div>
         </div>
       </div>
@@ -352,33 +350,33 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
     return (
       <div className="container page">
         <Link href="/test" className="btn btn-ghost btn-sm" style={{ paddingLeft: 6, marginBottom: 10 }}>
-          <Icon name="left" size={18} /> {L("Testlar", "Тесты")}
+          <Icon name="left" size={18} /> Testlar
         </Link>
         <div className="result-hero" style={{ padding: "30px 24px" }}>
           <div className="blob b1" style={{ opacity: 0.4 }} />
           <div style={{ position: "relative", zIndex: 2 }}>
             <div className="row-wrap">
-              <span className="badge white">{test.ai ? "✨ AI variant" : L("Asosiy variant", "Основной вариант")}</span>
+              <span className="badge white">{test.ai ? "✨ AI variant" : "Asosiy variant"}</span>
               <span className="badge white">
-                {EXAM_INFO[exam].max} {L("ball", "баллов")}
+                {EXAM_INFO[exam].max} ball
               </span>
             </div>
             <h1 className="h1" style={{ marginTop: 14 }}>
-              {preset === "writing" ? L("Yozish imtihoni", "Экзамен по письму") : examName}
+              {preset === "writing" ? "Yozish imtihoni" : examName}
             </h1>
             <p className="lead" style={{ marginTop: 10, maxWidth: 640 }}>
               {exam === "topik1"
-                ? L("1–2-daraja. Tinglash va o‘qish — haqiqiy TOPIK I tuzilmasi va vaqti bilan.", "Уровни 1–2. Аудирование и чтение — как на настоящем TOPIK I.")
-                : L("3–6-daraja. Tinglash, yozish (daftardan rasm bilan) va o‘qish — haqiqiy TOPIK II tuzilmasida.", "Уровни 3–6. Аудирование, письмо (фото из тетради) и чтение — как на настоящем TOPIK II.")}
+                ? "1–2-daraja. Tinglash va o‘qish — haqiqiy TOPIK I tuzilmasi va vaqti bilan."
+                : "3–6-daraja. Tinglash, yozish (daftardan rasm bilan) va o‘qish — haqiqiy TOPIK II tuzilmasida."}
             </p>
           </div>
         </div>
 
         {saved && (
           <div className="callout info" style={{ marginTop: 16, alignItems: "center", flexWrap: "wrap" }}>
-            <span className="grow">⏸️ {L("Sizda tugallanmagan urinish bor.", "У вас есть незавершённая попытка.")}</span>
+            <span className="grow">⏸️ Sizda tugallanmagan urinish bor.</span>
             <button className="btn btn-sm btn-primary" onClick={resume}>
-              {L("Davom ettirish", "Продолжить")}
+              Davom ettirish
             </button>
             <button
               className="btn btn-sm btn-ghost"
@@ -387,19 +385,19 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                 setSaved(null);
               }}
             >
-              {L("O‘chirish", "Удалить")}
+              O‘chirish
             </button>
           </div>
         )}
 
         <div className="grid-2" style={{ marginTop: 18 }}>
           <div className="card stack">
-            <h3 className="h3">1. {L("Variant", "Вариант")}</h3>
+            <h3 className="h3">1. Variant</h3>
             <div className="stack" style={{ gap: 8 }}>
               <button className={`scenario ${test.id === BUILTIN[exam].id ? "on" : ""}`} onClick={() => setTest(BUILTIN[exam])}>
                 <b>📘 {BUILTIN[exam].title}</b>
                 <span className="small" style={{ opacity: 0.8 }}>
-                  {L("Tayyor original variant — internet AI’siz ham ishlaydi", "Готовый оригинальный вариант — работает и без AI")}
+                  Tayyor original variant — internet AI’siz ham ishlaydi
                 </span>
               </button>
               {aiReady &&
@@ -407,38 +405,38 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                   <button key={t.id} className={`scenario ${test.id === t.id ? "on" : ""}`} onClick={() => setTest(t)}>
                     <b>✨ {t.title}</b>
                     <span className="small" style={{ opacity: 0.8 }}>
-                      {L("AI yaratgan variant", "Вариант, созданный AI")}
+                      AI yaratgan variant
                     </span>
                   </button>
                 ))}
               <button className="btn btn-soft" onClick={generate}>
-                <Icon name="spark" size={18} /> {L("AI bilan yangi variant yaratish", "Создать новый вариант с AI")}
+                <Icon name="spark" size={18} /> AI bilan yangi variant yaratish
               </button>
               {genError && <div className="callout">{genError}</div>}
             </div>
           </div>
 
           <div className="card stack">
-            <h3 className="h3">2. {L("Rejim va bo‘lim", "Режим и раздел")}</h3>
+            <h3 className="h3">2. Rejim va bo‘lim</h3>
             <div className="grid-2" style={{ gap: 10 }}>
               <button className={`scenario ${mode === "exam" ? "on" : ""}`} onClick={() => setMode("exam")}>
                 <span className="em">⏱️</span>
-                <b>{L("Imtihon", "Экзамен")}</b>
+                <b>Imtihon</b>
                 <span className="tiny" style={{ opacity: 0.85 }}>
-                  {L("Vaqt cheklangan, audio cheklangan, natija oxirida", "Время и прослушивания ограничены, результат в конце")}
+                  Vaqt cheklangan, audio cheklangan, natija oxirida
                 </span>
               </button>
               <button className={`scenario ${mode === "practice" ? "on" : ""}`} onClick={() => setMode("practice")}>
                 <span className="em">🎯</span>
-                <b>{L("Mashq", "Практика")}</b>
+                <b>Mashq</b>
                 <span className="tiny" style={{ opacity: 0.85 }}>
-                  {L("Vaqtsiz, javob darhol tekshiriladi + AI tushuntirish", "Без таймера, мгновенная проверка + объяснение AI")}
+                  Vaqtsiz, javob darhol tekshiriladi + AI tushuntirish
                 </span>
               </button>
             </div>
             <div className="row-wrap">
               <button className={`chip ${scope === "all" ? "active" : ""}`} onClick={() => setScope("all")}>
-                {L("To‘liq imtihon", "Весь экзамен")}
+                To‘liq imtihon
               </button>
               {info.map((s) => (
                 <button key={s.id} className={`chip ${scope === s.id ? "active" : ""}`} onClick={() => setScope(s.id)}>
@@ -451,7 +449,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
 
         <div className="card" style={{ marginTop: 18 }}>
           <h3 className="h3" style={{ marginBottom: 12 }}>
-            {L("Tuzilma", "Структура")}
+            Tuzilma
           </h3>
           <div className="stack" style={{ gap: 10 }}>
             {sections.map((s) => (
@@ -463,13 +461,13 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                       {exam === "topik2" ? `${s.period}교시 · ` : ""}
                       {s.title}
                     </b>
-                    <div className="tiny muted">{L(SECTION_LABEL[s.id].uz, SECTION_LABEL[s.id].ru)}</div>
+                    <div className="tiny muted">{SECTION_LABEL[s.id].uz}</div>
                   </div>
                 </div>
                 <div className="small" style={{ textAlign: "right" }}>
-                  <b>{totalCount(s)}</b> {s.writing ? L("topshiriq", "задания") : L("savol", "вопросов")}
+                  <b>{totalCount(s)}</b> {s.writing ? "topshiriq" : "savol"}
                   <div className="tiny muted">
-                    {s.minutes} {L("daqiqa", "мин")}
+                    {s.minutes} daqiqa
                   </div>
                 </div>
               </div>
@@ -477,11 +475,11 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
           </div>
           <div className="row between" style={{ marginTop: 18, flexWrap: "wrap", gap: 12 }}>
             <div className="small muted">
-              ⏱️ {mode === "exam" ? `${totalMin} ${L("daqiqa", "минут")}` : L("Vaqt cheklovi yo‘q", "Без ограничения времени")} · 🎧{" "}
-              {exam === "topik1" ? L("har bir audio 2 marta", "каждое аудио 2 раза") : L("1–20: 1 marta, 21–50: 2 marta", "1–20: 1 раз, 21–50: 2 раза")}
+              ⏱️ {mode === "exam" ? `${totalMin} daqiqa` : "Vaqt cheklovi yo‘q"} · 🎧{" "}
+              {exam === "topik1" ? "har bir audio 2 marta" : "1–20: 1 marta, 21–50: 2 marta"}
             </div>
             <button className="btn btn-primary btn-lg" onClick={() => begin()}>
-              {L("Boshlash", "Начать")} <Icon name="right" size={20} />
+              Boshlash <Icon name="right" size={20} />
             </button>
           </div>
         </div>
@@ -489,10 +487,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
         {sections.some((s) => s.id === "writing") && (
           <div className="callout violet" style={{ marginTop: 16 }}>
             📸{" "}
-            {L(
-              "Yozish bo‘limida javobni daftarga yozib, rasmini yuklashingiz mumkin. Vaqt tugagach rasm yuklash uchun yana 3 daqiqa beriladi.",
-              "В письме можно писать в тетради и загрузить фото. После окончания времени даётся ещё 3 минуты на загрузку фото."
-            )}
+            Yozish bo‘limida javobni daftarga yozib, rasmini yuklashingiz mumkin. Vaqt tugagach rasm yuklash uchun yana 3 daqiqa beriladi.
           </div>
         )}
       </div>
@@ -507,18 +502,18 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
         <div className="card center stack" style={{ maxWidth: 520, width: "100%", padding: 32, alignItems: "center" }}>
           <div style={{ fontSize: "3rem" }}>{isPeriodBreak ? "☕" : "✅"}</div>
           <h2 className="h2">
-            <span className="kr">{section.title}</span> {L("yakunlandi", "завершено")}
+            <span className="kr">{section.title}</span> yakunlandi
           </h2>
           <p className="lead">
             {isPeriodBreak
-              ? L("Haqiqiy TOPIK’da bu yerda tanaffus bo‘ladi. Dam oling va tayyor bo‘lganda davom eting.", "На настоящем TOPIK здесь перерыв. Отдохните и продолжайте, когда будете готовы.")
-              : L("Keyingi bo‘limga o‘tamiz.", "Переходим к следующему разделу.")}
+              ? "Haqiqiy TOPIK’da bu yerda tanaffus bo‘ladi. Dam oling va tayyor bo‘lganda davom eting."
+              : "Keyingi bo‘limga o‘tamiz."}
           </p>
           <div className="badge" style={{ fontSize: "0.9rem", padding: "8px 14px" }}>
-            {L("Keyingi", "Далее")}: {SECTION_LABEL[next.id].icon} <span className="kr">{next.title}</span> · {next.minutes} {L("daqiqa", "мин")}
+            Keyingi: {SECTION_LABEL[next.id].icon} <span className="kr">{next.title}</span> · {next.minutes} daqiqa
           </div>
           <button className="btn btn-primary btn-lg" onClick={() => startSection(secIdx + 1)}>
-            {L("Davom etish", "Продолжить")} <Icon name="right" size={20} />
+            Davom etish <Icon name="right" size={20} />
           </button>
         </div>
       </div>
@@ -535,7 +530,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
   const omr = (
     <div className="card omr" style={{ padding: 16 }}>
       <div className="row between" style={{ marginBottom: 10 }}>
-        <b className="small">{L("Javoblar varaqasi", "Бланк ответов")}</b>
+        <b className="small">Javoblar varaqasi</b>
         <span className="badge">
           {done}/{total}
         </span>
@@ -546,7 +541,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
             <button key={t.n} className={`omr-row ${groupIdx === i ? "cur" : ""}`} style={{ border: 0, background: "transparent" }} onClick={() => { setGroupIdx(i); setOmrOpen(false); }}>
               <span className="n">{t.n}</span>
               <span className="small">{hasWritingAnswer(writing[t.n]) ? "✅" : "⬜"}</span>
-              <span className="tiny muted">{t.pts} {L("ball", "б.")}</span>
+              <span className="tiny muted">{t.pts} ball</span>
             </button>
           ))}
         </div>
@@ -575,7 +570,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
         </div>
       )}
       <button className="btn btn-primary btn-block btn-sm" style={{ marginTop: 14 }} onClick={confirmSubmitSection}>
-        <Icon name="flag" size={16} /> {L("Bo‘limni yakunlash", "Завершить раздел")}
+        <Icon name="flag" size={16} /> Bo‘limni yakunlash
       </button>
     </div>
   );
@@ -589,9 +584,9 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
         <div className="container exam-top-in">
           <button
             className="icon-btn sm"
-            aria-label={L("Chiqish", "Выйти")}
+            aria-label="Chiqish"
             onClick={() => {
-              if (window.confirm(L("Imtihondan chiqasizmi? Progress saqlanadi, keyin davom ettirishingiz mumkin.", "Выйти? Прогресс сохранится, можно продолжить позже."))) {
+              if (window.confirm("Imtihondan chiqasizmi? Progress saqlanadi, keyin davom ettirishingiz mumkin.")) {
                 stopAudio();
                 setPhase("intro");
                 setSaved(load<Saved | null>(KEYS.attempt(exam), null));
@@ -616,7 +611,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
             <Icon name="clock" size={16} />
             {practice ? formatTime(elapsed) : grace !== null ? `📸 ${formatTime(grace)}` : formatTime(timeLeft)}
           </div>
-          <button className="icon-btn sm hide-desktop" onClick={() => setOmrOpen(true)} aria-label={L("Javoblar varaqasi", "Бланк ответов")}>
+          <button className="icon-btn sm hide-desktop" onClick={() => setOmrOpen(true)} aria-label="Javoblar varaqasi">
             <Icon name="grid" size={18} />
           </button>
         </div>
@@ -626,10 +621,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
         {grace !== null && (
           <div className="callout" style={{ marginTop: 16 }}>
             ⏰{" "}
-            {L(
-              "Yozish vaqti tugadi! Endi faqat daftaringizdagi javoblarning rasmini yuklashingiz mumkin.",
-              "Время письма истекло! Теперь можно только загрузить фото ответов из тетради."
-            )}
+            Yozish vaqti tugadi! Endi faqat daftaringizdagi javoblarning rasmini yuklashingiz mumkin.
           </div>
         )}
         <div className="exam-layout">
@@ -647,7 +639,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                         onClick={async () => {
                           setWGrade((p) => ({ ...p, [task.n]: { loading: true } }));
                           try {
-                            const r = await gradeWriting(task, wAns, lang);
+                            const r = await gradeWriting(task, wAns);
                             setWGrade((p) => ({ ...p, [task.n]: { result: r } }));
                           } catch (e) {
                             setWGrade((p) => ({ ...p, [task.n]: { error: errText(e) } }));
@@ -655,7 +647,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                         }}
                       >
                         {wGrade[task.n]?.loading ? <span className="spinner white" /> : <Icon name="spark" size={18} />}
-                        {wGrade[task.n]?.loading ? L("AI tekshirmoqda…", "AI проверяет…") : L("AI bilan tekshirish", "Проверить с AI")}
+                        {wGrade[task.n]?.loading ? "AI tekshirmoqda…" : "AI bilan tekshirish"}
                       </button>
                     )}
                     {wGrade[task.n]?.error && <div className="callout">{wGrade[task.n]!.error}</div>}
@@ -663,7 +655,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                   </div>
                 )}
                 <div className="tiny muted">
-                  ⏱️ {L(`Tavsiya etilgan vaqt: ~${task.suggestedMinutes} daqiqa`, `Рекомендуемое время: ~${task.suggestedMinutes} мин`)}
+                  ⏱️ {`Tavsiya etilgan vaqt: ~${task.suggestedMinutes} daqiqa`}
                 </div>
               </>
             ) : (
@@ -692,14 +684,14 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                   scrollTop();
                 }}
               >
-                <Icon name="left" size={18} /> <span className="hide-mobile">{L("Oldingi", "Назад")}</span>
+                <Icon name="left" size={18} /> <span className="hide-mobile">Oldingi</span>
               </button>
               <span className="small muted">
                 {groupIdx + 1} / {pageCount}
               </span>
               {isLast ? (
                 <button className="btn btn-primary" onClick={confirmSubmitSection}>
-                  {secIdx + 1 < sections.length ? L("Keyingi bo‘lim", "Следующий раздел") : L("Topshirish", "Сдать")} <Icon name="flag" size={18} />
+                  {secIdx + 1 < sections.length ? "Keyingi bo‘lim" : "Topshirish"} <Icon name="flag" size={18} />
                 </button>
               ) : (
                 <button
@@ -710,7 +702,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                     scrollTop();
                   }}
                 >
-                  {L("Keyingi", "Далее")} <Icon name="right" size={18} />
+                  Keyingi <Icon name="right" size={18} />
                 </button>
               )}
             </div>

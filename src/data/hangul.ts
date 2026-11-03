@@ -1,71 +1,70 @@
-import type { Bi } from "@/lib/i18n";
 
 export type Jamo = {
   g: string; // harf
   r: string; // romanizatsiya
   name?: string; // harf nomi (기역)
   say: string; // TTS uchun bo'g'in
-  ex: { ko: string; rom: string; uz: string; ru: string };
-  tip: Bi;
+  ex: { ko: string; rom: string; uz: string };
+  tip: string;
 };
 
 export const CONSONANTS: Jamo[] = [
-  { g: "ㄱ", r: "g / k", name: "기역", say: "가", ex: { ko: "가방", rom: "gabang", uz: "sumka", ru: "сумка" }, tip: { uz: "So‘z boshida «g» va «k» oralig‘idagi tovush, oxirida «k».", ru: "В начале слова — между «г» и «к», в конце — «к»." } },
-  { g: "ㄴ", r: "n", name: "니은", say: "나", ex: { ko: "나무", rom: "namu", uz: "daraxt", ru: "дерево" }, tip: { uz: "O‘zbekcha «n» kabi.", ru: "Как русское «н»." } },
-  { g: "ㄷ", r: "d / t", name: "디귿", say: "다", ex: { ko: "다리", rom: "dari", uz: "ko‘prik; oyoq", ru: "мост; нога" }, tip: { uz: "«d» va «t» oralig‘ida, yumshoq aytiladi.", ru: "Между «д» и «т», мягко." } },
-  { g: "ㄹ", r: "r / l", name: "리을", say: "라", ex: { ko: "라면", rom: "ramyeon", uz: "ramyon (lag‘mon)", ru: "рамён" }, tip: { uz: "Unlilar orasida yengil «r», bo‘g‘in oxirida «l».", ru: "Между гласными — лёгкое «р», в конце слога — «л»." } },
-  { g: "ㅁ", r: "m", name: "미음", say: "마", ex: { ko: "물", rom: "mul", uz: "suv", ru: "вода" }, tip: { uz: "O‘zbekcha «m».", ru: "Как «м»." } },
-  { g: "ㅂ", r: "b / p", name: "비읍", say: "바", ex: { ko: "바다", rom: "bada", uz: "dengiz", ru: "море" }, tip: { uz: "«b» va «p» oralig‘ida.", ru: "Между «б» и «п»." } },
-  { g: "ㅅ", r: "s", name: "시옷", say: "사", ex: { ko: "사람", rom: "saram", uz: "odam", ru: "человек" }, tip: { uz: "«s»; ㅣ oldida «sh» (시 = shi).", ru: "«с»; перед ㅣ звучит как «щ/ш» (시 = ши)." } },
-  { g: "ㅇ", r: "– / ng", name: "이응", say: "아", ex: { ko: "아이", rom: "ai", uz: "bola", ru: "ребёнок" }, tip: { uz: "Bo‘g‘in boshida ovozsiz, oxirida «ng» (방 = bang).", ru: "В начале слога не читается, в конце — «нг» (방 = бан)." } },
-  { g: "ㅈ", r: "j", name: "지읒", say: "자", ex: { ko: "자전거", rom: "jajeongeo", uz: "velosiped", ru: "велосипед" }, tip: { uz: "Yumshoq «j» (o‘zbekcha «jon»dagi kabi).", ru: "Мягкое «дж»." } },
-  { g: "ㅊ", r: "ch", name: "치읓", say: "차", ex: { ko: "차", rom: "cha", uz: "mashina; choy", ru: "машина; чай" }, tip: { uz: "Kuchli nafas bilan «ch».", ru: "«Ч» с сильным придыханием." } },
-  { g: "ㅋ", r: "k", name: "키읔", say: "카", ex: { ko: "커피", rom: "keopi", uz: "qahva", ru: "кофе" }, tip: { uz: "Nafasli «k» — og‘iz oldida havo chiqadi.", ru: "Придыхательное «к»." } },
-  { g: "ㅌ", r: "t", name: "티읕", say: "타", ex: { ko: "토마토", rom: "tomato", uz: "pomidor", ru: "помидор" }, tip: { uz: "Nafasli «t».", ru: "Придыхательное «т»." } },
-  { g: "ㅍ", r: "p", name: "피읖", say: "파", ex: { ko: "포도", rom: "podo", uz: "uzum", ru: "виноград" }, tip: { uz: "Nafasli «p».", ru: "Придыхательное «п»." } },
-  { g: "ㅎ", r: "h", name: "히읗", say: "하", ex: { ko: "하나", rom: "hana", uz: "bir", ru: "один" }, tip: { uz: "Yengil «h».", ru: "Лёгкое «х»." } },
+  { g: "ㄱ", r: "g / k", name: "기역", say: "가", ex: { ko: "가방", rom: "gabang", uz: "sumka" }, tip: "So‘z boshida «g» va «k» oralig‘idagi tovush, oxirida «k»." },
+  { g: "ㄴ", r: "n", name: "니은", say: "나", ex: { ko: "나무", rom: "namu", uz: "daraxt" }, tip: "O‘zbekcha «n» kabi." },
+  { g: "ㄷ", r: "d / t", name: "디귿", say: "다", ex: { ko: "다리", rom: "dari", uz: "ko‘prik; oyoq" }, tip: "«d» va «t» oralig‘ida, yumshoq aytiladi." },
+  { g: "ㄹ", r: "r / l", name: "리을", say: "라", ex: { ko: "라면", rom: "ramyeon", uz: "ramyon (lag‘mon)" }, tip: "Unlilar orasida yengil «r», bo‘g‘in oxirida «l»." },
+  { g: "ㅁ", r: "m", name: "미음", say: "마", ex: { ko: "물", rom: "mul", uz: "suv" }, tip: "O‘zbekcha «m»." },
+  { g: "ㅂ", r: "b / p", name: "비읍", say: "바", ex: { ko: "바다", rom: "bada", uz: "dengiz" }, tip: "«b» va «p» oralig‘ida." },
+  { g: "ㅅ", r: "s", name: "시옷", say: "사", ex: { ko: "사람", rom: "saram", uz: "odam" }, tip: "«s»; ㅣ oldida «sh» (시 = shi)." },
+  { g: "ㅇ", r: "– / ng", name: "이응", say: "아", ex: { ko: "아이", rom: "ai", uz: "bola" }, tip: "Bo‘g‘in boshida ovozsiz, oxirida «ng» (방 = bang)." },
+  { g: "ㅈ", r: "j", name: "지읒", say: "자", ex: { ko: "자전거", rom: "jajeongeo", uz: "velosiped" }, tip: "Yumshoq «j» (o‘zbekcha «jon»dagi kabi)." },
+  { g: "ㅊ", r: "ch", name: "치읓", say: "차", ex: { ko: "차", rom: "cha", uz: "mashina; choy" }, tip: "Kuchli nafas bilan «ch»." },
+  { g: "ㅋ", r: "k", name: "키읔", say: "카", ex: { ko: "커피", rom: "keopi", uz: "qahva" }, tip: "Nafasli «k» — og‘iz oldida havo chiqadi." },
+  { g: "ㅌ", r: "t", name: "티읕", say: "타", ex: { ko: "토마토", rom: "tomato", uz: "pomidor" }, tip: "Nafasli «t»." },
+  { g: "ㅍ", r: "p", name: "피읖", say: "파", ex: { ko: "포도", rom: "podo", uz: "uzum" }, tip: "Nafasli «p»." },
+  { g: "ㅎ", r: "h", name: "히읗", say: "하", ex: { ko: "하나", rom: "hana", uz: "bir" }, tip: "Yengil «h»." },
 ];
 
 export const DOUBLE_CONSONANTS: Jamo[] = [
-  { g: "ㄲ", r: "kk", name: "쌍기역", say: "까", ex: { ko: "꽃", rom: "kkot", uz: "gul", ru: "цветок" }, tip: { uz: "Taranglashgan «k» — nafassiz, keskin.", ru: "Напряжённое «к» без придыхания." } },
-  { g: "ㄸ", r: "tt", name: "쌍디귿", say: "따", ex: { ko: "딸기", rom: "ttalgi", uz: "qulupnay", ru: "клубника" }, tip: { uz: "Taranglashgan «t».", ru: "Напряжённое «т»." } },
-  { g: "ㅃ", r: "pp", name: "쌍비읍", say: "빠", ex: { ko: "빵", rom: "ppang", uz: "non", ru: "хлеб" }, tip: { uz: "Taranglashgan «p».", ru: "Напряжённое «п»." } },
-  { g: "ㅆ", r: "ss", name: "쌍시옷", say: "싸", ex: { ko: "쌀", rom: "ssal", uz: "guruch", ru: "рис" }, tip: { uz: "Kuchli, cho‘zilgan «s».", ru: "Сильное «с»." } },
-  { g: "ㅉ", r: "jj", name: "쌍지읒", say: "짜", ex: { ko: "짜다", rom: "jjada", uz: "sho‘r", ru: "солёный" }, tip: { uz: "Taranglashgan «ch/j».", ru: "Напряжённое «ч»." } },
+  { g: "ㄲ", r: "kk", name: "쌍기역", say: "까", ex: { ko: "꽃", rom: "kkot", uz: "gul" }, tip: "Taranglashgan «k» — nafassiz, keskin." },
+  { g: "ㄸ", r: "tt", name: "쌍디귿", say: "따", ex: { ko: "딸기", rom: "ttalgi", uz: "qulupnay" }, tip: "Taranglashgan «t»." },
+  { g: "ㅃ", r: "pp", name: "쌍비읍", say: "빠", ex: { ko: "빵", rom: "ppang", uz: "non" }, tip: "Taranglashgan «p»." },
+  { g: "ㅆ", r: "ss", name: "쌍시옷", say: "싸", ex: { ko: "쌀", rom: "ssal", uz: "guruch" }, tip: "Kuchli, cho‘zilgan «s»." },
+  { g: "ㅉ", r: "jj", name: "쌍지읒", say: "짜", ex: { ko: "짜다", rom: "jjada", uz: "sho‘r" }, tip: "Taranglashgan «ch/j»." },
 ];
 
 export const VOWELS: Jamo[] = [
-  { g: "ㅏ", r: "a", say: "아", ex: { ko: "아버지", rom: "abeoji", uz: "ota", ru: "отец" }, tip: { uz: "«a».", ru: "«а»." } },
-  { g: "ㅑ", r: "ya", say: "야", ex: { ko: "야구", rom: "yagu", uz: "beysbol", ru: "бейсбол" }, tip: { uz: "«ya».", ru: "«я»." } },
-  { g: "ㅓ", r: "eo", say: "어", ex: { ko: "어머니", rom: "eomeoni", uz: "ona", ru: "мать" }, tip: { uz: "Og‘izni keng ochib, lablarni yumaloqlamasdan «o».", ru: "Открытое «о» без округления губ." } },
-  { g: "ㅕ", r: "yeo", say: "여", ex: { ko: "여자", rom: "yeoja", uz: "ayol", ru: "женщина" }, tip: { uz: "«yo» (ㅓ ning y-li varianti).", ru: "«ё» (открытое)." } },
-  { g: "ㅗ", r: "o", say: "오", ex: { ko: "오이", rom: "oi", uz: "bodring", ru: "огурец" }, tip: { uz: "Lablarni yumaloqlab «o».", ru: "«о» с округлёнными губами." } },
-  { g: "ㅛ", r: "yo", say: "요", ex: { ko: "요리", rom: "yori", uz: "taom tayyorlash", ru: "готовка" }, tip: { uz: "Yumaloq «yo».", ru: "Округлое «йо»." } },
-  { g: "ㅜ", r: "u", say: "우", ex: { ko: "우유", rom: "uyu", uz: "sut", ru: "молоко" }, tip: { uz: "«u».", ru: "«у»." } },
-  { g: "ㅠ", r: "yu", say: "유", ex: { ko: "유리", rom: "yuri", uz: "shisha", ru: "стекло" }, tip: { uz: "«yu».", ru: "«ю»." } },
-  { g: "ㅡ", r: "eu", say: "으", ex: { ko: "음악", rom: "eumak", uz: "musiqa", ru: "музыка" }, tip: { uz: "Lablar cho‘zilgan, ruscha «ы»ga yaqin.", ru: "Похоже на «ы», губы растянуты." } },
-  { g: "ㅣ", r: "i", say: "이", ex: { ko: "이름", rom: "ireum", uz: "ism", ru: "имя" }, tip: { uz: "«i».", ru: "«и»." } },
-  { g: "ㅐ", r: "ae", say: "애", ex: { ko: "개", rom: "gae", uz: "it", ru: "собака" }, tip: { uz: "Ochiq «e» (ㅔ bilan deyarli bir xil).", ru: "Открытое «э»." } },
-  { g: "ㅒ", r: "yae", say: "얘", ex: { ko: "얘기", rom: "yaegi", uz: "suhbat", ru: "разговор" }, tip: { uz: "«ye».", ru: "«е»." } },
-  { g: "ㅔ", r: "e", say: "에", ex: { ko: "게", rom: "ge", uz: "qisqichbaqa", ru: "краб" }, tip: { uz: "«e».", ru: "«э»." } },
-  { g: "ㅖ", r: "ye", say: "예", ex: { ko: "시계", rom: "sigye", uz: "soat", ru: "часы" }, tip: { uz: "«ye».", ru: "«е»." } },
-  { g: "ㅘ", r: "wa", say: "와", ex: { ko: "사과", rom: "sagwa", uz: "olma", ru: "яблоко" }, tip: { uz: "ㅗ + ㅏ = «va».", ru: "ㅗ + ㅏ = «ва»." } },
-  { g: "ㅙ", r: "wae", say: "왜", ex: { ko: "왜", rom: "wae", uz: "nega", ru: "почему" }, tip: { uz: "«ve».", ru: "«вэ»." } },
-  { g: "ㅚ", r: "oe", say: "외", ex: { ko: "회사", rom: "hoesa", uz: "kompaniya", ru: "компания" }, tip: { uz: "Ko‘pincha «ve» deb aytiladi.", ru: "Обычно звучит как «вэ»." } },
-  { g: "ㅝ", r: "wo", say: "워", ex: { ko: "뭐", rom: "mwo", uz: "nima", ru: "что" }, tip: { uz: "ㅜ + ㅓ = «vo».", ru: "ㅜ + ㅓ = «во»." } },
-  { g: "ㅞ", r: "we", say: "웨", ex: { ko: "웨이터", rom: "weiteo", uz: "ofitsiant", ru: "официант" }, tip: { uz: "«ve».", ru: "«вэ»." } },
-  { g: "ㅟ", r: "wi", say: "위", ex: { ko: "귀", rom: "gwi", uz: "quloq", ru: "ухо" }, tip: { uz: "«vi».", ru: "«ви»." } },
-  { g: "ㅢ", r: "ui", say: "의", ex: { ko: "의사", rom: "uisa", uz: "shifokor", ru: "врач" }, tip: { uz: "ㅡ + ㅣ tez aytiladi.", ru: "Быстро ㅡ + ㅣ («ый»)." } },
+  { g: "ㅏ", r: "a", say: "아", ex: { ko: "아버지", rom: "abeoji", uz: "ota" }, tip: "«a»." },
+  { g: "ㅑ", r: "ya", say: "야", ex: { ko: "야구", rom: "yagu", uz: "beysbol" }, tip: "«ya»." },
+  { g: "ㅓ", r: "eo", say: "어", ex: { ko: "어머니", rom: "eomeoni", uz: "ona" }, tip: "Og‘izni keng ochib, lablarni yumaloqlamasdan «o»." },
+  { g: "ㅕ", r: "yeo", say: "여", ex: { ko: "여자", rom: "yeoja", uz: "ayol" }, tip: "«yo» (ㅓ ning y-li varianti)." },
+  { g: "ㅗ", r: "o", say: "오", ex: { ko: "오이", rom: "oi", uz: "bodring" }, tip: "Lablarni yumaloqlab «o»." },
+  { g: "ㅛ", r: "yo", say: "요", ex: { ko: "요리", rom: "yori", uz: "taom tayyorlash" }, tip: "Yumaloq «yo»." },
+  { g: "ㅜ", r: "u", say: "우", ex: { ko: "우유", rom: "uyu", uz: "sut" }, tip: "«u»." },
+  { g: "ㅠ", r: "yu", say: "유", ex: { ko: "유리", rom: "yuri", uz: "shisha" }, tip: "«yu»." },
+  { g: "ㅡ", r: "eu", say: "으", ex: { ko: "음악", rom: "eumak", uz: "musiqa" }, tip: "Lablar cho‘zilgan, ruscha «ы»ga yaqin." },
+  { g: "ㅣ", r: "i", say: "이", ex: { ko: "이름", rom: "ireum", uz: "ism" }, tip: "«i»." },
+  { g: "ㅐ", r: "ae", say: "애", ex: { ko: "개", rom: "gae", uz: "it" }, tip: "Ochiq «e» (ㅔ bilan deyarli bir xil)." },
+  { g: "ㅒ", r: "yae", say: "얘", ex: { ko: "얘기", rom: "yaegi", uz: "suhbat" }, tip: "«ye»." },
+  { g: "ㅔ", r: "e", say: "에", ex: { ko: "게", rom: "ge", uz: "qisqichbaqa" }, tip: "«e»." },
+  { g: "ㅖ", r: "ye", say: "예", ex: { ko: "시계", rom: "sigye", uz: "soat" }, tip: "«ye»." },
+  { g: "ㅘ", r: "wa", say: "와", ex: { ko: "사과", rom: "sagwa", uz: "olma" }, tip: "ㅗ + ㅏ = «va»." },
+  { g: "ㅙ", r: "wae", say: "왜", ex: { ko: "왜", rom: "wae", uz: "nega" }, tip: "«ve»." },
+  { g: "ㅚ", r: "oe", say: "외", ex: { ko: "회사", rom: "hoesa", uz: "kompaniya" }, tip: "Ko‘pincha «ve» deb aytiladi." },
+  { g: "ㅝ", r: "wo", say: "워", ex: { ko: "뭐", rom: "mwo", uz: "nima" }, tip: "ㅜ + ㅓ = «vo»." },
+  { g: "ㅞ", r: "we", say: "웨", ex: { ko: "웨이터", rom: "weiteo", uz: "ofitsiant" }, tip: "«ve»." },
+  { g: "ㅟ", r: "wi", say: "위", ex: { ko: "귀", rom: "gwi", uz: "quloq" }, tip: "«vi»." },
+  { g: "ㅢ", r: "ui", say: "의", ex: { ko: "의사", rom: "uisa", uz: "shifokor" }, tip: "ㅡ + ㅣ tez aytiladi." },
 ];
 
-export const BATCHIM: { sound: string; letters: string; ex: { ko: string; rom: string; uz: string; ru: string }[] }[] = [
-  { sound: "k", letters: "ㄱ ㅋ ㄲ", ex: [{ ko: "책", rom: "chaek", uz: "kitob", ru: "книга" }, { ko: "부엌", rom: "bueok", uz: "oshxona", ru: "кухня" }] },
-  { sound: "n", letters: "ㄴ", ex: [{ ko: "산", rom: "san", uz: "tog‘", ru: "гора" }, { ko: "돈", rom: "don", uz: "pul", ru: "деньги" }] },
-  { sound: "t", letters: "ㄷ ㅅ ㅆ ㅈ ㅊ ㅌ ㅎ", ex: [{ ko: "옷", rom: "ot", uz: "kiyim", ru: "одежда" }, { ko: "꽃", rom: "kkot", uz: "gul", ru: "цветок" }] },
-  { sound: "l", letters: "ㄹ", ex: [{ ko: "물", rom: "mul", uz: "suv", ru: "вода" }, { ko: "달", rom: "dal", uz: "oy", ru: "луна" }] },
-  { sound: "m", letters: "ㅁ", ex: [{ ko: "밤", rom: "bam", uz: "tun", ru: "ночь" }, { ko: "김치", rom: "gimchi", uz: "kimchi", ru: "кимчи" }] },
-  { sound: "p", letters: "ㅂ ㅍ", ex: [{ ko: "밥", rom: "bap", uz: "ovqat, guruch", ru: "еда, рис" }, { ko: "앞", rom: "ap", uz: "old", ru: "перед" }] },
-  { sound: "ng", letters: "ㅇ", ex: [{ ko: "강", rom: "gang", uz: "daryo", ru: "река" }, { ko: "방", rom: "bang", uz: "xona", ru: "комната" }] },
+export const BATCHIM: { sound: string; letters: string; ex: { ko: string; rom: string; uz: string }[] }[] = [
+  { sound: "k", letters: "ㄱ ㅋ ㄲ", ex: [{ ko: "책", rom: "chaek", uz: "kitob" }, { ko: "부엌", rom: "bueok", uz: "oshxona" }] },
+  { sound: "n", letters: "ㄴ", ex: [{ ko: "산", rom: "san", uz: "tog‘" }, { ko: "돈", rom: "don", uz: "pul" }] },
+  { sound: "t", letters: "ㄷ ㅅ ㅆ ㅈ ㅊ ㅌ ㅎ", ex: [{ ko: "옷", rom: "ot", uz: "kiyim" }, { ko: "꽃", rom: "kkot", uz: "gul" }] },
+  { sound: "l", letters: "ㄹ", ex: [{ ko: "물", rom: "mul", uz: "suv" }, { ko: "달", rom: "dal", uz: "oy" }] },
+  { sound: "m", letters: "ㅁ", ex: [{ ko: "밤", rom: "bam", uz: "tun" }, { ko: "김치", rom: "gimchi", uz: "kimchi" }] },
+  { sound: "p", letters: "ㅂ ㅍ", ex: [{ ko: "밥", rom: "bap", uz: "ovqat, guruch" }, { ko: "앞", rom: "ap", uz: "old" }] },
+  { sound: "ng", letters: "ㅇ", ex: [{ ko: "강", rom: "gang", uz: "daryo" }, { ko: "방", rom: "bang", uz: "xona" }] },
 ];
 
 // Bo'g'in yasash (Unicode: 0xAC00 + (I*21 + V)*28 + F)

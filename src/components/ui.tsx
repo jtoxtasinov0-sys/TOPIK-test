@@ -3,7 +3,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { NoticeSpec } from "@/lib/exam";
 import { playKorean, stopAudio, type TtsOpts } from "@/lib/audio";
-import { useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
 
 // ---------- AI so'rovlari uchun yordamchi ----------
@@ -26,19 +25,15 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
 }
 
 export function useAiErrorText() {
-  const { L } = useLang();
   return (e: unknown) => {
     if (e instanceof ApiError) {
       if (e.code === "NO_KEY" || e.status === 503)
-        return L(
-          "AI hali ulanmagan: serverda GEMINI_API_KEY sozlanishi kerak (README’ga qarang).",
-          "AI ещё не подключён: на сервере нужно задать GEMINI_API_KEY (см. README)."
-        );
-      if (e.status === 429) return L("Juda ko‘p so‘rov. 1-2 daqiqadan keyin urinib ko‘ring.", "Слишком много запросов. Попробуйте через 1–2 минуты.");
-      if (e.status === 0) return L("Internet aloqasini tekshiring.", "Проверьте подключение к интернету.");
-      return L("AI xatosi: ", "Ошибка AI: ") + e.message;
+        return "AI hali ulanmagan: serverda GEMINI_API_KEY sozlanishi kerak (README’ga qarang).";
+      if (e.status === 429) return "Juda ko‘p so‘rov. 1-2 daqiqadan keyin urinib ko‘ring.";
+      if (e.status === 0) return "Internet aloqasini tekshiring.";
+      return "AI xatosi: " + e.message;
     }
-    return L("Kutilmagan xato yuz berdi.", "Произошла непредвиденная ошибка.");
+    return "Kutilmagan xato yuz berdi.";
   };
 }
 

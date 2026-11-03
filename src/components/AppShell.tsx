@@ -49,14 +49,12 @@ function AccountButton() {
     me.admin || !a
       ? null
       : a.status === "expired"
-        ? { cls: "red", text: L("Obuna", "Подписка") }
-        : a.status === "trial" || a.daysLeft <= 5
-          ? { cls: a.daysLeft <= 5 ? "amber" : "", text: `${a.status === "trial" ? "🎁" : "💎"} ${a.daysLeft} ${L("kun", "дн.")}` }
-          : null;
+        ? { cls: "red", text: L("Sinov tugadi", "Пробный период истёк") }
+        : { cls: a.daysLeft <= 5 ? "amber" : "", text: `🎁 ${a.daysLeft} ${L("kun", "дн.")}` };
   return (
     <>
       {pill && (
-        <Link href={a?.status === "expired" ? "/pricing" : "/account"} className={`badge ${pill.cls} hide-mobile`} style={{ padding: "7px 12px" }}>
+        <Link href="/account" className={`badge ${pill.cls} hide-mobile`} style={{ padding: "7px 12px" }}>
           {pill.text}
         </Link>
       )}
@@ -79,7 +77,6 @@ export function useNav() {
     { href: "/tutor", icon: "spark", label: L("AI Ustoz", "AI Учитель"), emoji: "🤖" },
     { href: "/guide", icon: "map", label: L("Koreyada hayot", "Жизнь в Корее"), emoji: "🇰🇷" },
     { href: "/progress", icon: "chart", label: L("Natijalarim", "Мои результаты"), emoji: "📈" },
-    { href: "/pricing", icon: "star", label: L("Tariflar", "Тарифы"), emoji: "💎" },
     { href: "/account", icon: "user", label: L("Profil", "Профиль"), emoji: "👤" },
   ];
 }

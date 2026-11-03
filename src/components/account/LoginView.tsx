@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { Avatar, GoogleButton, useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
-import { formatSum, MONTHLY_PRICE, TRIAL_DAYS } from "@/lib/plans";
+import { TRIAL_DAYS } from "@/lib/access";
 import { safePath, useSearch } from "./shared";
 
 export function LoginView() {
@@ -41,8 +41,8 @@ export function LoginView() {
           </ul>
           <div className="small" style={{ opacity: 0.85 }}>
             {L(
-              `Sinovdan keyin — oyiga ${formatSum(MONTHLY_PRICE)} so‘mdan. Avtomatik yechib olish yo‘q.`,
-              `После пробного периода — от ${formatSum(MONTHLY_PRICE)} сум в месяц. Без автосписаний.`
+              "Karta kerak emas. Hangul, darslar, so‘zlar va mock testlar har doim bepul.",
+              "Карта не нужна. Хангыль, уроки, слова и пробные тесты всегда бесплатны."
             )}
           </div>
         </div>

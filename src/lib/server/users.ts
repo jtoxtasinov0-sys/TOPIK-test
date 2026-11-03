@@ -1,5 +1,5 @@
 import "server-only";
-import { computeAccess, DAY_MS, extendedUntil, TRIAL_DAYS, type Access } from "@/lib/plans";
+import { computeAccess, DAY_MS, extendTrial, TRIAL_DAYS, type Access } from "@/lib/access";
 import { getStore, withLock } from "./store";
 
 export type User = {
@@ -10,7 +10,6 @@ export type User = {
   createdAt: number;
   lastLoginAt: number;
   trialEndsAt: number;
-  paidUntil: number;
 };
 
 export type PublicUser = Pick<User, "id" | "email" | "name" | "picture" | "createdAt">;
@@ -36,8 +35,8 @@ export function accessOf(u: User, now = Date.now()): Access {
   return computeAccess(u, now);
 }
 
-/** Sinov yoki obuna faolmi (adminlar har doim kira oladi) */
-export function canUsePremium(u: User, now = Date.now()) {
+/** Bepul sinov hali tugamaganmi (adminlar har doim kira oladi) */
+export function canUseAi(u: User, now = Date.now()) {
   return isAdminEmail(u.email) || accessOf(u, now).status !== "expired";
 }
 
@@ -59,7 +58,7 @@ export async function upsertGoogleUser(p: { sub: string; email: string; name?: s
   const email = p.email.toLowerCase();
   const name = (p.name || email.split("@")[0]).slice(0, 80);
   if (await getUser(p.sub)) {
-    // Qulf ostida: shu payt kelgan to'lov (paidUntil) ustidan yozib yubormaslik uchun
+    // Qulf ostida: shu payt admin uzaytirgan muddat ustidan yozib yubormaslik uchun
     const user = await withLock(`user:${p.sub}`, async () => {
       const existing = (await getUser(p.sub))!;
       const u: User = { ...existing, email, name, picture: p.picture, lastLoginAt: now };
@@ -77,7 +76,6 @@ export async function upsertGoogleUser(p: { sub: string; email: string; name?: s
     createdAt: now,
     lastLoginAt: now,
     trialEndsAt: now + TRIAL_DAYS * DAY_MS,
-    paidUntil: 0,
   };
   // NX: bir vaqtda ikki marta kirilsa ham sinov bir marta beriladi
   const created = await kv.set(userKey(fresh.id), fresh, { nx: true });
@@ -87,13 +85,12 @@ export async function upsertGoogleUser(p: { sub: string; email: string; name?: s
   return { user: fresh, created: true };
 }
 
-/** To'lov yoki admin qo'lda qo'shgan kunlar. Manfiy son — obunani qisqartirish. */
+/** Admin sinov muddatini qo'lda uzaytiradi. Manfiy son — qisqartirish. */
 export async function addDays(id: string, days: number, now = Date.now()) {
   return withLock(`user:${id}`, async () => {
     const u = await getUser(id);
     if (!u) return null;
-    const paidUntil = days >= 0 ? extendedUntil(u, days, now) : Math.max(0, (u.paidUntil || 0) + days * DAY_MS);
-    const next: User = { ...u, paidUntil };
+    const next: User = { ...u, trialEndsAt: extendTrial(u.trialEndsAt, days, now) };
     await getStore().set(userKey(id), next);
     return next;
   });

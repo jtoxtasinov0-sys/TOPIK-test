@@ -1,4 +1,4 @@
-// API yo'llari testi: Google login → sessiya → /api/me → AI paywall → to'lov havolasi.
+// API yo'llari testi: Google login → sessiya → /api/me → sinov tugaganda AI yopiladi.
 // Google token endpointi soxta fetch bilan almashtiriladi.
 
 import assert from "node:assert/strict";
@@ -8,8 +8,6 @@ process.env.AUTH_SECRET = "test-secret-0123456789abcdef";
 process.env.GOOGLE_CLIENT_ID = "cid.apps.googleusercontent.com";
 process.env.GOOGLE_CLIENT_SECRET = "csecret";
 process.env.APP_URL = "https://hanqadam.uz";
-process.env.PAYME_MERCHANT_ID = "m-123";
-process.env.PAYME_KEY = "k";
 process.env.GEMINI_API_KEY = "";
 
 const { createMemoryStore, setStore } = await import("../src/lib/server/store");
@@ -17,10 +15,9 @@ const googleRoute = await import("../src/app/api/auth/google/route");
 const callbackRoute = await import("../src/app/api/auth/callback/route");
 const meRoute = await import("../src/app/api/me/route");
 const explainRoute = await import("../src/app/api/explain/route");
-const checkoutRoute = await import("../src/app/api/billing/checkout/route");
 const logoutRoute = await import("../src/app/api/auth/logout/route");
 const users = await import("../src/lib/server/users");
-const { DAY_MS, TRIAL_DAYS } = await import("../src/lib/plans");
+const { DAY_MS, TRIAL_DAYS } = await import("../src/lib/access");
 
 const BASE = "https://hanqadam.uz";
 const cookieOf = (res: Response, name: string) =>
@@ -71,11 +68,10 @@ describe("Google login oqimi", () => {
 
   test("/api/me sinovni ko'rsatadi", async () => {
     const res = await meRoute.GET(new Request(`${BASE}/api/me`, { headers: { cookie: session } }));
-    const me = (await res.json()) as { user: { email: string }; access: { status: string; daysLeft: number }; providers: { payme: boolean } };
+    const me = (await res.json()) as { user: { email: string }; access: { status: string; daysLeft: number } };
     assert.equal(me.user.email, "vali@gmail.com");
     assert.equal(me.access.status, "trial");
     assert.equal(me.access.daysLeft, TRIAL_DAYS);
-    assert.equal(me.providers.payme, true);
 
     const anon = (await (await meRoute.GET(new Request(`${BASE}/api/me`))).json()) as { user: unknown; authEnabled: boolean };
     assert.equal(anon.user, null);
@@ -99,21 +95,6 @@ describe("Google login oqimi", () => {
     const expired = await explainRoute.POST(new Request(`${BASE}/api/explain`, { method: "POST", body, headers: { cookie: session } }));
     assert.equal(expired.status, 402);
     assert.equal(((await expired.json()) as { code: string }).code, "PAYWALL");
-  });
-
-  test("to'lov havolasi Payme formatida", async () => {
-    const res = await checkoutRoute.POST(
-      new Request(`${BASE}/api/billing/checkout`, { method: "POST", body: JSON.stringify({ plan: "m1", provider: "payme", lang: "uz" }), headers: { cookie: session } })
-    );
-    const j = (await res.json()) as { url: string; orderId: string };
-    assert.ok(j.url.startsWith("https://checkout.paycom.uz/"));
-    const decoded = Buffer.from(j.url.split("/").pop()!, "base64").toString();
-    assert.equal(decoded, `m=m-123;ac.order_id=${j.orderId};a=4900000;l=uz;c=${BASE}/account`);
-
-    const click = await checkoutRoute.POST(
-      new Request(`${BASE}/api/billing/checkout`, { method: "POST", body: JSON.stringify({ plan: "m1", provider: "click" }), headers: { cookie: session } })
-    );
-    assert.equal(click.status, 400, "Click sozlanmagan");
   });
 
   test("chiqish cookie'ni o'chiradi", async () => {

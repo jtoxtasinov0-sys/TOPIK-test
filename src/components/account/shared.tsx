@@ -24,7 +24,3 @@ export function fmtDate(ms: number | undefined, lang: Lang) {
   if (!ms) return "—";
   return new Date(ms).toLocaleDateString(lang === "ru" ? "ru-RU" : "uz-UZ", { day: "numeric", month: "long", year: "numeric" });
 }
-
-export const PROVIDER_NAME = { payme: "Payme", click: "Click" } as const;
-
-export const SUPPORT_URL = process.env.NEXT_PUBLIC_SUPPORT_URL || "";

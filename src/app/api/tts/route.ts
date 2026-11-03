@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { errorResponse, hasKey, rateLimit, synthesize } from "@/lib/gemini";
 import { parseScript } from "@/lib/exam";
-import { chargeQuota, requirePremium } from "@/lib/server/guard";
+import { chargeQuota, requireAiAccess } from "@/lib/server/guard";
 
 export const maxDuration = 60;
 
@@ -11,8 +11,8 @@ const cache = new Map<string, Buffer>();
 export async function POST(req: Request) {
   try {
     if (!hasKey()) return Response.json({ error: "TTS o'chirilgan", code: "NO_KEY" }, { status: 503 });
-    // Gemini ovozi — sinov/obuna uchun; qolganlar uchun brauzer ovozi ishlaydi
-    const user = await requirePremium(req);
+    // Gemini ovozi — kirgan va sinovi tugamaganlar uchun; qolganlarga brauzer ovozi ishlaydi
+    const user = await requireAiAccess(req);
     const { text, slow, voice } = (await req.json()) as { text?: string; slow?: boolean; voice?: "f" | "m" };
     if (typeof text !== "string" || !text.trim() || text.length > 2500) {
       return Response.json({ error: "Matn noto'g'ri" }, { status: 400 });

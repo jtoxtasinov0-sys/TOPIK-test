@@ -1,12 +1,12 @@
 import { errorResponse, LANG_NAME, rateLimit, streamText } from "@/lib/gemini";
-import { premium } from "@/lib/server/guard";
+import { aiAccess } from "@/lib/server/guard";
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
     rateLimit(req, "ai", 60, 5 * 60_000);
-    await premium(req, "tutor");
+    await aiAccess(req, "tutor");
     const { messages, lang } = (await req.json()) as {
       messages: { role: "user" | "ai"; text: string }[];
       lang: "uz" | "ru";

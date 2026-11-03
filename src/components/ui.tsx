@@ -13,7 +13,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Kirish yoki obuna kerak bo'lsa — global oynani ochadi (AuthProvider tinglaydi) */
+/** Kirish kerak yoki sinov tugagan bo'lsa — global oynani ochadi (AuthProvider tinglaydi) */
 export function notifyAccess(status: number, code?: string) {
   if (typeof window === "undefined") return;
   if (status === 401 && code === "AUTH") window.dispatchEvent(new CustomEvent("hq:paywall", { detail: "AUTH" }));
@@ -42,7 +42,7 @@ export function useAiErrorText() {
       if (e.status === 401 && e.code === "AUTH")
         return L("Bu AI funksiya uchun Google orqali kiring — 30 kun bepul.", "Для этой AI-функции войдите через Google — 30 дней бесплатно.");
       if (e.status === 402)
-        return L("Bepul sinov muddati tugadi. Davom etish uchun obunani faollashtiring.", "Пробный период закончился. Оформите подписку, чтобы продолжить.");
+        return L("Bepul sinov muddati tugadi — AI funksiyalari yopildi.", "Пробный период закончился — AI-функции закрыты.");
       if (e.code === "QUOTA")
         return L("Bugungi AI limiti tugadi. Ertaga yana davom eting 🙏", "Дневной лимит AI исчерпан. Продолжите завтра 🙏");
       if (e.code === "NO_DB")

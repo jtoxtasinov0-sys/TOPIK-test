@@ -2,7 +2,7 @@ import "server-only";
 import { AiError } from "@/lib/gemini";
 import { readSession } from "./session";
 import { getStore } from "./store";
-import { canUsePremium, getUser, isAdminEmail, type User } from "./users";
+import { canUseAi, getUser, isAdminEmail, type User } from "./users";
 
 /** Google login sozlanganmi. Sozlanmagan bo'lsa ilova eski "ochiq" rejimda ishlaydi (lokal ishlab chiqish uchun). */
 export function authEnabled() {
@@ -26,14 +26,14 @@ export const DAILY_LIMITS = {
 export type Bucket = keyof typeof DAILY_LIMITS;
 
 /**
- * AI funksiyalari uchun tekshiruv: foydalanuvchi kirgan va sinov/obunasi faol bo'lishi shart.
+ * AI funksiyalari uchun tekshiruv: foydalanuvchi kirgan va bepul sinovi tugamagan bo'lishi shart.
  * Auth sozlanmagan bo'lsa — null (ochiq rejim).
  */
-export async function requirePremium(req: Request): Promise<User | null> {
+export async function requireAiAccess(req: Request): Promise<User | null> {
   if (!authEnabled()) return null;
   const user = await currentUser(req);
   if (!user) throw new AiError("Bu funksiya uchun Google orqali kiring — 30 kun bepul", 401, "AUTH");
-  if (!canUsePremium(user)) throw new AiError("Bepul sinov muddati tugagan. Davom etish uchun obunani faollashtiring", 402, "PAYWALL");
+  if (!canUseAi(user)) throw new AiError("Bepul sinov muddati tugagan", 402, "PAYWALL");
   return user;
 }
 
@@ -45,9 +45,9 @@ export async function chargeQuota(user: User | null, bucket: Bucket) {
   if (n > DAILY_LIMITS[bucket]) throw new AiError("Bugungi AI limiti tugadi. Ertaga yana davom eting", 429, "QUOTA");
 }
 
-/** requirePremium + chargeQuota */
-export async function premium(req: Request, bucket: Bucket) {
-  const user = await requirePremium(req);
+/** requireAiAccess + chargeQuota */
+export async function aiAccess(req: Request, bucket: Bucket) {
+  const user = await requireAiAccess(req);
   await chargeQuota(user, bucket);
   return user;
 }

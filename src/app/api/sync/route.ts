@@ -4,7 +4,7 @@ import { SYNC_KEYS } from "@/lib/sync-keys";
 import { currentUser } from "@/lib/server/guard";
 import { getStore } from "@/lib/server/store";
 
-// Natijalarni bulutda saqlash: kirgan foydalanuvchi uchun bepul (obuna shart emas)
+// Natijalarni bulutda saqlash: kirgan har bir foydalanuvchi uchun (sinov tugagan bo'lsa ham)
 const MAX_BYTES = 256 * 1024;
 type Blob = { data: Record<string, unknown>; updatedAt: number };
 const key = (uid: string) => `sync:${uid}`;

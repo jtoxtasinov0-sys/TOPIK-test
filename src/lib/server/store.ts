@@ -2,7 +2,7 @@ import "server-only";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-// Kalit-qiymat ombori: foydalanuvchilar, obunalar, to'lovlar va sinxronlangan natijalar.
+// Kalit-qiymat ombori: foydalanuvchilar, sinov muddatlari va sinxronlangan natijalar.
 // Production: Upstash Redis (Vercel Marketplace → Upstash) REST API orqali, kutubxonasiz.
 // Lokal ishlab chiqish: .data/db.json fayli.
 
@@ -219,7 +219,7 @@ export function getStore(): Kv {
   return (g.__hqStore = createMemoryStore(file));
 }
 
-/** Oddiy taqsimlangan qulf: bir vaqtda bitta jarayon o'qib-yozishi uchun (masalan, to'lovni qayd etish) */
+/** Oddiy taqsimlangan qulf: bir vaqtda bitta jarayon o'qib-yozishi uchun */
 export async function withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
   const kv = getStore();
   const key = `lock:${name}`;

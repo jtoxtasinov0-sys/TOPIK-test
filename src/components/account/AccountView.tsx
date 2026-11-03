@@ -4,8 +4,8 @@ import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { Avatar, GoogleButton, useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
-import { formatSum, TRIAL_DAYS } from "@/lib/plans";
-import { fmtDate, PROVIDER_NAME, safePath, useSearch } from "./shared";
+import { TRIAL_DAYS } from "@/lib/access";
+import { fmtDate, safePath, useSearch } from "./shared";
 
 export function AccountView() {
   const { L, lang } = useLang();
@@ -50,17 +50,13 @@ export function AccountView() {
 
   const u = me.user;
   const a = me.access;
-  const orders = me.orders ?? [];
-  // Sinov holatida daysLeft = sinovdan qolgan kunlar
   const trialUsed = a?.status === "trial" ? Math.min(TRIAL_DAYS, Math.max(0, TRIAL_DAYS - a.daysLeft)) : 0;
 
   const statusText = me.admin
     ? L("Admin — cheksiz kirish", "Админ — безлимитный доступ")
     : a?.status === "trial"
       ? L("Bepul sinov", "Пробный период")
-      : a?.status === "active"
-        ? "Premium"
-        : L("Muddat tugagan", "Срок истёк");
+      : L("Bepul sinov tugagan", "Пробный период закончился");
 
   return (
     <main className="container page" style={{ maxWidth: 860 }}>
@@ -73,8 +69,8 @@ export function AccountView() {
             </h1>
             <p style={{ margin: 0, opacity: 0.9 }}>
               {L(
-                `${TRIAL_DAYS} kunlik bepul sinov boshlandi — ${fmtDate(a?.trialEndsAt, lang)} gacha barcha AI imkoniyatlar ochiq. Natijalaringiz endi bulutda saqlanadi.`,
-                `Пробный период на ${TRIAL_DAYS} дней начался — до ${fmtDate(a?.trialEndsAt, lang)} открыты все AI-функции. Результаты теперь сохраняются в облаке.`
+                `${TRIAL_DAYS} kunlik bepul sinov boshlandi — ${fmtDate(a?.until, lang)} gacha barcha AI imkoniyatlar ochiq. Natijalaringiz endi bulutda saqlanadi.`,
+                `Пробный период на ${TRIAL_DAYS} дней начался — до ${fmtDate(a?.until, lang)} открыты все AI-функции. Результаты теперь сохраняются в облаке.`
               )}
             </p>
             <Link href={next === "/account" ? "/" : next} className="btn btn-white" style={{ alignSelf: "flex-start" }}>
@@ -101,7 +97,7 @@ export function AccountView() {
             <span className="small" style={{ fontWeight: 800, opacity: 0.95 }}>
               {statusText}
             </span>
-            <span>{a?.status === "trial" ? "🎁" : a?.status === "active" || me.admin ? "💎" : "⏳"}</span>
+            <span>{me.admin ? "🛠️" : a?.status === "trial" ? "🎁" : "⏳"}</span>
           </div>
           {me.admin ? (
             <div className="display" style={{ fontSize: "2.2rem", fontWeight: 700, margin: "8px 0" }}>∞</div>
@@ -113,51 +109,16 @@ export function AccountView() {
               <div className="small" style={{ opacity: 0.9 }}>
                 {fmtDate(a.until, lang)} {L("gacha", "— до этой даты")}
               </div>
-              {a.status === "trial" && (
-                <div style={{ marginTop: 10, height: 6, borderRadius: 9, background: "rgba(255,255,255,.25)" }}>
-                  <div style={{ width: `${(trialUsed / TRIAL_DAYS) * 100}%`, height: "100%", borderRadius: 9, background: "#fff" }} />
-                </div>
-              )}
+              <div style={{ marginTop: 10, height: 6, borderRadius: 9, background: "rgba(255,255,255,.25)" }}>
+                <div style={{ width: `${(trialUsed / TRIAL_DAYS) * 100}%`, height: "100%", borderRadius: 9, background: "#fff" }} />
+              </div>
             </>
           ) : (
-            <p style={{ margin: "10px 0" }}>
-              {L("AI funksiyalari yopildi. Bepul bo‘limlar ishlashda davom etadi.", "AI-функции закрыты. Бесплатные разделы продолжают работать.")}
+            <p style={{ margin: "10px 0 0" }}>
+              {L("AI funksiyalari yopildi. Hangul, darslar, so‘zlar va mock testlar bepul ishlashda davom etadi.", "AI-функции закрыты. Хангыль, уроки, слова и пробные тесты продолжают работать бесплатно.")}
             </p>
           )}
-          {!me.admin && (
-            <Link href="/pricing" className="btn btn-white btn-sm" style={{ marginTop: 12 }}>
-              {a?.status === "expired" ? L("Obunani faollashtirish", "Подключить подписку") : L("Muddatni uzaytirish", "Продлить")}
-            </Link>
-          )}
         </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 18 }}>
-        <div className="row between" style={{ marginBottom: 8 }}>
-          <h2 className="h3">{L("To‘lovlar tarixi", "История оплат")}</h2>
-          <Icon name="calendar" size={18} />
-        </div>
-        {orders.length === 0 ? (
-          <p className="small muted" style={{ margin: 0 }}>
-            {L("Hali to‘lovlar yo‘q. To‘lov bo‘lgach, bu yerda ko‘rinadi (sahifani yangilang).", "Оплат пока нет. После оплаты она появится здесь (обновите страницу).")}
-          </p>
-        ) : (
-          orders.map((o) => (
-            <div key={o.id} className="row between" style={{ padding: "12px 0", borderTop: "1px dashed var(--line)" }}>
-              <div>
-                <b>
-                  +{o.days} {L("kun", "дн.")}
-                </b>
-                <div className="tiny muted">
-                  {fmtDate(o.paidAt, lang)} · {PROVIDER_NAME[o.provider]} · №{o.id}
-                </div>
-              </div>
-              <b className="display">
-                {formatSum(o.amount)} <span className="small muted">{L("so‘m", "сум")}</span>
-              </b>
-            </div>
-          ))
-        )}
       </div>
 
       <div className="grid-2" style={{ marginTop: 18 }}>

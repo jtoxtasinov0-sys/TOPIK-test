@@ -4,9 +4,7 @@ import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { useLang } from "@/lib/i18n";
 import { daysUntil, DEFAULT_PROFILE, KEYS, type Profile, useStored } from "@/lib/store";
-import { discountPct, formatSum, MONTHLY_PRICE, PLANS, TRIAL_DAYS } from "@/lib/plans";
-
-const MAX_DISCOUNT = Math.max(...PLANS.map(discountPct));
+import { TRIAL_DAYS } from "@/lib/access";
 import type { HistoryItem } from "@/lib/exam";
 
 const LEVELS = [
@@ -421,33 +419,32 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- Narx ---------- */}
+      {/* ---------- Bepul sinov ---------- */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
           <div className="result-hero" style={{ padding: "34px 26px" }}>
             <div className="feature" style={{ gap: 24 }}>
               <div className="stack" style={{ gap: 14 }}>
-                <span className="badge white" style={{ alignSelf: "flex-start" }}>💎 Premium</span>
+                <span className="badge white" style={{ alignSelf: "flex-start" }}>🎁 {L("Bepul sinov", "Пробный период")}</span>
                 <h2 className="h2" style={{ color: "#fff" }}>
-                  {L(`${TRIAL_DAYS} kun bepul, keyin oyiga ${formatSum(MONTHLY_PRICE)} so‘m`, `${TRIAL_DAYS} дней бесплатно, затем ${formatSum(MONTHLY_PRICE)} сум в месяц`)}
+                  {L(`${TRIAL_DAYS} kun — barcha AI imkoniyatlar bepul`, `${TRIAL_DAYS} дней — все AI-возможности бесплатно`)}
                 </h2>
                 <p style={{ margin: 0, opacity: 0.9 }}>
                   {L(
-                    "Gmail orqali kiring — karta kerak emas. Hangul, darslar, so‘zlar va mock testlar har doim bepul; AI tekshiruv, suhbat va AI Ustoz — Premium’da.",
-                    "Войдите через Gmail — карта не нужна. Хангыль, уроки, слова и пробные тесты всегда бесплатны; AI-проверка, разговор и AI Учитель — в Premium."
+                    "Gmail orqali kiring — karta kerak emas. AI tekshiruv, Gemini bilan suhbat, AI Ustoz va AI variantlar darhol ochiladi.",
+                    "Войдите через Gmail — карта не нужна. AI-проверка, разговор с Gemini, AI Учитель и AI-варианты откроются сразу."
                   )}
                 </p>
                 <div className="row-wrap">
-                  <Link href="/pricing" className="btn btn-white btn-lg">
-                    {L("Tariflarni ko‘rish", "Смотреть тарифы")} <Icon name="right" size={20} />
+                  <Link href="/login" className="btn btn-white btn-lg">
+                    {L("Bepul boshlash", "Начать бесплатно")} <Icon name="right" size={20} />
                   </Link>
                 </div>
               </div>
               <ul className="check-list" style={{ color: "#fff" }}>
-                <li>{L("Avtomatik pul yechilmaydi", "Без автосписаний")}</li>
-                <li>{L("Payme va Click orqali to‘lov", "Оплата через Payme и Click")}</li>
+                <li>{L("Parolsiz, bir bosishda kirish", "Вход в один клик, без пароля")}</li>
                 <li>{L("Natijalar barcha qurilmalarda sinxron", "Результаты синхронизируются на всех устройствах")}</li>
-                <li>{L(`Uzoq muddatli tariflarda ${MAX_DISCOUNT}% gacha tejash`, `До ${MAX_DISCOUNT}% экономии на длинных тарифах`)}</li>
+                <li>{L("Hangul, darslar, so‘zlar va mock testlar har doim bepul", "Хангыль, уроки, слова и пробные тесты всегда бесплатны")}</li>
               </ul>
             </div>
           </div>

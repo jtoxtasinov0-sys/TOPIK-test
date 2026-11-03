@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 import { ApiError, postJson, useAiErrorText } from "@/components/ui";
 import { Avatar, useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
-import { formatSum, type Access } from "@/lib/plans";
-import { fmtDate, PROVIDER_NAME } from "./shared";
+import type { Access } from "@/lib/access";
+import { fmtDate } from "./shared";
 
 type AUser = { id: string; email: string; name: string; picture?: string; createdAt: number; lastLoginAt: number; access: Access };
-type AOrder = { id: string; email: string; days: number; amount: number; provider: "payme" | "click"; status: string; createdAt: number; paidAt?: number };
-type Stats = { total: number; new30: number; revenue30: number; paid30: number; payments: AOrder[]; recent: AUser[] };
+type Stats = { total: number; new30: number; recent: AUser[] };
 
 async function getJson<T>(url: string): Promise<T> {
   const r = await fetch(url, { cache: "no-store" });
@@ -24,7 +23,7 @@ export function AdminView() {
   const { me, loading } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [q, setQ] = useState("");
-  const [found, setFound] = useState<{ user: AUser | null; orders?: AOrder[] } | null>(null);
+  const [found, setFound] = useState<{ user: AUser | null } | null>(null);
   const [days, setDays] = useState("30");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,7 +47,7 @@ export function AdminView() {
     setMsg("");
     setBusy(true);
     try {
-      setFound(await getJson<{ user: AUser | null; orders?: AOrder[] }>(`/api/admin?q=${encodeURIComponent(email.trim())}`));
+      setFound(await getJson<{ user: AUser | null }>(`/api/admin?q=${encodeURIComponent(email.trim())}`));
     } catch (e) {
       setMsg(errText(e));
     } finally {
@@ -64,7 +63,7 @@ export function AdminView() {
     setMsg("");
     try {
       const r = await postJson<{ user: AUser }>("/api/admin", { email: u.email, days: n });
-      setFound({ ...found, user: r.user });
+      setFound({ user: r.user });
       setMsg(L(`Saqlandi: ${fmtDate(r.user.access.until, lang)} gacha`, `Сохранено: до ${fmtDate(r.user.access.until, lang)}`));
       setReload((x) => x + 1);
     } catch (e) {
@@ -75,7 +74,7 @@ export function AdminView() {
   };
 
   const statusBadge = (a: Access) =>
-    a.status === "active" ? <span className="badge green">Premium · {a.daysLeft}</span> : a.status === "trial" ? <span className="badge">🎁 {a.daysLeft}</span> : <span className="badge red">{L("tugagan", "истёк")}</span>;
+    a.status === "trial" ? <span className="badge">🎁 {a.daysLeft}</span> : <span className="badge red">{L("tugagan", "истёк")}</span>;
 
   if (loading) return <main className="container page"><span className="spinner" /></main>;
   if (!isAdmin) {
@@ -90,15 +89,13 @@ export function AdminView() {
     <main className="container page">
       <div className="section-head">
         <span className="eyebrow">🛠️ Admin</span>
-        <h1 className="h2">{L("Foydalanuvchilar va to‘lovlar", "Пользователи и оплаты")}</h1>
+        <h1 className="h2">{L("Foydalanuvchilar", "Пользователи")}</h1>
       </div>
 
-      <div className="grid-4">
+      <div className="grid-2">
         {[
           [L("Jami foydalanuvchi", "Всего пользователей"), stats ? String(stats.total) : "…"],
           [L("Yangi (30 kun)", "Новые (30 дн.)"), stats ? String(stats.new30) : "…"],
-          [L("To‘lovlar (30 kun)", "Оплаты (30 дн.)"), stats ? String(stats.paid30) : "…"],
-          [L("Tushum (30 kun)", "Выручка (30 дн.)"), stats ? `${formatSum(stats.revenue30)}` : "…"],
         ].map(([t, v]) => (
           <div key={t} className="card">
             <div className="small muted" style={{ fontWeight: 700 }}>{t}</div>
@@ -108,7 +105,7 @@ export function AdminView() {
       </div>
 
       <div className="card" style={{ marginTop: 18 }}>
-        <h2 className="h3" style={{ marginBottom: 12 }}>{L("Obunani qo‘lda boshqarish", "Ручное управление подпиской")}</h2>
+        <h2 className="h3" style={{ marginBottom: 12 }}>{L("Bepul sinovni uzaytirish", "Продление пробного периода")}</h2>
         <form
           className="row"
           onSubmit={(e) => {
@@ -144,60 +141,35 @@ export function AdminView() {
               </button>
             </div>
             <p className="tiny muted" style={{ margin: 0 }}>
-              {L("Manfiy son obunani qisqartiradi (masalan, -30). Naqd yoki boshqa yo‘l bilan to‘langanda shu yerdan qo‘shing.", "Отрицательное число сокращает подписку (например, -30). При оплате наличными и т.п. добавляйте здесь.")}
+              {L("Manfiy son sinovni qisqartiradi (masalan, -30).", "Отрицательное число сокращает пробный период (например, -30).")}
             </p>
           </div>
         )}
       </div>
 
-      <div className="grid-2" style={{ marginTop: 18, alignItems: "start" }}>
-        <div className="card">
-          <h2 className="h3" style={{ marginBottom: 10 }}>{L("So‘nggi foydalanuvchilar", "Последние пользователи")}</h2>
-          <div className="table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Email</th>
-                  <th>{L("Holat", "Статус")}</th>
-                  <th>{L("Ro‘yxatdan", "Регистрация")}</th>
+      <div className="card" style={{ marginTop: 18 }}>
+        <h2 className="h3" style={{ marginBottom: 10 }}>{L("So‘nggi foydalanuvchilar", "Последние пользователи")}</h2>
+        <div className="table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>{L("Holat", "Статус")}</th>
+                <th>{L("Ro‘yxatdan", "Регистрация")}</th>
+                <th>{L("Oxirgi kirish", "Последний вход")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(stats?.recent ?? []).map((u) => (
+                <tr key={u.id} style={{ cursor: "pointer" }} onClick={() => { setQ(u.email); void search(u.email); }}>
+                  <td>{u.email}</td>
+                  <td>{statusBadge(u.access)}</td>
+                  <td>{fmtDate(u.createdAt, lang)}</td>
+                  <td>{fmtDate(u.lastLoginAt, lang)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {(stats?.recent ?? []).map((u) => (
-                  <tr key={u.id} style={{ cursor: "pointer" }} onClick={() => { setQ(u.email); void search(u.email); }}>
-                    <td>{u.email}</td>
-                    <td>{statusBadge(u.access)}</td>
-                    <td>{fmtDate(u.createdAt, lang)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="card">
-          <h2 className="h3" style={{ marginBottom: 10 }}>{L("So‘nggi to‘lovlar", "Последние оплаты")}</h2>
-          <div className="table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Email</th>
-                  <th>{L("Summa", "Сумма")}</th>
-                  <th>{L("Usul", "Способ")}</th>
-                  <th>{L("Sana", "Дата")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(stats?.payments ?? []).map((o) => (
-                  <tr key={o.id}>
-                    <td>{o.email}</td>
-                    <td>{formatSum(o.amount)}</td>
-                    <td>{PROVIDER_NAME[o.provider]}</td>
-                    <td>{fmtDate(o.paidAt, lang)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </main>

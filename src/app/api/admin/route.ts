@@ -1,6 +1,5 @@
 import { connection } from "next/server";
 import { AiError, errorResponse } from "@/lib/gemini";
-import { recentPaidOrders, userOrders } from "@/lib/server/billing";
 import { currentUser } from "@/lib/server/guard";
 import { getStore } from "@/lib/server/store";
 import { accessOf, addDays, findUserByEmail, getUser, isAdminEmail, publicUser, USERS_INDEX, type User } from "@/lib/server/users";
@@ -24,36 +23,22 @@ export async function GET(req: Request) {
     const q = new URL(req.url).searchParams.get("q")?.trim();
     if (q) {
       const u = await findUserByEmail(q);
-      if (!u) return Response.json({ user: null }, { headers: NO_STORE });
-      const orders = await userOrders(u.id, 20);
-      return Response.json({ user: view(u), orders }, { headers: NO_STORE });
+      return Response.json({ user: u ? view(u) : null }, { headers: NO_STORE });
     }
     const kv = getStore();
-    const since30 = Date.now() - 30 * 86_400_000;
-    const [total, newIds, recentIds, paid] = await Promise.all([
+    const [total, newIds, recentIds] = await Promise.all([
       kv.zcard(USERS_INDEX),
-      kv.zrange(USERS_INDEX, { min: since30 }),
+      kv.zrange(USERS_INDEX, { min: Date.now() - 30 * 86_400_000 }),
       kv.zrange(USERS_INDEX, { rev: true, limit: 30 }),
-      recentPaidOrders({ since: since30 }),
     ]);
     const recent = (await Promise.all(recentIds.map(getUser))).filter((u): u is User => !!u).map(view);
-    return Response.json(
-      {
-        total,
-        new30: newIds.length,
-        revenue30: paid.reduce((a, o) => a + o.amount, 0),
-        paid30: paid.length,
-        payments: paid.slice(0, 30),
-        recent,
-      },
-      { headers: NO_STORE }
-    );
+    return Response.json({ total, new30: newIds.length, recent }, { headers: NO_STORE });
   } catch (e) {
     return errorResponse(e);
   }
 }
 
-// Qo'lda kun qo'shish/ayirish (masalan, naqd yoki Telegram orqali to'lov, promo, kompensatsiya)
+// Bepul sinovni qo'lda uzaytirish/qisqartirish (masalan, faol o'quvchiga qo'shimcha kunlar)
 export async function POST(req: Request) {
   try {
     const admin = await requireAdmin(req);
@@ -65,7 +50,7 @@ export async function POST(req: Request) {
     const u = await findUserByEmail(email);
     if (!u) return Response.json({ error: "Foydalanuvchi topilmadi (avval saytga Google orqali kirishi kerak)" }, { status: 404 });
     const next = await addDays(u.id, n);
-    console.info(`Admin ${admin.email}: ${u.email} ga ${n} kun`);
+    console.info(`Admin ${admin.email}: ${u.email} sinoviga ${n} kun`);
     return Response.json({ user: next ? view(next) : null });
   } catch (e) {
     return errorResponse(e);

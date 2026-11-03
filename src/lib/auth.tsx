@@ -4,19 +4,16 @@ import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { useLang } from "./i18n";
-import { formatSum, MONTHLY_PRICE, type Access, type PlanId } from "./plans";
+import type { Access } from "./access";
 import { startSync, stopSync } from "./sync";
 
 export type MeUser = { id: string; email: string; name: string; picture?: string; createdAt: number };
-export type MeOrder = { id: string; planId: PlanId; days: number; amount: number; provider: "payme" | "click"; paidAt?: number };
 export type Me = {
   authEnabled: boolean;
   trialDays: number;
-  providers: { payme: boolean; click: boolean };
   user: MeUser | null;
   access?: Access;
   admin?: boolean;
-  orders?: MeOrder[];
 };
 
 type Reason = "AUTH" | "PAYWALL";
@@ -24,8 +21,8 @@ type Reason = "AUTH" | "PAYWALL";
 type Ctx = {
   me: Me | null;
   loading: boolean;
-  /** AI funksiyalari ochiqmi (sinov, obuna, admin yoki auth o'chirilgan) */
-  premium: boolean;
+  /** AI funksiyalari ochiqmi (sinov davom etmoqda, admin yoki auth o'chirilgan) */
+  aiOpen: boolean;
   refresh: () => Promise<void>;
   login: (next?: string) => void;
   logout: () => Promise<void>;
@@ -69,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (m) setMe(m);
       setLoading(false);
     });
-    // To'lovdan qaytganda yoki boshqa oynadan kelganda holatni yangilash
+    // Boshqa oynadan qaytganda holatni yangilash
     const onVisible = () => {
       if (document.visibilityState === "visible" && Date.now() - lastFetch.current > 15_000) void refresh();
     };
@@ -99,8 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<Ctx>(() => {
-    const premium = !!me && (!me.authEnabled || (!!me.user && (!!me.admin || me.access?.status !== "expired")));
-    return { me, loading, premium, refresh, login, logout, openPaywall: setSheet };
+    const aiOpen = !!me && (!me.authEnabled || (!!me.user && (!!me.admin || me.access?.status !== "expired")));
+    return { me, loading, aiOpen, refresh, login, logout, openPaywall: setSheet };
   }, [me, loading, refresh, login, logout]);
 
   return (
@@ -140,7 +137,7 @@ export function GoogleButton({ next, block, label }: { next?: string; block?: bo
   );
 }
 
-// ---------- Kirish / obuna oynasi ----------
+// ---------- Kirish / sinov tugadi oynasi ----------
 function PaywallSheet({ reason, onClose }: { reason: Reason; onClose: () => void }) {
   const { L } = useLang();
   const { me } = useAuth();
@@ -151,7 +148,7 @@ function PaywallSheet({ reason, onClose }: { reason: Reason; onClose: () => void
       <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
         <div className="sheet-handle" />
         <div className="row between" style={{ marginBottom: 6 }}>
-          <span className="badge">{reason === "AUTH" ? `🎁 ${L(`${trialDays} kun bepul`, `${trialDays} дней бесплатно`)}` : "💎 Premium"}</span>
+          <span className="badge">{reason === "AUTH" ? `🎁 ${L(`${trialDays} kun bepul`, `${trialDays} дней бесплатно`)}` : `⏳ ${L("Sinov tugadi", "Пробный период")}`}</span>
           <button className="icon-btn sm" onClick={onClose} aria-label={L("Yopish", "Закрыть")}>
             <Icon name="x" size={18} />
           </button>
@@ -169,7 +166,7 @@ function PaywallSheet({ reason, onClose }: { reason: Reason; onClose: () => void
             </p>
             <ul className="check-list">
               <li>{L("Natijalaringiz barcha qurilmalarda saqlanadi", "Результаты сохраняются на всех устройствах")}</li>
-              <li>{L("Avtomatik pul yechilmaydi", "Деньги автоматически не списываются")}</li>
+              <li>{L("Parol o‘ylab topish shart emas", "Не нужно придумывать пароль")}</li>
             </ul>
             <GoogleButton block />
           </div>
@@ -180,12 +177,12 @@ function PaywallSheet({ reason, onClose }: { reason: Reason; onClose: () => void
             </h3>
             <p className="muted" style={{ margin: 0 }}>
               {L(
-                `AI funksiyalarini davom ettirish uchun obunani faollashtiring — oyiga ${formatSum(MONTHLY_PRICE)} so‘mdan. Hangul, darslar, so‘zlar va mock testlar bepul qoladi.`,
-                `Чтобы продолжить пользоваться AI, оформите подписку — от ${formatSum(MONTHLY_PRICE)} сум в месяц. Хангыль, уроки, слова и пробные тесты остаются бесплатными.`
+                `${trialDays} kunlik bepul sinov muddati tugadi, AI funksiyalari yopildi. Hangul, darslar, so‘zlar va mock testlar bepul ishlashda davom etadi.`,
+                `${trialDays}-дневный пробный период закончился, AI-функции закрыты. Хангыль, уроки, слова и пробные тесты продолжают работать бесплатно.`
               )}
             </p>
-            <Link href="/pricing" className="btn btn-primary btn-lg btn-block" onClick={onClose}>
-              {L("Tariflarni ko‘rish", "Смотреть тарифы")} <Icon name="right" size={18} />
+            <Link href="/account" className="btn btn-primary btn-lg btn-block" onClick={onClose}>
+              {L("Profilni ko‘rish", "Открыть профиль")} <Icon name="right" size={18} />
             </Link>
           </div>
         )}

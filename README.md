@@ -75,6 +75,18 @@ Sinov muddati: `NEXT_PUBLIC_TRIAL_DAYS` (standart 30, `src/lib/access.ts`). O‘
 
 Kalitlar faqat serverda saqlanadi va brauzerga yuborilmaydi. AI yo‘llarida IP bo‘yicha so‘rov cheklovi va har bir foydalanuvchi uchun kunlik limit bor.
 
+## Internetga joylash (VPS + Dokploy)
+
+Loyihada tayyor `Dockerfile` bor (Next.js `standalone` rejimi, Node 22).
+
+1. Dokploy → **Projects → Create Project**, keyin **Create Service → Application**.
+2. **Provider → Git**: `https://github.com/jtoxtasinov0-sys/TOPIK-test.git`, branch `main`.
+3. **Build Type → Dockerfile** (Docker File: `Dockerfile`).
+4. **Environment**: `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, `APP_URL`, `ADMIN_EMAILS`.
+5. **Advanced → Volumes → Volume Mount**: Mount Path `/app/data`. Foydalanuvchilar bazasi (`/app/data/db.json`) shu yerda saqlanadi va qayta deploy’da o‘chmaydi. Upstash Redis ulansa (`KV_REST_API_URL` / `KV_REST_API_TOKEN`), fayl o‘rniga Redis ishlatiladi.
+6. **Domains**: domen, Container Port `3000`, HTTPS → Let’s Encrypt. Domenning DNS `A` yozuvi VPS IP manziliga qaratilgan bo‘lishi kerak.
+7. **Deploy**.
+
 ## Tuzilma
 
 ```

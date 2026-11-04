@@ -1,4 +1,4 @@
-import { errorResponse, generateJson, LANG_NAME, rateLimit, transcribe, type ContentPart } from "@/lib/gemini";
+import { errorResponse, generateJson, LANG_NAME, normalizeMime, rateLimit, transcribe, type ContentPart } from "@/lib/gemini";
 import { speakSchema } from "@/lib/schemas";
 import { aiAccess } from "@/lib/server/guard";
 
@@ -18,13 +18,6 @@ const LEVEL = {
   intermediate: "intermediate (TOPIK 2-3): natural everyday polite Korean, moderate sentence length",
   advanced: "advanced (TOPIK 4-6): rich natural Korean, idioms allowed, formal/informal as the situation requires",
 };
-
-function normalizeMime(m: string) {
-  const base = m.split(";")[0].trim().toLowerCase();
-  if (base === "audio/mp4" || base === "audio/x-m4a") return "audio/m4a";
-  if (base === "audio/mpeg3") return "audio/mp3";
-  return base || "audio/webm";
-}
 
 export async function POST(req: Request) {
   try {

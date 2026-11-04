@@ -108,6 +108,28 @@ export const writingResultSchema = {
   required: ["recognized_text", "score", "max", "criteria", "strengths", "mistakes", "model_answer", "summary"],
 };
 
+/** Ovozli ustoz: javob tillar bo'yicha bo'laklarga ajratiladi (o'zbekcha tushuntirish + koreyscha so'zlar) */
+export const voiceSchema = {
+  type: "object",
+  properties: {
+    segments: {
+      type: "array",
+      description: "What the teacher says, in order, split by language",
+      items: {
+        type: "object",
+        properties: { lang: { type: "string", enum: ["uz", "ko"] }, text: str },
+        required: ["lang", "text"],
+      },
+    },
+    practice: {
+      type: "object",
+      description: "Main Korean phrase of this turn for the student to repeat (empty ko if none)",
+      properties: { ko: str, rom: str, uz: str },
+    },
+  },
+  required: ["segments"],
+};
+
 export const speakSchema = {
   type: "object",
   properties: {

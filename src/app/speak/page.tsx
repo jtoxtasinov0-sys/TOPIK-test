@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { SCENARIOS, type Scenario } from "@/data/scenarios";
-import { playKorean, stopAudio } from "@/lib/audio";
+import { pickRecorderMime, playKorean, stopAudio } from "@/lib/audio";
 import { touchStreak } from "@/lib/store";
 
 type Level = "beginner" | "intermediate" | "advanced";
@@ -20,12 +21,6 @@ type SpeakRes = {
   suggestions: { ko: string; tr: string }[];
   done?: boolean;
 };
-
-function pickMime() {
-  if (typeof MediaRecorder === "undefined") return "";
-  for (const m of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"]) if (MediaRecorder.isTypeSupported(m)) return m;
-  return "";
-}
 
 export default function SpeakPage() {
   const errText = useAiErrorText();
@@ -48,7 +43,10 @@ export default function SpeakPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [msgs, busy]);
+  useEffect(() => {
+    // Yangi brauzerlarda scrollIntoView Promise qaytaradi — effektdan qaytarilmasligi kerak
+    void endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs, busy]);
   useEffect(
     () => () => {
       stopAudio();
@@ -104,7 +102,7 @@ export default function SpeakPage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       streamRef.current = stream;
-      const mime = pickMime();
+      const mime = pickRecorderMime();
       const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
       chunks.current = [];
       mr.ondataavailable = (e) => e.data.size && chunks.current.push(e.data);
@@ -167,6 +165,23 @@ export default function SpeakPage() {
             Vaziyatni tanlang va koreyscha gapiring. AI sizni tushunadi, xatolarni o‘zbekcha tushuntiradi, talaffuz bo‘yicha maslahat beradi va suhbatni davom ettiradi.
           </p>
         </div>
+
+        <Link href="/speak/ustoz" className="card row-wrap between" style={{ gap: 16, marginBottom: 20, background: "var(--grad-btn)", color: "#fff", border: 0 }}>
+          <div className="row" style={{ gap: 14 }}>
+            <span className="icon-tile" style={{ width: 52, height: 52, fontSize: "1.6rem", background: "rgba(255,255,255,.18)" }}>🎙️</span>
+            <div className="stack" style={{ gap: 4 }}>
+              <b>Ovozli ustoz — o‘zbekcha so‘rang</b>
+              <span className="small" style={{ opacity: 0.9 }}>
+                “Rahmat koreyschada qanday?” deb gapiring — ustoz koreyscha va o‘zbekcha ovoz bilan javob beradi va dars o‘tadi.
+              </span>
+            </div>
+          </div>
+          <span className="btn btn-sm" style={{ background: "#fff", color: "var(--ink)" }}>
+            <Icon name="mic" size={16} /> Boshlash
+          </span>
+        </Link>
+
+        <h2 className="h3" style={{ margin: "4px 0 12px" }}>Vaziyatli suhbat (koreyscha)</h2>
 
         <div className="grid-4">
           {SCENARIOS.map((s) => (

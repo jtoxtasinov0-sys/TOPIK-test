@@ -178,6 +178,14 @@ export async function streamText(opts: { system: string; input: string }): Promi
   });
 }
 
+/** Brauzer MediaRecorder turini Gemini qabul qiladigan audio turiga keltiradi */
+export function normalizeMime(m: string) {
+  const base = m.split(";")[0].trim().toLowerCase();
+  if (base === "audio/mp4" || base === "audio/x-m4a") return "audio/m4a";
+  if (base === "audio/mpeg3") return "audio/mp3";
+  return base || "audio/webm";
+}
+
 /** Gemini 3.5 Transcribe — nutqni matnga aylantirish */
 export async function transcribe(audioBase64: string, mime: string, languages: string[] = ["ko-KR"]): Promise<string> {
   const body = (langs: string[] | null) => ({
@@ -204,11 +212,13 @@ const VOICES = { 남자: "Charon", 여자: "Kore", narrator: "Kore", m: "Puck", 
 /** Gemini TTS — WAV (RIFF) bufer qaytaradi */
 export async function synthesize(
   turns: { speaker: string | null; text: string }[],
-  opts: { slow?: boolean; voice?: "f" | "m" } = {}
+  opts: { slow?: boolean; voice?: "f" | "m"; tutor?: boolean } = {}
 ): Promise<Buffer> {
-  const style = opts.slow
-    ? "Speak slowly and very clearly like a Korean language teacher for beginners, standard Seoul pronunciation"
-    : "Natural, clear standard Korean (Seoul) pronunciation, like a TOPIK listening exam recording";
+  const style = opts.tutor
+    ? "A warm, patient Korean teacher talking to an Uzbek student. Speak the Uzbek sentences in natural Uzbek; pronounce every Korean word or phrase clearly and a little slower in standard Seoul Korean, modelling the pronunciation for the student"
+    : opts.slow
+      ? "Speak slowly and very clearly like a Korean language teacher for beginners, standard Seoul pronunciation"
+      : "Natural, clear standard Korean (Seoul) pronunciation, like a TOPIK listening exam recording";
   const speakers = Array.from(new Set(turns.map((t) => t.speaker).filter(Boolean))) as string[];
   const multi = speakers.length >= 2;
 

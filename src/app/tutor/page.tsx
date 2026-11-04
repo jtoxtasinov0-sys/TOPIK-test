@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Md, useAiErrorText, ApiError, notifyAccess } from "@/components/ui";
@@ -15,7 +16,10 @@ export default function TutorPage() {
   const [err, setErr] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [msgs]);
+  useEffect(() => {
+    // Yangi brauzerlarda scrollIntoView Promise qaytaradi — effektdan qaytarilmasligi kerak
+    void endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs]);
 
   const chips = [
     "은/는 va 이/가 farqi nima?",
@@ -77,6 +81,9 @@ export default function TutorPage() {
           <p className="lead">
             Grammatika, TOPIK strategiyasi, gaplarni tekshirish, Koreyadagi hayot — istalgan savolni o‘zbekcha bering.
           </p>
+          <Link href="/speak/ustoz" className="btn btn-primary" style={{ marginTop: 4 }}>
+            <Icon name="mic" size={18} /> Ovozli rejim — gapirib so‘rang
+          </Link>
           <div className="row-wrap" style={{ justifyContent: "center", marginTop: 8 }}>
             {chips.map((c) => (
               <button key={c} className="chip" style={{ whiteSpace: "normal" }} onClick={() => ask(c)}>

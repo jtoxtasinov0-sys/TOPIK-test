@@ -104,6 +104,7 @@ export default function Home() {
     { href: "/test", e: "📝", t: "Mock test" },
     { href: "/writing", e: "✍️", t: "Yozish" },
     { href: "/speak", e: "🗣️", t: "Gaplashish" },
+    { href: "/speak/ustoz", e: "🎙️", t: "Ovozli ustoz" },
     { href: "/learn/hangul", e: "한", t: "Hangul" },
     { href: "/words", e: "🃏", t: "So‘zlar" },
     { href: "/tutor", e: "🤖", t: "AI Ustoz" },

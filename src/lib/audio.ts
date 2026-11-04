@@ -20,11 +20,11 @@ export function hash(s: string) {
   return (h >>> 0).toString(16) + s.length.toString(16);
 }
 
-export type TtsOpts = { slow?: boolean; voice?: "f" | "m" };
+export type TtsOpts = { slow?: boolean; voice?: "f" | "m"; tutor?: boolean };
 
 async function fetchServerAudio(text: string, opts: TtsOpts): Promise<string | null> {
   if (serverTtsOff) return null;
-  const key = hash(`${opts.slow ? "s" : "n"}|${opts.voice ?? ""}|${text}`);
+  const key = hash(`${opts.slow ? "s" : "n"}|${opts.voice ?? ""}|${opts.tutor ? "t" : ""}|${text}`);
   if (memory.has(key)) return memory.get(key)!;
   if (pending.has(key)) return pending.get(key)!;
 
@@ -45,7 +45,7 @@ async function fetchServerAudio(text: string, opts: TtsOpts): Promise<string | n
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, ...opts }),
+        body: JSON.stringify({ text, slow: opts.slow, voice: opts.voice, tutor: opts.tutor }),
       });
       // 503: AI ulanmagan; 401/402: kirilmagan yoki sinov tugagan — brauzer ovozi ishlatiladi
       if (res.status === 503 || res.status === 401 || res.status === 402) {
@@ -87,6 +87,13 @@ function pickKoreanVoice(): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis?.getVoices() ?? [];
   const ko = voices.filter((v) => v.lang?.toLowerCase().startsWith("ko"));
   return ko.find((v) => /google|natural|neural|heami|yuna|sora/i.test(v.name)) ?? ko[0];
+}
+
+/** O'zbekcha ovoz kam uchraydi — bo'lmasa turkcha (lotin yozuvini yaqinroq o'qiydi) */
+function pickUzbekVoice(): SpeechSynthesisVoice | undefined {
+  const voices = window.speechSynthesis?.getVoices() ?? [];
+  const by = (p: string) => voices.find((v) => v.lang?.toLowerCase().startsWith(p));
+  return by("uz") ?? by("tr");
 }
 
 export function hasKoreanBrowserVoice() {
@@ -139,27 +146,93 @@ export async function playKorean(
   const url = await fetchServerAudio(text, opts);
   opts.onLoading?.(false);
   if (url) {
-    await new Promise<void>((resolve) => {
-      const a = new Audio(url);
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        resolve();
-      };
-      current = {
-        stop: () => {
-          a.pause();
-          finish();
-        },
-      };
-      a.onended = finish;
-      a.onerror = finish;
-      a.onplay = () => opts.onStart?.();
-      a.play().catch(finish);
-    });
+    await playUrl(url, opts.onStart);
     return "server";
   }
   await browserSpeak(text, opts, opts.onStart);
   return "browser";
+}
+
+function playUrl(url: string, onStart?: () => void): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const a = new Audio(url);
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
+    current = {
+      stop: () => {
+        a.pause();
+        finish();
+      },
+    };
+    a.onended = finish;
+    a.onerror = finish;
+    a.onplay = () => onStart?.();
+    a.play().catch(finish);
+  });
+}
+
+// ---------- Ovozli ustoz: o'zbekcha + koreyscha aralash nutq ----------
+export type Segment = { lang: "uz" | "ko"; text: string };
+
+/** Bo'laklarni brauzer ovozi bilan ketma-ket o'qiydi: koreyschasi koreyscha, qolgani o'zbekcha (yoki turkcha) ovoz bilan */
+function browserSpeakSegments(segs: Segment[], onStart?: () => void): Promise<void> {
+  return new Promise((resolve) => {
+    const synth = window.speechSynthesis;
+    if (!synth || !segs.length) return resolve();
+    synth.cancel();
+    const ko = pickKoreanVoice();
+    const uz = pickUzbekVoice();
+    let i = 0;
+    let stopped = false;
+    current = {
+      stop: () => {
+        stopped = true;
+        synth.cancel();
+        resolve();
+      },
+    };
+    const next = () => {
+      if (stopped) return;
+      if (i >= segs.length) return resolve();
+      const s = segs[i++];
+      const u = new SpeechSynthesisUtterance(s.text);
+      if (s.lang === "ko") {
+        u.lang = "ko-KR";
+        if (ko) u.voice = ko;
+        u.rate = 0.8;
+      } else {
+        u.lang = uz?.lang ?? "uz-UZ";
+        if (uz) u.voice = uz;
+        u.rate = 0.95;
+      }
+      u.onend = () => setTimeout(next, 120);
+      u.onerror = () => setTimeout(next, 50);
+      if (i === 1) u.onstart = () => onStart?.();
+      synth.speak(u);
+    };
+    next();
+  });
+}
+
+/** Ustoz javobini ovoz chiqarib o'qiydi: avval Gemini (bitta tabiiy ovoz), bo'lmasa brauzer ovozi */
+export async function playTutor(segs: Segment[], opts: { onLoading?: (b: boolean) => void; onStart?: () => void } = {}) {
+  stopAudio();
+  const text = segs.map((s) => s.text).join(" ").trim();
+  if (!text) return;
+  opts.onLoading?.(true);
+  const url = await fetchServerAudio(text, { tutor: true });
+  opts.onLoading?.(false);
+  if (url) return playUrl(url, opts.onStart);
+  return browserSpeakSegments(segs, opts.onStart);
+}
+
+/** Mikrofon yozuvi uchun brauzer qo'llaydigan audio turi */
+export function pickRecorderMime() {
+  if (typeof MediaRecorder === "undefined") return "";
+  for (const m of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"]) if (MediaRecorder.isTypeSupported(m)) return m;
+  return "";
 }

@@ -9,11 +9,9 @@ import { PwaRegister } from "./Pwa";
 
 export function Logo() {
   return (
-    <Link href="/" className="logo" aria-label="HanUstoz">
-      <span className="logo-mark">한</span>
-      <span>
-        Han<span className="gradient-text">Ustoz</span>
-      </span>
+    <Link href="/" className="logo" aria-label="HanUstoz — bosh sahifa">
+      {/* eslint-disable-next-line @next/next/no-img-element -- vektor logo (public/brand), o'lchami CSS'da */}
+      <img src="/brand/logo-horizontal.svg" alt="HanUstoz" width={144} height={34} />
     </Link>
   );
 }

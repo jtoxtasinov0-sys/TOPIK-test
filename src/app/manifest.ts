@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { VISUALS } from "@/data/visuals";
 import { appIconUrl, imageUrl } from "@/lib/images";
 
-// PWA manifesti: telefonga «ilova» sifatida o'rnatish. Ikonkani Gemini chizadi (/api/app-icon),
+// PWA manifesti: telefonga «ilova» sifatida o'rnatish. Ikonka — vektor logodan (scripts/brand.mjs → public/brand),
 // tezkor menyular (ikonkani bosib turganda) — sayt ikonkalari bilan.
 
 const shortcut = (name: string, url: string, visual: keyof typeof VISUALS, description: string) => ({
@@ -32,8 +32,8 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: appIconUrl(192), sizes: "192x192", type: "image/png", purpose: "any" },
       { src: appIconUrl(512), sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: appIconUrl(512), sizes: "512x512", type: "image/png", purpose: "maskable" },
-      { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+      { src: "/brand/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/brand/logo-mark.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
     ],
     shortcuts: [
       shortcut("Mock test", "/test", "home:test", "TOPIK I, TOPIK II va EPS-TOPIK"),

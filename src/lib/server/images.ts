@@ -91,10 +91,8 @@ async function variant(key: string, original: StoredImage, w?: number, style: Im
     return disk;
   }
   if (original.mime !== "image/png") return original;
-  // Ilova ikonkasi aniq kvadrat va aniq o'lchamda bo'lishi shart (manifestdagi sizes bilan bir xil)
-  const exact = style === "app";
-  const png = shrinkPng(original.data, w, { square: exact });
-  if (!png || (!exact && png.length >= original.data.length)) return original;
+  const png = shrinkPng(original.data, w, { square: style === "icon" });
+  if (!png || png.length >= original.data.length) return original;
   const img = { data: png, mime: "image/png" };
   remember(small, name, img, 400);
   await toDisk(name, img);

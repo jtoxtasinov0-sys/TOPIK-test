@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="686" height="160" viewBox="0 0 686 160">
+  <defs>
+    <linearGradient id="hq-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6a11ff"/><stop offset=".5" stop-color="#8b3dff"/><stop offset="1" stop-color="#3a86ff"/>
+    </linearGradient>
+    <radialGradient id="hq-glow" cx=".22" cy=".14" r=".75">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hq-sun" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb340"/><stop offset="1" stop-color="#ff5c9a"/>
+    </linearGradient>
+  </defs>
+  <defs><linearGradient id="hq-text" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6a11ff"/><stop offset="1" stop-color="#3a86ff"/></linearGradient>
+    <mask id="hq-ustoz" maskUnits="userSpaceOnUse" x="-10" y="-10" width="374" height="120"><g fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 0)"><path d="M8 8 V64 A28 28 0 0 0 64 64 V8"/></g><g transform="translate(81 0)"><path d="M50 45 C46 40 39 38 31 38 C20 38 12 43 12 51 C12 60 21 62 31 64 C42 66 51 69 51 78 C51 87 42 92 31 92 C21 92 13 89 9 83"/></g><g transform="translate(150 0)"><path d="M20 14 V74 Q20 92 38 92 H42 M7 38 H42"/></g><g transform="translate(209 0)"><circle cx="35" cy="65" r="27"/></g><g transform="translate(288 0)"><path d="M10 38 H56 L10 92 H56"/></g></g></mask></defs>
+  <rect width="160" height="160" rx="36" fill="url(#hq-bg)"/>
+  <rect width="160" height="160" rx="36" fill="url(#hq-glow)"/>
+  <g transform="translate(0.45 5.16) scale(0.2946)" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="34">
+    <path d="M178 110 H242 M126 166 H294 M356 96 V336 M356 218 H414 M164 358 V412 H404" stroke="#ffffff"/>
+    <circle cx="210" cy="268" r="44" stroke="url(#hq-sun)"/>
+  </g>
+  <g transform="translate(198.40 40.00) scale(0.8000)">
+    <g fill="none" stroke="#160f3b" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 0)"><path d="M8 8 V92 M64 8 V92 M8 50 H64"/></g><g transform="translate(81 0)"><path d="M62 38 V92"/><circle cx="35" cy="65" r="27"/></g><g transform="translate(160 0)"><path d="M8 38 V92 M8 65 A27 27 0 0 1 62 65 V92"/></g></g>
+    <g transform="translate(239 0)"><rect x="-16" y="0" width="386" height="100" fill="url(#hq-text)" mask="url(#hq-ustoz)"/></g>
+  </g>
+</svg>

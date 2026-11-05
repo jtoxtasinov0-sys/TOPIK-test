@@ -13,8 +13,7 @@ export const maxDuration = 60;
 
 // Tayyor variant rasmlari va sayt ikonkalari — hammaga ochiq (soni cheklangan, bir marta chizilib keshda turadi).
 // AI variantlardagi rasmlar — faqat kirgan va sinovi tugamagan foydalanuvchilarga, kunlik limit bilan.
-// Ilova ikonkasi ("app" uslubi) bu yerda berilmaydi — u /api/app-icon orqali
-type PublicStyle = Exclude<ImageStyle, "app">;
+type PublicStyle = ImageStyle;
 const BUILTIN: Record<PublicStyle, Set<string>> = {
   test: new Set(imagePromptsOf([TOPIK1, TOPIK2, EPS])),
   icon: new Set(visualPrompts()),

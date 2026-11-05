@@ -16,7 +16,7 @@ process.env.IMAGE_DIR = DIR;
 
 const { createMemoryStore, setStore } = await import("../src/lib/server/store");
 const imageRoute = await import("../src/app/api/image/route");
-const { clearImageMemory, imageKey, imageLog, pendingImage } = await import("../src/lib/server/images");
+const { clearImageMemory, imageKey, imageLog } = await import("../src/lib/server/images");
 const { pickImageModel, resetImageModel } = await import("../src/lib/gemini");
 const { imagePromptsOf, MAX_IMAGE_PROMPT, IMAGE_STYLE, ICON_STYLE, imageUrl, widthFor } = await import("../src/lib/images");
 const { decodePng, encodePng, resizeBitmap, shrinkPng, toGrayIfPossible } = await import("../src/lib/server/png");
@@ -275,52 +275,40 @@ describe("kichraytirilgan nusxalar va ikonkalar", () => {
 });
 
 describe("PWA: ilova ikonkasi va manifest", () => {
-  test("/api/app-icon: telefon kutmaydi — avval zaxira, Gemini orqa fonda chizgach aniq 192×192 kvadrat", async () => {
-    const appRoute = await import("../src/app/api/app-icon/route");
-    const { APP_ICON_PROMPT, APP_ICON_STYLE } = await import("../src/lib/images");
-    // Gemini kvadrat bo'lmagan rasm qaytarsa ham — markazdan kesiladi
-    mockGemini({ png: encodePng(sample(1024, 900)) });
-    const first = await appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=192&v=a1"));
-    assert.equal(first.headers.get("x-icon-fallback"), "1", "darhol zaxira");
-    assert.equal(first.headers.get("cache-control"), "no-store", "zaxira keshlanmaydi");
-    const job = pendingImage(APP_ICON_PROMPT, "app");
-    assert.ok(job, "Gemini orqa fonda chizyapti");
-    await job;
-    const res = await appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=192&v=a1"));
-    assert.equal(res.status, 200);
-    assert.equal(res.headers.get("x-icon-fallback"), null);
-    const img = decodePng(new Uint8Array(await res.arrayBuffer()))!;
-    assert.deepEqual([img.width, img.height], [192, 192]);
-    const gen = calls.filter((c) => c.url.includes(":generateContent"));
-    const text = gen[0].body?.contents?.[0]?.parts?.[0]?.text ?? "";
-    assert.ok(text.startsWith(APP_ICON_STYLE) && text.endsWith(APP_ICON_PROMPT));
-    assert.deepEqual(gen[0].body?.generationConfig?.imageConfig, { aspectRatio: "1:1" });
-    // 512 — o'sha asl rasmdan, qayta chizilmaydi
-    mockGemini();
-    const big = await appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=512"));
-    assert.deepEqual([decodePng(new Uint8Array(await big.arrayBuffer()))!.width], [512]);
-    assert.equal(calls.length, 0);
+  test("logo fayllari: ilova ikonkalari aniq o'lchamda, SVG manbalar bor", async () => {
+    const { readFileSync } = await import("node:fs");
+    const dir = new URL("../public/brand/", import.meta.url);
+    const size = (f: string) => {
+      const img = decodePng(readFileSync(new URL(f, dir)))!;
+      return [img.width, img.height];
+    };
+    assert.deepEqual(size("icon-180.png"), [180, 180]);
+    assert.deepEqual(size("icon-192.png"), [192, 192]);
+    assert.deepEqual(size("icon-512.png"), [512, 512]);
+    assert.deepEqual(size("icon-maskable-512.png"), [512, 512]);
+    assert.deepEqual(size("logo-1024.png"), [1024, 1024]);
+    for (const f of ["logo-mark.svg", "app-icon.svg", "logo-horizontal.svg", "logo-horizontal-white.svg"]) {
+      const svg = readFileSync(new URL(f, dir), "utf8");
+      assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/, f);
+      assert.doesNotMatch(svg, /<text|font-family/, `${f}: shriftsiz (faqat chiziqlar)`);
+    }
+    // Ilova ikonkasi burchakgacha to'liq fon (telefon o'zi yumaloqlaydi), sayt belgisi — yumaloq burchakli
+    for (const f of ["icon-180.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png"]) {
+      const icon = decodePng(readFileSync(new URL(f, dir)))!;
+      // iPhone shaffof joyni qora qiladi — ilova ikonkasida shaffoflik bo'lmasligi kerak
+      const opaque = icon.channels === 3 || [0, icon.width - 1, icon.width * icon.height - 1].every((i) => icon.data[i * 4 + 3] === 255);
+      assert.ok(opaque, `${f}: burchaklari to'liq`);
+    }
+    const favicon = readFileSync(new URL("../src/app/icon.svg", import.meta.url), "utf8");
+    assert.equal(favicon, readFileSync(new URL("logo-mark.svg", dir), "utf8"), "favicon = logo belgisi");
   });
 
-  test("kalit bo'lmasa — zaxira «한» ikonkasi (keshlanmaydi)", async () => {
+  test("/api/app-icon eski manzili yangi ikonkaga yo'naltiradi", async () => {
     const appRoute = await import("../src/app/api/app-icon/route");
-    process.env.GEMINI_API_KEY = "";
-    // Oldingi testda chizilgan ikonka diskda turibdi — bo'sh papkada sinaymiz
-    process.env.IMAGE_DIR = mkdtempSync(path.join(tmpdir(), "hq-img-empty-"));
-    mockGemini();
-    const res = await appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=180"));
-    process.env.IMAGE_DIR = DIR;
-    assert.equal(res.status, 200);
-    assert.equal(res.headers.get("x-icon-fallback"), "1");
-    assert.equal(res.headers.get("cache-control"), "no-store");
-    const img = decodePng(new Uint8Array(await res.arrayBuffer()))!;
-    assert.deepEqual([img.width, img.height, img.channels], [180, 180, 3]);
-    // Markazda oq harf, burchakda binafsha fon
-    const px = (x: number, y: number) => Array.from(img.data.subarray((y * 180 + x) * 3, (y * 180 + x) * 3 + 3));
-    assert.ok(px(124, 80).every((c) => c > 240), "ㅏ tik chizig'i oq");
-    assert.equal(pendingImage((await import("../src/lib/images")).APP_ICON_PROMPT, "app"), null, "kalitsiz chizilmaydi");
-    assert.ok(px(175, 175)[2] > px(175, 175)[0], "pastki o'ng burchak ko'k");
-    assert.equal(calls.length, 0);
+    const res = appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=180&v=a1"));
+    assert.equal(res.status, 308);
+    assert.equal(res.headers.get("location"), "https://hanustoz.tech/brand/icon-180.png");
+    assert.equal(appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=7")).headers.get("location"), "https://hanustoz.tech/brand/icon-512.png");
   });
 
   test("manifest: 192/512 PNG, maskable, tezkor menyular; service worker fayli bor", async () => {
@@ -329,7 +317,8 @@ describe("PWA: ilova ikonkasi va manifest", () => {
     assert.equal(m.display, "standalone");
     const icons = m.icons ?? [];
     assert.ok(icons.some((i) => i.sizes === "192x192" && i.type === "image/png"));
-    assert.ok(icons.some((i) => i.sizes === "512x512" && i.purpose === "maskable"));
+    assert.ok(icons.some((i) => i.sizes === "512x512" && i.purpose === "maskable" && i.src === "/brand/icon-maskable-512.png"));
+    assert.ok(icons.filter((i) => i.type === "image/png").every((i) => i.src.startsWith("/brand/")), "ikonkalar statik logo fayllari");
     assert.equal(m.shortcuts?.length, 4);
     for (const s of m.shortcuts ?? []) assert.match(String(s.icons?.[0]?.src), /^\/api\/image\?p=.+&s=icon&w=128$/);
     const { readFileSync } = await import("node:fs");
@@ -353,6 +342,5 @@ describe("rasm xatolari ko'rinadi", () => {
   test("/api/admin/images faqat admin uchun", async () => {
     const adminImages = await import("../src/app/api/admin/images/route");
     assert.equal((await adminImages.GET(new Request("https://hanustoz.tech/api/admin/images"))).status, 401);
-    assert.equal((await adminImages.POST(new Request("https://hanustoz.tech/api/admin/images", { method: "POST" }))).status, 401);
   });
 });

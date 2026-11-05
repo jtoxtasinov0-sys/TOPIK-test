@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="hq-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6a11ff"/><stop offset=".5" stop-color="#8b3dff"/><stop offset="1" stop-color="#3a86ff"/>
+    </linearGradient>
+    <radialGradient id="hq-glow" cx=".22" cy=".14" r=".75">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hq-sun" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb340"/><stop offset="1" stop-color="#ff5c9a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="115.2" fill="url(#hq-bg)"/>
+  <rect width="512" height="512" rx="115.2" fill="url(#hq-glow)"/>
+  <g transform="translate(1.43 16.51) scale(0.9429)" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="34">
+    <path d="M178 110 H242 M126 166 H294 M356 96 V336 M356 218 H414 M164 358 V412 H404" stroke="#ffffff"/>
+    <circle cx="210" cy="268" r="44" stroke="url(#hq-sun)"/>
+  </g>
+</svg>

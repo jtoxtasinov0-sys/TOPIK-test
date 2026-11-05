@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TOPIK1 } from "@/data/topik1";
 import { TOPIK2 } from "@/data/topik2";
 import { EPS } from "@/data/eps";
-import { appIconUrl, imagePromptsOf, imageUrl } from "@/lib/images";
+import { imagePromptsOf, imageUrl } from "@/lib/images";
 import { visualPrompts } from "@/data/visuals";
 import { ApiError, useAiErrorText } from "@/components/ui";
 import { Avatar, useAuth } from "@/lib/auth";
@@ -25,7 +25,6 @@ async function getJson<T>(url: string): Promise<T> {
 type ImgDiag = {
   hasKey: boolean;
   model: { model: string | null; source: "env" | "auto" | "none"; models: string[]; error?: string };
-  appIcon: { ready: boolean; mime?: string; bytes?: number };
   log: { error?: { at: number; message?: string; style: string }; ok?: { at: number; style: string } };
   dir: string;
 };
@@ -56,7 +55,6 @@ function ImageWarmup() {
   const [st, setSt] = useState({ done: 0, failed: 0, running: false, error: "" });
   const [diag, setDiag] = useState<ImgDiag | null>(null);
   const [diagErr, setDiagErr] = useState("");
-  const [icon, setIcon] = useState<{ busy: boolean; error: string; t: number }>({ busy: false, error: "", t: 0 });
 
   const refresh = async () => {
     try {
@@ -69,19 +67,6 @@ function ImageWarmup() {
   useEffect(() => {
     void refresh();
   }, []);
-
-  const drawIcon = async () => {
-    setIcon((p) => ({ ...p, busy: true, error: "" }));
-    try {
-      const r = await fetch("/api/admin/images", { method: "POST" });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-      setIcon({ busy: false, error: "", t: Date.now() });
-    } catch (e) {
-      setIcon({ busy: false, error: e instanceof Error ? e.message : String(e), t: 0 });
-    }
-    void refresh();
-  };
 
   const run = async () => {
     let done = 0;
@@ -112,12 +97,12 @@ function ImageWarmup() {
     void refresh();
   };
 
-  const lastError = icon.error || diag?.log.error?.message || "";
+  const lastError = diag?.log.error?.message || "";
   const hint = !diag?.hasKey && diag ? "Dokploy → Environment’ga GEMINI_API_KEY qo‘yilmagan." : imageHint(lastError || diag?.model.error || "");
 
   return (
     <div className="card" style={{ marginTop: 18 }}>
-      <h2 className="h3" style={{ marginBottom: 8 }}>🖼️ Rasmlar va ilova ikonkasi</h2>
+      <h2 className="h3" style={{ marginBottom: 8 }}>🖼️ Rasmlar va ikonkalar</h2>
 
       {diagErr && <div className="callout small">{diagErr}</div>}
       {diag && (
@@ -128,22 +113,10 @@ function ImageWarmup() {
             {diag.model.source === "auto" ? " (avtomatik tanlandi)" : diag.model.source === "env" ? " (GEMINI_IMAGE_MODEL)" : ""}
           </div>
           {diag.model.models.length > 0 && <div className="tiny muted">Kalitga ochiq rasm modellari: {diag.model.models.join(", ")}</div>}
-          <div>
-            {diag.appIcon.ready ? "✅ Ilova ikonkasi tayyor" : "⏳ Ilova ikonkasi hali chizilmagan — telefonlarda zaxira «한» ikonkasi turibdi"}
-          </div>
           {diag.log.ok && <div className="tiny muted">Oxirgi chizilgan rasm: {new Date(diag.log.ok.at).toLocaleString("uz-UZ")}</div>}
         </div>
       )}
 
-      <div className="row-wrap" style={{ alignItems: "center" }}>
-        <button className="btn btn-primary btn-sm" onClick={drawIcon} disabled={icon.busy}>
-          {icon.busy ? <span className="spinner white" /> : "✨"} Ilova ikonkasini chizish
-        </button>
-        {(icon.t > 0 || diag?.appIcon.ready) && (
-          // eslint-disable-next-line @next/next/no-img-element -- ilova ikonkasi API'dan keladi
-          <img src={`${appIconUrl(192)}&t=${icon.t}`} alt="Ilova ikonkasi" width={56} height={56} style={{ borderRadius: 14 }} />
-        )}
-      </div>
       {lastError && (
         <div className="callout small" style={{ marginTop: 10 }}>
           <b>Gemini xatosi:</b> {lastError}
@@ -151,17 +124,12 @@ function ImageWarmup() {
         </div>
       )}
       {!lastError && hint && <div className="callout small" style={{ marginTop: 10 }}>💡 {hint}</div>}
-      <p className="tiny muted" style={{ margin: "10px 0 0" }}>
-        iPhone ikonkani «Ekranga qo‘shish» paytida saqlab qo‘yadi: Gemini ikonkasi tayyor bo‘lgach, ekrandagi HanUstoz ikonkasini o‘chirib, Safari’dan qayta «Ekranga qo‘shish» qiling. Android o‘zi yangilaydi (1–2 kun ichida).
-      </p>
-
-      <hr style={{ border: 0, borderTop: "1px dashed var(--line)", margin: "16px 0" }} />
-      <p className="small muted" style={{ margin: "0 0 12px" }}>
+      <p className="small muted" style={{ margin: "12px 0 12px" }}>
         {`Saytda ${icons} ta ikonka va tayyor testlarda ${urls.length - icons} ta rasm bor. Gemini ularni bir marta chizadi va serverda saqlaydi (${diag?.dir ?? "/app/data/images"}).`}
       </p>
       <div className="row-wrap" style={{ alignItems: "center" }}>
-        <button className="btn btn-soft btn-sm" onClick={run} disabled={st.running}>
-          {st.running ? <span className="spinner" /> : "🖌️"} Barcha rasmlarni tayyorlash
+        <button className="btn btn-primary btn-sm" onClick={run} disabled={st.running}>
+          {st.running ? <span className="spinner white" /> : "🖌️"} Barcha rasmlarni tayyorlash
         </button>
         {(st.running || st.done > 0) && (
           <span className="small">
@@ -286,6 +254,18 @@ export function AdminView() {
       </div>
 
       <ImageWarmup />
+
+      <div className="card row" style={{ marginTop: 18, gap: 14 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- vektor logo */}
+        <img src="/brand/logo-mark.svg" alt="" width={48} height={48} />
+        <div className="grow">
+          <b>Logo va reklama fayllari</b>
+          <div className="small muted">SVG va PNG: ilova ikonkasi, gorizontal logo, oq variant, ranglar.</div>
+        </div>
+        <a href="/brand" className="btn btn-soft btn-sm">
+          Ochish →
+        </a>
+      </div>
 
       <div className="card" style={{ marginTop: 18 }}>
         <h2 className="h3" style={{ marginBottom: 12 }}>Foydalanuvchini qidirish</h2>

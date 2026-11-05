@@ -4,7 +4,7 @@
 // - API so'rovlari (AI, login, sinxron): keshlanmaydi
 // Yangi versiya: VERSION ni oshiring — eski kesh o'chiriladi.
 
-const VERSION = "hq-v1";
+const VERSION = "hq-v2";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
 const MAX_PAGES = 40;
@@ -13,9 +13,9 @@ const MAX_STATIC = 400;
 const OFFLINE_HTML = `<!doctype html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Internet yo'q · HanUstoz</title><style>
 body{margin:0;min-height:100dvh;display:grid;place-items:center;font-family:system-ui,-apple-system,sans-serif;background:#f4f1ff;color:#160f3b;text-align:center;padding:24px}
-.c{max-width:360px}.i{width:96px;height:96px;border-radius:26px;margin:0 auto 18px;background:linear-gradient(135deg,#6a11ff,#8b3dff 45%,#3a86ff);display:grid;place-items:center;color:#fff;font-size:52px;font-weight:800}
+.c{max-width:360px}.i{width:96px;height:96px;border-radius:22px;margin:0 auto 18px;display:block}
 button{margin-top:18px;border:0;border-radius:999px;padding:12px 22px;font-weight:700;font-size:16px;color:#fff;background:linear-gradient(135deg,#8b3dff,#3a86ff)}
-p{color:#5b5677;line-height:1.5}</style></head><body><div class="c"><div class="i">한</div><h1>Internet yo'q</h1>
+p{color:#5b5677;line-height:1.5}</style></head><body><div class="c"><img class="i" src="/brand/logo-mark.svg" alt="HanUstoz"><h1>Internet yo'q</h1>
 <p>Ulanishni tekshiring. Oldin ochilgan sahifalar (darslar, so'zlar, testlar) internetsiz ham ishlaydi.</p>
 <button onclick="location.reload()">Qayta urinish</button></div></body></html>`;
 
@@ -24,7 +24,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(PAGES)
-      .then((c) => c.addAll(["/"]))
+      .then((c) => c.addAll(["/", "/brand/logo-mark.svg"]))
       .catch(() => {})
   );
 });

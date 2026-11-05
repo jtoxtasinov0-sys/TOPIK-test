@@ -4,9 +4,7 @@ import { IMAGE_WIDTHS, imagePromptsOf, MAX_IMAGE_PROMPT, type ImageStyle } from 
 import { cachedImage, createImage } from "@/lib/server/images";
 import { chargeQuota, requireAiAccess } from "@/lib/server/guard";
 import { trackUsage } from "@/lib/server/usage";
-import { TOPIK1 } from "@/data/topik1";
-import { TOPIK2 } from "@/data/topik2";
-import { EPS } from "@/data/eps";
+import { ALL_BUILTIN_TESTS } from "@/data/tests";
 import { visualPrompts } from "@/data/visuals";
 
 export const maxDuration = 60;
@@ -15,7 +13,7 @@ export const maxDuration = 60;
 // AI variantlardagi rasmlar — faqat kirgan va sinovi tugamagan foydalanuvchilarga, kunlik limit bilan.
 type PublicStyle = ImageStyle;
 const BUILTIN: Record<PublicStyle, Set<string>> = {
-  test: new Set(imagePromptsOf([TOPIK1, TOPIK2, EPS])),
+  test: new Set(imagePromptsOf(ALL_BUILTIN_TESTS)),
   icon: new Set(visualPrompts()),
 };
 

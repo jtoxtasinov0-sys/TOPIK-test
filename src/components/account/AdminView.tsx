@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { TOPIK1 } from "@/data/topik1";
-import { TOPIK2 } from "@/data/topik2";
-import { EPS } from "@/data/eps";
+import { ALL_BUILTIN_TESTS } from "@/data/tests";
 import { BRAND_VERSION, imagePromptsOf, imageUrl } from "@/lib/images";
 import { visualPrompts } from "@/data/visuals";
 import { ApiError, useAiErrorText } from "@/components/ui";
@@ -47,7 +45,7 @@ function ImageWarmup() {
   const urls = useMemo(
     () => [
       ...visualPrompts().map((p) => imageUrl(p, { style: "icon", w: 256 })),
-      ...imagePromptsOf([TOPIK1, TOPIK2, EPS]).map((p) => imageUrl(p, { w: 512 })),
+      ...imagePromptsOf(ALL_BUILTIN_TESTS).map((p) => imageUrl(p, { w: 512 })),
     ],
     []
   );

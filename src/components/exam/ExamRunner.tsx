@@ -7,10 +7,7 @@ import { allQuestions, EXAM_INFO, formatTime, qKey, SECTION_LABEL } from "@/lib/
 import { prefetchAudio, stopAudio } from "@/lib/audio";
 import { imageUrl } from "@/lib/images";
 import { addHistory, KEYS, load, remove, save, saveAiTest, uid, useStored } from "@/lib/store";
-import { TOPIK1 } from "@/data/topik1";
-import { TOPIK1_V2 } from "@/data/topik1v2";
-import { TOPIK2 } from "@/data/topik2";
-import { EPS } from "@/data/eps";
+import { BUILTIN_TESTS as BUILTIN } from "@/data/tests";
 import { Icon } from "../Icon";
 import { preloadImages } from "../Visual";
 import { ApiError, postJson, useAiErrorText } from "../ui";
@@ -35,8 +32,6 @@ type Saved = {
   at: number;
 };
 
-// Tayyor (internet AI’siz ishlaydigan) original variantlar
-const BUILTIN: Record<ExamId, Test[]> = { topik1: [TOPIK1, TOPIK1_V2], topik2: [TOPIK2], eps: [EPS] };
 
 const INTRO: Record<ExamId, string> = {
   topik1: "1–2-daraja. Tinglash va o‘qish — haqiqiy TOPIK I tuzilmasi va vaqti bilan.",

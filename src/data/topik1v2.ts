@@ -75,10 +75,22 @@ export const TOPIK1_V2: Test = {
           questions: [
             q(15, 4, ["👨‍🍳 🔥 🍳", "🧍‍♂️🍽️ 🙋‍♂️💧 👩‍🍳", "🛒 🧍‍♀️ 🥤", "🏃‍♂️ 💦 🏞️"], 2, {
               optionStyle: "picture",
+              optionImages: [
+                "In a restaurant kitchen, a male cook fries eggs in a pan over a big flame.",
+                "In a small Korean restaurant, a young Korean man with short black hair in a casual jacket sits at a table with food, raises his hand to call a female server and points at his empty water cup.",
+                "In a supermarket, a young Korean woman with a ponytail puts a bottle of juice into a shopping cart.",
+                "In a park, a young Korean man with short black hair in sportswear jogs along a path, sweating.",
+              ],
               script: "남자: 저기요, 여기 물 좀 주세요.\n여자: 네, 손님. 잠깐만 기다리세요.",
             }),
             q(16, 4, ["📚 🧍‍♀️ ✏️", "🧍‍♂️🎤 🎶", "🧍‍♂️📸 👩‍🦰🌸", "🚕 🧍‍♀️ 👋"], 3, {
               optionStyle: "picture",
+              optionImages: [
+                "In a library, a young Korean woman with a ponytail sits at a desk writing in a notebook next to a pile of books.",
+                "On a small stage, a young Korean man with short black hair sings into a microphone.",
+                "In a park full of blooming cherry blossoms, a young Korean man with short black hair in a casual jacket holds a smartphone and takes a photo of a young Korean woman with a ponytail standing in front of the flowers.",
+                "On a city street, a young Korean woman with a ponytail waves her hand to stop a taxi.",
+              ],
               script: "여자: 죄송한데요, 사진 좀 찍어 주시겠어요? 꽃이 잘 나오게요.\n남자: 네, 찍을게요. 하나, 둘, 셋!",
             }),
           ],

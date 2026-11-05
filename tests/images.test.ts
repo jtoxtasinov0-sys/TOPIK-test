@@ -287,7 +287,7 @@ describe("PWA: ilova ikonkasi va manifest", () => {
     assert.deepEqual(size("icon-512.png"), [512, 512]);
     assert.deepEqual(size("icon-maskable-512.png"), [512, 512]);
     assert.deepEqual(size("logo-1024.png"), [1024, 1024]);
-    for (const f of ["logo-mark.svg", "app-icon.svg", "logo-horizontal.svg", "logo-horizontal-white.svg"]) {
+    for (const f of ["logo-mark.svg", "app-icon.svg", "logo-horizontal.svg", "logo-horizontal-white.svg", "logo-tagline.svg", "logo-tagline-white.svg", "logo-stacked.svg"]) {
       const svg = readFileSync(new URL(f, dir), "utf8");
       assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/, f);
       assert.doesNotMatch(svg, /<text|font-family/, `${f}: shriftsiz (faqat chiziqlar)`);
@@ -306,9 +306,9 @@ describe("PWA: ilova ikonkasi va manifest", () => {
   test("/api/app-icon eski manzili yangi ikonkaga yo'naltiradi", async () => {
     const appRoute = await import("../src/app/api/app-icon/route");
     const res = appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=180&v=a1"));
-    assert.equal(res.status, 308);
-    assert.equal(res.headers.get("location"), "https://hanustoz.tech/brand/icon-180.png");
-    assert.equal(appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=7")).headers.get("location"), "https://hanustoz.tech/brand/icon-512.png");
+    assert.equal(res.status, 307);
+    assert.equal(res.headers.get("location"), "https://hanustoz.tech/brand/icon-180.png?v=2");
+    assert.equal(appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=7")).headers.get("location"), "https://hanustoz.tech/brand/icon-512.png?v=2");
   });
 
   test("manifest: 192/512 PNG, maskable, tezkor menyular; service worker fayli bor", async () => {
@@ -317,7 +317,7 @@ describe("PWA: ilova ikonkasi va manifest", () => {
     assert.equal(m.display, "standalone");
     const icons = m.icons ?? [];
     assert.ok(icons.some((i) => i.sizes === "192x192" && i.type === "image/png"));
-    assert.ok(icons.some((i) => i.sizes === "512x512" && i.purpose === "maskable" && i.src === "/brand/icon-maskable-512.png"));
+    assert.ok(icons.some((i) => i.sizes === "512x512" && i.purpose === "maskable" && i.src.startsWith("/brand/icon-maskable-512.png")));
     assert.ok(icons.filter((i) => i.type === "image/png").every((i) => i.src.startsWith("/brand/")), "ikonkalar statik logo fayllari");
     assert.equal(m.shortcuts?.length, 4);
     for (const s of m.shortcuts ?? []) assert.match(String(s.icons?.[0]?.src), /^\/api\/image\?p=.+&s=icon&w=128$/);

@@ -4,16 +4,18 @@
       <stop offset="0" stop-color="#6a11ff"/><stop offset=".5" stop-color="#8b3dff"/><stop offset="1" stop-color="#3a86ff"/>
     </linearGradient>
     <radialGradient id="hq-glow" cx=".22" cy=".14" r=".75">
-      <stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="hq-sun" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffb340"/><stop offset="1" stop-color="#ff5c9a"/>
+      <stop offset="0" stop-color="#ffc04a"/><stop offset="1" stop-color="#ff5c9a"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="0" fill="url(#hq-bg)"/>
   <rect width="512" height="512" rx="0" fill="url(#hq-glow)"/>
-  <g transform="translate(1.43 16.51) scale(0.9429)" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="34">
-    <path d="M178 110 H242 M126 166 H294 M356 96 V336 M356 218 H414 M164 358 V412 H404" stroke="#ffffff"/>
-    <circle cx="210" cy="268" r="44" stroke="url(#hq-sun)"/>
+  <g transform="translate(0.00 0.00) scale(1.0000)">
+    <g fill="#ffffff"><rect x="110" y="128" width="58" height="256" rx="10"/>
+    <rect x="260" y="128" width="58" height="256" rx="10"/>
+    <rect x="110" y="227" width="274" height="58" rx="10"/></g>
+    <circle cx="372" cy="156" r="32" fill="url(#hq-sun)"/>
   </g>
 </svg>

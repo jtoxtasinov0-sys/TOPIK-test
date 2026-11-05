@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { VISUALS } from "@/data/visuals";
-import { appIconUrl, imageUrl } from "@/lib/images";
+import { appIconUrl, BRAND_VERSION, imageUrl } from "@/lib/images";
 
 // PWA manifesti: telefonga «ilova» sifatida o'rnatish. Ikonka — vektor logodan (scripts/brand.mjs → public/brand),
 // tezkor menyular (ikonkani bosib turganda) — sayt ikonkalari bilan.
@@ -32,8 +32,8 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: appIconUrl(192), sizes: "192x192", type: "image/png", purpose: "any" },
       { src: appIconUrl(512), sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/brand/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-      { src: "/brand/logo-mark.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+      { src: `/brand/icon-maskable-512.png?v=${BRAND_VERSION}`, sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: `/brand/logo-mark.svg?v=${BRAND_VERSION}`, sizes: "any", type: "image/svg+xml", purpose: "any" },
     ],
     shortcuts: [
       shortcut("Mock test", "/test", "home:test", "TOPIK I, TOPIK II va EPS-TOPIK"),

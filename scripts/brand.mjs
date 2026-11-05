@@ -1,129 +1,168 @@
 // HanUstoz logotipi: vektor (SVG) manbalar va PNG eksportlar (public/brand/).
 // Ishlatish: node scripts/brand.mjs        — faqat SVG
 //            node scripts/brand.mjs --png  — SVG + PNG (Playwright/Chromium kerak)
-// Logo shriftsiz chizilgan: hamma harflar bir xil qalinlikdagi yumaloq chiziqlar (stroke) — har qanday dasturda bir xil ko'rinadi.
+// Belgi: lotin «H» ko'ndalang chizig'i o'ngga chiqib koreyscha «ㅏ» ga aylanadi + quyosh nuqtasi.
+// Yozuv: Inter Display Bold (OFL, https://rsms.me/inter) — harflar vektor yo'llarga aylantirilgan, shrift kerak emas.
+// Shrift papkasi: BRAND_FONT_DIR (standart /usr/share/fonts/opentype/inter).
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadFont, textPath } from "./otf.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "public", "brand");
+const FONT_DIR = process.env.BRAND_FONT_DIR || "/usr/share/fonts/opentype/inter";
 
 export const COLORS = {
   violet: "#6a11ff",
   purple: "#8b3dff",
   blue: "#3a86ff",
-  sun: "#ffb340",
+  sun: "#ffc04a",
   pink: "#ff5c9a",
   ink: "#160f3b",
+  muted: "#6b6790",
   white: "#ffffff",
 };
 
-// ---------- «한» belgisi (512 katakli to'r, markaziy chiziqlar) ----------
-const MARK_STROKE = 34;
-const MARK_LINES = "M178 110 H242 M126 166 H294 M356 96 V336 M356 218 H414 M164 358 V412 H404";
-const MARK_RING = { cx: 210, cy: 268, r: 44 };
-// Belgining chegaralari (chiziq qalinligi bilan) — markazlash uchun
-const MARK_BOX = { x0: 126 - 17, y0: 96 - 17, x1: 414 + 17, y1: 412 + 17 };
-
-function glyph({ scale = 1, color = COLORS.white, ring = "url(#hq-sun)", size = 512 } = {}) {
-  const w = MARK_BOX.x1 - MARK_BOX.x0;
-  const h = MARK_BOX.y1 - MARK_BOX.y0;
-  const k = (size / 512) * scale * (330 / Math.max(w, h));
-  const tx = size / 2 - ((MARK_BOX.x0 + MARK_BOX.x1) / 2) * k;
-  const ty = size / 2 - ((MARK_BOX.y0 + MARK_BOX.y1) / 2) * k;
-  return `<g transform="translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${k.toFixed(4)})" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="${MARK_STROKE}">
-    <path d="${MARK_LINES}" stroke="${color}"/>
-    <circle cx="${MARK_RING.cx}" cy="${MARK_RING.cy}" r="${MARK_RING.r}" stroke="${ring}"/>
-  </g>`;
-}
-
-const defs = (id = "") => `<defs>
-    <linearGradient id="hq-bg${id}" x1="0" y1="0" x2="1" y2="1">
+const defs = `<defs>
+    <linearGradient id="hq-bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${COLORS.violet}"/><stop offset=".5" stop-color="${COLORS.purple}"/><stop offset="1" stop-color="${COLORS.blue}"/>
     </linearGradient>
-    <radialGradient id="hq-glow${id}" cx=".22" cy=".14" r=".75">
-      <stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    <radialGradient id="hq-glow" cx=".22" cy=".14" r=".75">
+      <stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="hq-sun" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${COLORS.sun}"/><stop offset="1" stop-color="${COLORS.pink}"/>
     </linearGradient>
   </defs>`;
 
+// ---------- Belgi (512 katakli to'r) ----------
+// H: chap va o'ng ustun, ko'ndalang chiziq o'ng ustundan chiqib «ㅏ» bo'ladi; tepada quyosh nuqtasi.
+const MARK_SHAPES = `<rect x="110" y="128" width="58" height="256" rx="10"/>
+    <rect x="260" y="128" width="58" height="256" rx="10"/>
+    <rect x="110" y="227" width="274" height="58" rx="10"/>`;
+const MARK_SUN = { cx: 372, cy: 156, r: 32 };
+
+function glyph(size, scale = 1) {
+  const k = (size / 512) * scale;
+  const t = (size - 512 * k) / 2;
+  return `<g transform="translate(${t.toFixed(2)} ${t.toFixed(2)}) scale(${k.toFixed(4)})">
+    <g fill="${COLORS.white}">${MARK_SHAPES}</g>
+    <circle cx="${MARK_SUN.cx}" cy="${MARK_SUN.cy}" r="${MARK_SUN.r}" fill="url(#hq-sun)"/>
+  </g>`;
+}
+
+function tile(size, rounded = true) {
+  const r = rounded ? size * 0.225 : 0;
+  return `<rect width="${size}" height="${size}" rx="${r}" fill="url(#hq-bg)"/>
+  <rect width="${size}" height="${size}" rx="${r}" fill="url(#hq-glow)"/>`;
+}
+
 /** Belgi: rounded=true — yumaloq kvadrat (sayt, reklama), false — to'liq kvadrat (telefon burchagini o'zi yumaloqlaydi) */
 export function markSvg({ size = 512, rounded = true, scale = 1 } = {}) {
-  const r = rounded ? size * 0.225 : 0;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  ${defs()}
-  <rect width="${size}" height="${size}" rx="${r}" fill="url(#hq-bg)"/>
-  <rect width="${size}" height="${size}" rx="${r}" fill="url(#hq-glow)"/>
-  ${glyph({ size, scale })}
+  ${defs}
+  ${tile(size, rounded)}
+  ${glyph(size, scale)}
 </svg>`;
 }
 
-// ---------- «HanUstoz» yozuvi: monoline geometrik harflar (bosh harf balandligi 100) ----------
-const S = 16; // chiziq qalinligi
-const LETTERS = {
-  H: { w: 72, d: "M8 8 V92 M64 8 V92 M8 50 H64" },
-  a: { w: 70, d: "M62 38 V92", circle: [35, 65, 27] },
-  n: { w: 70, d: "M8 38 V92 M8 65 A27 27 0 0 1 62 65 V92" },
-  U: { w: 72, d: "M8 8 V64 A28 28 0 0 0 64 64 V8" },
-  s: { w: 60, d: "M50 45 C46 40 39 38 31 38 C20 38 12 43 12 51 C12 60 21 62 31 64 C42 66 51 69 51 78 C51 87 42 92 31 92 C21 92 13 89 9 83" },
-  t: { w: 50, d: "M20 14 V74 Q20 92 38 92 H42 M7 38 H42" },
-  o: { w: 70, d: "", circle: [35, 65, 27] },
-  z: { w: 66, d: "M10 38 H56 L10 92 H56" },
-};
-const GAP = 9;
-
-function word(text, color) {
-  let x = 0;
-  const parts = [];
-  for (const ch of text) {
-    const L = LETTERS[ch];
-    const els = [];
-    if (L.d) els.push(`<path d="${L.d}"/>`);
-    if (L.circle) els.push(`<circle cx="${L.circle[0]}" cy="${L.circle[1]}" r="${L.circle[2]}"/>`);
-    parts.push(`<g transform="translate(${x} 0)">${els.join("")}</g>`);
-    x += L.w + GAP;
-  }
-  return { width: x - GAP, svg: `<g fill="none" stroke="${color}" stroke-width="${S}" stroke-linecap="round" stroke-linejoin="round">${parts.join("")}</g>` };
+// ---------- Yozuv ----------
+let fonts = null;
+function font(weight) {
+  fonts ??= {
+    bold: loadFont(path.join(FONT_DIR, "InterDisplay-Bold.otf")),
+    semibold: loadFont(path.join(FONT_DIR, "InterDisplay-SemiBold.otf")),
+  };
+  return fonts[weight];
 }
 
-/** Gorizontal logo: belgi + «HanUstoz». dark=true — to'q fon uchun (oq yozuv) */
-export function lockupSvg({ dark = false, height = 160 } = {}) {
-  const han = word("Han", dark ? COLORS.white : COLORS.ink);
-  // «Ustoz»: oq harflar niqob bo'ladi, ustidan bitta uzluksiz gradient (har harfda qayta boshlanmasin)
-  const ustoz = word("Ustoz", COLORS.white);
-  const textGrad = `<linearGradient id="hq-text" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${COLORS.violet}"/><stop offset="1" stop-color="${COLORS.blue}"/></linearGradient>
-    <mask id="hq-ustoz" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${ustoz.width + 20}" height="120">${ustoz.svg}</mask>`;
-  const ustozPaint = dark ? ustoz.svg : `<rect x="-${S}" y="0" width="${ustoz.width + 2 * S}" height="100" fill="url(#hq-text)" mask="url(#hq-ustoz)"/>`;
-  const markSize = height;
-  const k = (height * 0.5) / 100; // yozuv bosh harfi — belgining yarmi
-  const gapMark = height * 0.24;
-  const gapWords = 9 * k * 0; // «Han» va «Ustoz» bitta so'z
-  const wordW = (han.width + GAP + ustoz.width) * k;
-  const W = Math.round(markSize + gapMark + wordW + S * k);
-  const ty = (height - 100 * k) / 2;
+/** «HanUstoz»: Han — siyoh, Ustoz — binafsha (dark=true: hammasi oq). y = asosiy chiziq */
+function wordmark(x, y, size, dark) {
+  const f = font("bold");
+  const tracking = -0.024;
+  const han = textPath(f, "Han", { size, tracking });
+  const ustoz = textPath(f, "Ustoz", { size, tracking });
+  const gap = tracking * size;
+  return {
+    width: han.width + gap + ustoz.width,
+    svg: `<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)})">
+    <path d="${han.d}" fill="${dark ? COLORS.white : COLORS.ink}"/>
+    <path transform="translate(${(han.width + gap).toFixed(2)} 0)" d="${ustoz.d}" fill="${dark ? COLORS.white : COLORS.violet}"/>
+  </g>`,
+  };
+}
+
+const TAGLINE = "KOREYS TILI · TOPIK · EPS";
+function tagline(x, y, size, dark) {
+  const t = textPath(font("semibold"), TAGLINE, { size, tracking: 0.18 });
+  return { width: t.width, svg: `<path transform="translate(${x.toFixed(2)} ${y.toFixed(2)})" d="${t.d}" fill="${dark ? "#c9c3ff" : COLORS.muted}"/>` };
+}
+
+const CAP = 0.727; // Inter bosh harf balandligi (em ulushida)
+
+/** Gorizontal logo: belgi + «HanUstoz» (+ ixtiyoriy shior). dark=true — to'q fon uchun */
+export function lockupSvg({ dark = false, withTagline = false, height = 160 } = {}) {
+  const size = height * 0.69; // yozuv o'lchami
+  const gapMark = height * 0.26;
+  const x = height + gapMark;
+  let body;
+  let width;
+  if (!withTagline) {
+    const base = height / 2 + (size * CAP) / 2;
+    const w = wordmark(x, base, size, dark);
+    width = x + w.width;
+    body = w.svg;
+  } else {
+    const tSize = height * 0.135;
+    const gap = height * 0.12;
+    const block = size * CAP + gap + tSize * CAP;
+    const top = (height - block) / 2;
+    const w = wordmark(x, top + size * CAP, size, dark);
+    const t = tagline(x + size * 0.02, top + size * CAP + gap + tSize * CAP, tSize, dark);
+    width = x + Math.max(w.width, t.width);
+    body = w.svg + t.svg;
+  }
+  const W = Math.ceil(width + height * 0.04);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
-  ${defs()}
-  <defs>${textGrad}</defs>
-  <rect width="${markSize}" height="${markSize}" rx="${markSize * 0.225}" fill="url(#hq-bg)"/>
-  <rect width="${markSize}" height="${markSize}" rx="${markSize * 0.225}" fill="url(#hq-glow)"/>
-  ${glyph({ size: markSize })}
-  <g transform="translate(${(markSize + gapMark + gapWords).toFixed(2)} ${ty.toFixed(2)}) scale(${k.toFixed(4)})">
-    ${han.svg}
-    <g transform="translate(${han.width + GAP} 0)">${ustozPaint}</g>
-  </g>
+  ${defs}
+  ${tile(height)}
+  ${glyph(height)}
+  ${body}
+</svg>`;
+}
+
+/** Vertikal logo (ijtimoiy tarmoq posti, kvadrat joylar): belgi tepada, yozuv va shior pastda */
+export function stackedSvg({ dark = false, width = 640 } = {}) {
+  const mark = width * 0.36;
+  const size = width * 0.165;
+  const tSize = width * 0.032;
+  const f = font("bold");
+  const wW = textPath(f, "Han", { size, tracking: -0.024 }).width + textPath(f, "Ustoz", { size, tracking: -0.024 }).width - 0.024 * size;
+  const tW = textPath(font("semibold"), TAGLINE, { size: tSize, tracking: 0.18 }).width;
+  const markY = width * 0.08;
+  const base = markY + mark + width * 0.1 + size * CAP;
+  const tBase = base + width * 0.075;
+  const H = Math.ceil(tBase + width * 0.08);
+  const mx = (width - mark) / 2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${H}" viewBox="0 0 ${width} ${H}">
+  ${defs}
+  <g transform="translate(${mx.toFixed(2)} ${markY.toFixed(2)})">${tile(mark)}${glyph(mark)}</g>
+  ${wordmark((width - wW) / 2, base, size, dark).svg}
+  ${tagline((width - tW) / 2, tBase, tSize, dark).svg}
 </svg>`;
 }
 
 const FILES = {
-  "logo-mark.svg": markSvg({ size: 512, rounded: true }),
-  "app-icon.svg": markSvg({ size: 512, rounded: false }),
-  "app-icon-maskable.svg": markSvg({ size: 512, rounded: false, scale: 0.8 }),
-  "logo-horizontal.svg": lockupSvg({ dark: false }),
-  "logo-horizontal-white.svg": lockupSvg({ dark: true }),
+  "logo-mark.svg": () => markSvg({ size: 512, rounded: true }),
+  "app-icon.svg": () => markSvg({ size: 512, rounded: false }),
+  "app-icon-maskable.svg": () => markSvg({ size: 512, rounded: false, scale: 0.8 }),
+  "logo-horizontal.svg": () => lockupSvg({ dark: false }),
+  "logo-horizontal-white.svg": () => lockupSvg({ dark: true }),
+  "logo-tagline.svg": () => lockupSvg({ dark: false, withTagline: true }),
+  "logo-tagline-white.svg": () => lockupSvg({ dark: true, withTagline: true }),
+  "logo-stacked.svg": () => stackedSvg({ dark: false }),
 };
 
 const PNGS = [
@@ -134,25 +173,29 @@ const PNGS = [
   ["logo-mark.svg", "logo-1024.png", 1024, 1024],
   ["logo-horizontal.svg", "logo-horizontal.png", null, 320],
   ["logo-horizontal-white.svg", "logo-horizontal-white.png", null, 320],
+  ["logo-tagline.svg", "logo-tagline.png", null, 320],
+  ["logo-tagline-white.svg", "logo-tagline-white.png", null, 320],
+  ["logo-stacked.svg", "logo-stacked.png", 1280, null],
 ];
 
 mkdirSync(OUT, { recursive: true });
-for (const [name, svg] of Object.entries(FILES)) writeFileSync(path.join(OUT, name), svg + "\n");
-console.log("SVG:", Object.keys(FILES).join(", "));
+const svgs = Object.fromEntries(Object.entries(FILES).map(([n, f]) => [n, f()]));
+for (const [name, svg] of Object.entries(svgs)) writeFileSync(path.join(OUT, name), svg + "\n");
+console.log("SVG:", Object.keys(svgs).join(", "));
 
 if (process.argv.includes("--png")) {
   const { createRequire } = await import("node:module");
   const { chromium } = createRequire(import.meta.url)("playwright");
   const browser = await chromium.launch();
-  for (const [src, out, w0, h] of PNGS) {
-    const svg = FILES[src];
+  for (const [src, out, w0, h0] of PNGS) {
+    const svg = svgs[src];
     const vw = Number(svg.match(/width="(\d+)"/)[1]);
     const vh = Number(svg.match(/height="(\d+)"/)[1]);
-    const width = w0 ?? Math.round((vw / vh) * h);
-    const page = await browser.newPage({ viewport: { width, height: h }, deviceScaleFactor: 1 });
-    const html = `<html><body style="margin:0;background:transparent">${svg.replace(/width="\d+" height="\d+"/, `width="${width}" height="${h}"`)}</body></html>`;
-    await page.setContent(html);
-    await page.screenshot({ path: path.join(OUT, out), omitBackground: true, clip: { x: 0, y: 0, width, height: h } });
+    const width = w0 ?? Math.round((vw / vh) * h0);
+    const height = h0 ?? Math.round((vh / vw) * w0);
+    const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
+    await page.setContent(`<html><body style="margin:0;background:transparent">${svg.replace(/width="\d+" height="\d+"/, `width="${width}" height="${height}"`)}</body></html>`);
+    await page.screenshot({ path: path.join(OUT, out), omitBackground: true, clip: { x: 0, y: 0, width, height } });
     await page.close();
   }
   await browser.close();

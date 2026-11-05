@@ -11,7 +11,7 @@ export function Logo() {
   return (
     <Link href="/" className="logo" aria-label="HanUstoz — bosh sahifa">
       {/* eslint-disable-next-line @next/next/no-img-element -- vektor logo (public/brand), o'lchami CSS'da */}
-      <img src="/brand/logo-horizontal.svg" alt="HanUstoz" width={144} height={34} />
+      <img src="/brand/logo-horizontal.svg?v=2" alt="HanUstoz" width={147} height={34} />
     </Link>
   );
 }

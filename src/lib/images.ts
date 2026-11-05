@@ -18,9 +18,10 @@ export const ICON_STYLE =
   "plain very light lavender background filling the whole square, no border, no frame. " +
   "Do not draw any text, letters, numbers, flags or logos.";
 
-/** Ilova (PWA) ikonkasi — vektor logodan (scripts/brand.mjs → public/brand) */
+/** Ilova (PWA) ikonkasi — vektor logodan (scripts/brand.mjs → public/brand). Logo o'zgarsa BRAND_VERSION ni oshiring */
+export const BRAND_VERSION = "2";
 export const APP_ICON_SIZES = [180, 192, 512] as const;
-export const appIconUrl = (size: (typeof APP_ICON_SIZES)[number]) => `/brand/icon-${size}.png`;
+export const appIconUrl = (size: (typeof APP_ICON_SIZES)[number]) => `/brand/icon-${size}.png?v=${BRAND_VERSION}`;
 
 /** Uslub o'zgartirilsa, versiyani oshiring — eski kesh ishlatilmaydi */
 export const IMAGE_STYLES: Record<ImageStyle, { version: string; text: string; aspect: string }> = {

@@ -4,7 +4,7 @@
 // - API so'rovlari (AI, login, sinxron): keshlanmaydi
 // Yangi versiya: VERSION ni oshiring — eski kesh o'chiriladi.
 
-const VERSION = "hq-v2";
+const VERSION = "hq-v3";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
 const MAX_PAGES = 40;

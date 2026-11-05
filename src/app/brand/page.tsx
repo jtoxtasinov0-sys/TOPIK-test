@@ -14,6 +14,26 @@ const FILES: { title: string; desc: string; preview: string; dark?: boolean; fil
     ],
   },
   {
+    title: "Logo va shior",
+    desc: "Reklama, banner, prezentatsiya — nima ekanimiz darhol tushunarli.",
+    preview: "/brand/logo-tagline.svg",
+    files: [
+      ["SVG", "/brand/logo-tagline.svg"],
+      ["PNG", "/brand/logo-tagline.png"],
+      ["Oq SVG", "/brand/logo-tagline-white.svg"],
+      ["Oq PNG", "/brand/logo-tagline-white.png"],
+    ],
+  },
+  {
+    title: "Vertikal logo",
+    desc: "Instagram/Telegram posti, afisha, kvadrat joylar.",
+    preview: "/brand/logo-stacked.svg",
+    files: [
+      ["SVG", "/brand/logo-stacked.svg"],
+      ["PNG", "/brand/logo-stacked.png"],
+    ],
+  },
+  {
     title: "Gorizontal logo — oq",
     desc: "To‘q yoki rangli fonda (rasm, video, binafsha banner).",
     preview: "/brand/logo-horizontal-white.svg",
@@ -39,7 +59,7 @@ const COLORS: [string, string][] = [
   ["Binafsha", "#6a11ff"],
   ["Siyohrang", "#8b3dff"],
   ["Ko‘k", "#3a86ff"],
-  ["Quyosh", "#ffb340"],
+  ["Quyosh", "#ffc04a"],
   ["Pushti", "#ff5c9a"],
   ["Siyoh (matn)", "#160f3b"],
 ];
@@ -53,7 +73,7 @@ export default function BrandPage() {
           HanUstoz <span className="gradient-text">logotipi</span>
         </h1>
         <p className="lead">
-          Belgi — koreyscha «한» (Han): bir xil qalinlikdagi yumaloq chiziqlar, ichidagi «ㅇ» — iliq quyosh rangida. Reklamada logoni cho‘zmang, rangini o‘zgartirmang va atrofida kamida belgi balandligining yarmicha bo‘sh joy qoldiring.
+          Belgi — lotincha «H» (HanUstoz): uning ko‘ndalang chizig‘i o‘ngga chiqib, koreyscha «ㅏ» unlisiga aylanadi — o‘zbek va koreys yozuvi bitta belgida. Tepadagi nuqta — chiqayotgan quyosh. Yozuv — Inter Display Bold. Reklamada logoni cho‘zmang, rangini o‘zgartirmang va atrofida kamida belgi balandligining yarmicha bo‘sh joy qoldiring.
         </p>
       </div>
 
@@ -70,7 +90,7 @@ export default function BrandPage() {
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- vektor logo */}
-              <img src={f.preview} alt={f.title} style={{ maxWidth: "100%", height: f.preview.includes("horizontal") ? 72 : 140, width: "auto" }} />
+              <img src={f.preview} alt={f.title} style={{ maxWidth: "100%", height: f.preview.includes("stacked") ? 220 : f.preview.includes("mark") ? 140 : 80, width: "auto" }} />
             </div>
             <div className="row between" style={{ flexWrap: "wrap", gap: 10 }}>
               <div>

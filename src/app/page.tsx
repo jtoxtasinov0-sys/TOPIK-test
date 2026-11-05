@@ -233,7 +233,7 @@ export default function Home() {
             {actions.map((a) => (
               <Link key={a.href} href={a.href} className="action">
                 <span className="ring has-img">
-                  <Visual id={a.v} size={66} />
+                  <Visual id={a.v} size={66} eager />
                 </span>
                 {a.t}
               </Link>

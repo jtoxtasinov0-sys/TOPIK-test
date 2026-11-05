@@ -17,6 +17,11 @@ export const VISUALS = {
   "home:tutor": v("🤖", "a cute friendly robot teacher holding an open book and pointing at it"),
   "home:guide": v("🇰🇷", "a traditional Korean hanok roof in front of the N Seoul Tower on a hill"),
 
+  // ---------- Menyu («Barcha bo'limlar») ----------
+  "nav:home": v("🏠", "a cosy little house with a red roof, a round window and a small tree next to it"),
+  "nav:progress": v("📈", "a rising bar chart with an upward arrow and a small gold star"),
+  "nav:profile": v("👤", "a cute student avatar with a graduation cap inside a round badge"),
+
   // ---------- Bosh sahifa: kimlar uchun ----------
   "who:beginner": v("🌱", "a small green sprout growing out of an open book"),
   "who:topik": v("🎓", "a graduation cap on a stack of books with a gold medal"),

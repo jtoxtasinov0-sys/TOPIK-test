@@ -16,10 +16,12 @@ process.env.IMAGE_DIR = DIR;
 
 const { createMemoryStore, setStore } = await import("../src/lib/server/store");
 const imageRoute = await import("../src/app/api/image/route");
-const { clearImageMemory, imageKey, imageLog } = await import("../src/lib/server/images");
+const { clearImageMemory, imageKey, imageLog, thumbName } = await import("../src/lib/server/images");
 const { pickImageModel, resetImageModel } = await import("../src/lib/gemini");
 const { imagePromptsOf, MAX_IMAGE_PROMPT, IMAGE_STYLE, ICON_STYLE, imageUrl, widthFor } = await import("../src/lib/images");
 const { decodePng, encodePng, resizeBitmap, shrinkPng, toGrayIfPossible } = await import("../src/lib/server/png");
+const { AC_CHROMA, AC_LUMA, encodeJpeg, jpegInfo } = await import("../src/lib/server/jpeg");
+const { thumbFromPng } = await import("../src/lib/server/thumb");
 const { VISUALS, visualPrompts } = await import("../src/data/visuals");
 const { LESSONS } = await import("../src/data/lessons");
 const { SCENARIOS } = await import("../src/data/scenarios");
@@ -164,6 +166,31 @@ describe("rasmli savollar ma'lumotlari", () => {
   });
 });
 
+/** Javobdagi rasm o'lchami (PNG yoki JPEG) */
+function dims(buf: Uint8Array) {
+  const png = decodePng(buf);
+  if (png) return { width: png.width, height: png.height };
+  const jpg = jpegInfo(buf);
+  return jpg ? { width: jpg.width, height: jpg.height } : null;
+}
+
+/** Sinov uchun «rasmga o'xshash» rangli rasm: gradient + shovqin (Gemini 3D ikonkalari kabi PNG'da og'ir) */
+function noisy(width: number, height: number, alpha = false) {
+  const ch = alpha ? 4 : 3;
+  const data = new Uint8Array(width * height * ch);
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) % 41) - 20;
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * ch;
+      data[i] = Math.max(0, Math.min(255, 150 + Math.round(80 * Math.sin(x / 37)) + rnd()));
+      data[i + 1] = Math.max(0, Math.min(255, 120 + Math.round(60 * Math.cos(y / 23)) + rnd()));
+      data[i + 2] = Math.max(0, Math.min(255, 230 - ((x + y) % 50) + rnd()));
+      if (alpha) data[i + 3] = x < 10 ? 0 : 255;
+    }
+  return { width, height, channels: ch as 3 | 4, data };
+}
+
 /** Sinov uchun rangli gradient rasm */
 function sample(width: number, height: number, gray = false) {
   const data = new Uint8Array(width * height * 3);
@@ -215,26 +242,69 @@ describe("PNG: o'qish, kichraytirish, yozish", () => {
   });
 });
 
+describe("JPEG va kichik nusxalar", () => {
+  test("JPEG: to'g'ri tuzilma, o'lcham va kanallar (rangli, kulrang, toq o'lchamlar)", () => {
+    for (const [w, h] of [[16, 16], [37, 23], [128, 85], [1, 1]]) {
+      const jpg = encodeJpeg(noisy(w, h));
+      assert.deepEqual([jpg[0], jpg[1], jpg[jpg.length - 2], jpg[jpg.length - 1]], [0xff, 0xd8, 0xff, 0xd9]);
+      assert.deepEqual(jpegInfo(jpg), { width: w, height: h, channels: 3 });
+    }
+    const gray = toGrayIfPossible(sample(50, 30, true));
+    assert.deepEqual(jpegInfo(encodeJpeg(gray)), { width: 50, height: 30, channels: 1 });
+    assert.equal(jpegInfo(Buffer.from("not a jpeg")), null);
+    // Sifat pasaysa — fayl kichrayadi
+    assert.ok(encodeJpeg(noisy(128, 128), 50).length < encodeJpeg(noisy(128, 128), 95).length);
+  });
+
+  test("Huffman jadvallarida hamma AC belgilar bor (EOB, 16 nol, har uzunlik)", () => {
+    const need = [0x00, 0xf0];
+    for (let run = 0; run < 16; run++) for (let size = 1; size <= 10; size++) need.push((run << 4) | size);
+    for (const [counts, symbols] of [AC_LUMA, AC_CHROMA]) {
+      assert.equal(counts.reduce((a, b) => a + b, 0), symbols.length);
+      assert.deepEqual([...symbols].sort((a, b) => a - b), need.sort((a, b) => a - b));
+    }
+  });
+
+  test("kichik nusxa: 3D rasm — JPEG va ancha yengil, shaffof — PNG, oq-qora — eng yengili", () => {
+    const src = encodePng(noisy(512, 512));
+    const t = thumbFromPng(src, 128, { square: true })!;
+    assert.equal(t.mime, "image/jpeg");
+    assert.deepEqual(dims(t.data), { width: 128, height: 128 });
+    const asPng = encodePng(resizeBitmap(noisy(512, 512), 128));
+    assert.ok(t.data.length * 2 < asPng.length, `${t.data.length} vs PNG ${asPng.length}`);
+
+    const clear = thumbFromPng(encodePng(noisy(200, 100, true)), 100)!;
+    assert.equal(clear.mime, "image/png");
+    assert.equal(decodePng(clear.data)!.channels, 4, "shaffoflik saqlanadi");
+
+    const line = thumbFromPng(encodePng(sample(400, 300, true)), 200)!;
+    const small = toGrayIfPossible(resizeBitmap(sample(400, 300, true), 200));
+    assert.ok(line.data.length <= Math.min(encodePng(small).length, encodeJpeg(small).length));
+    assert.equal(thumbFromPng(Buffer.from([1, 2, 3]), 128), null);
+  });
+});
+
 describe("kichraytirilgan nusxalar va ikonkalar", () => {
-  test("?w=128: kichraytirilgan PNG qaytadi va diskda saqlanadi, keyin keshdan", async () => {
-    const png = encodePng(sample(300, 200));
+  test("?w=128: kichraytirilgan nusxa (JPEG yoki PNG) qaytadi va diskda saqlanadi, keyin keshdan", async () => {
+    const png = encodePng(noisy(300, 200));
     mockGemini({ png });
     const prompt = BUILTIN[4];
     const res = await imageRoute.GET(get(prompt, "", "&w=128"));
     assert.equal(res.status, 200);
-    const img = decodePng(new Uint8Array(await res.arrayBuffer()))!;
-    assert.equal(img.width, 128);
-    assert.equal(img.height, 85);
+    assert.equal(res.headers.get("content-type"), "image/jpeg");
+    const body = new Uint8Array(await res.arrayBuffer());
+    assert.deepEqual(dims(body), { width: 128, height: 85 });
+    assert.ok(body.length < png.length / 5, `${body.length} < ${png.length}/5`);
     assert.ok(existsSync(path.join(DIR, `${imageKey(prompt)}.png`)), "asl rasm");
-    assert.ok(existsSync(path.join(DIR, `${imageKey(prompt)}-w128.png`)), "kichik nusxa");
+    assert.ok(existsSync(path.join(DIR, `${thumbName(imageKey(prompt), 128)}.jpg`)), "kichik nusxa");
 
     clearImageMemory();
     mockGemini();
     const again = await imageRoute.GET(get(prompt, "", "&w=128"));
-    assert.equal(decodePng(new Uint8Array(await again.arrayBuffer()))!.width, 128);
+    assert.equal(dims(new Uint8Array(await again.arrayBuffer()))!.width, 128);
     // Boshqa o'lcham — asl rasmdan yasaladi, Gemini'ga murojaat yo'q
     const other = await imageRoute.GET(get(prompt, "", "&w=256"));
-    assert.equal(decodePng(new Uint8Array(await other.arrayBuffer()))!.width, 256);
+    assert.equal(dims(new Uint8Array(await other.arrayBuffer()))!.width, 256);
     // Ruxsat etilmagan o'lcham — asl rasm
     const orig = await imageRoute.GET(get(prompt, "", "&w=999"));
     assert.equal(decodePng(new Uint8Array(await orig.arrayBuffer()))!.width, 300);

@@ -1,14 +1,17 @@
 // HanUstoz service worker: ilova tez ochilishi va internet uzilganda ham ishlashi uchun.
 // - /_next/static, rasmlar va ikonkalar: keshdan (o'zgarmaydi)
+// - Gemini rasmlari (/api/image): alohida keshda, yangi versiyada ham o'chirilmaydi — har deploydan keyin qayta yuklanmaydi
 // - sahifalar: avval internetdan, bo'lmasa keshdan, u ham bo'lmasa — «Internet yo'q» sahifasi
 // - API so'rovlari (AI, login, sinxron): keshlanmaydi
-// Yangi versiya: VERSION ni oshiring — eski kesh o'chiriladi.
+// Yangi versiya: VERSION ni oshiring — eski kesh o'chiriladi (IMAGES dan tashqari).
 
-const VERSION = "hq-v5";
+const VERSION = "hq-v6";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
+const IMAGES = "hq-images-v1";
 const MAX_PAGES = 40;
-const MAX_STATIC = 400;
+const MAX_STATIC = 300;
+const MAX_IMAGES = 700;
 
 const OFFLINE_HTML = `<!doctype html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Internet yo'q · HanUstoz</title><style>
@@ -32,7 +35,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      for (const key of await caches.keys()) if (!key.startsWith(VERSION)) await caches.delete(key);
+      for (const key of await caches.keys()) if (!key.startsWith(VERSION) && key !== IMAGES) await caches.delete(key);
       await self.clients.claim();
     })()
   );
@@ -47,20 +50,19 @@ async function trim(cacheName, max) {
 function isStatic(url) {
   return (
     url.pathname.startsWith("/_next/static/") ||
-    url.pathname === "/api/image" ||
     url.pathname === "/api/app-icon" ||
     /\.(?:svg|png|jpg|jpeg|webp|ico|woff2?)$/.test(url.pathname)
   );
 }
 
-async function cacheFirst(request) {
-  const cache = await caches.open(STATIC);
+async function cacheFirst(request, name, max) {
+  const cache = await caches.open(name);
   const hit = await cache.match(request);
   if (hit) return hit;
   const res = await fetch(request);
   // Zaxira ikonka va xatolar keshlanmaydi — keyin haqiqiy rasm olinadi
   if (res.ok && !res.headers.get("X-Icon-Fallback")) {
-    cache.put(request, res.clone()).then(() => trim(STATIC, MAX_STATIC)).catch(() => {});
+    cache.put(request, res.clone()).then(() => trim(name, max)).catch(() => {});
   }
   return res;
 }
@@ -85,8 +87,12 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname === "/api/image") {
+    event.respondWith(cacheFirst(request, IMAGES, MAX_IMAGES));
+    return;
+  }
   if (isStatic(url)) {
-    event.respondWith(cacheFirst(request));
+    event.respondWith(cacheFirst(request, STATIC, MAX_STATIC));
     return;
   }
   if (request.mode === "navigate" && !url.pathname.startsWith("/api/")) {

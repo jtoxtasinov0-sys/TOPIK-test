@@ -4,10 +4,11 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { generateImage } from "@/lib/gemini";
 import { IMAGE_STYLES, type ImageStyle } from "@/lib/images";
-import { shrinkPng } from "./png";
+import { makeThumb } from "./thumb";
 
 // Rasm keshi: xotira (tez) + disk. Dokploy'da /app/data/images (Volume) — qayta deploy'da o'chmaydi.
-// Asl rasm (~1 MB) bir marta chiziladi; telefon uchun kichraytirilgan nusxalari (128–768 px) alohida saqlanadi.
+// Asl rasm (~1 MB) bir marta chiziladi; telefon uchun kichraytirilgan nusxalari (128–768 px, JPEG yoki PNG —
+// qaysi biri yengil bo'lsa) alohida saqlanadi.
 // Disk yozib bo'lmasa (masalan Vercel), faqat xotirada saqlanadi.
 
 export type StoredImage = { data: Buffer; mime: string };
@@ -22,10 +23,12 @@ const g = globalThis as unknown as {
   __hqImg?: Map<string, StoredImage>;
   __hqImgSmall?: Map<string, StoredImage>;
   __hqImgJobs?: Map<string, Promise<StoredImage>>;
+  __hqThumbJobs?: Map<string, Promise<StoredImage>>;
 };
 const big = (g.__hqImg ??= new Map()); // asl rasmlar — og'ir, kam saqlanadi
 const small = (g.__hqImgSmall ??= new Map()); // kichraytirilgan nusxalar
 const jobs = (g.__hqImgJobs ??= new Map());
+const thumbJobs = (g.__hqThumbJobs ??= new Map()); // bir xil kichik nusxa bir vaqtda ikki marta yasalmasin
 const log = (g.__hqImgLog ??= {});
 
 /** Admin uchun: oxirgi muvaffaqiyatli va oxirgi xato rasm yaratish */
@@ -79,34 +82,44 @@ async function cachedOriginal(key: string): Promise<StoredImage | null> {
   return disk;
 }
 
-/** Kichraytirilgan nusxa: keshda bo'lmasa — asl rasmdan yasaladi (PNG bo'lmasa asl rasm qaytadi) */
+/** Kichik nusxa fayli nomi. Format o'zgarsa, THUMB versiyasini oshiring — eski (og'ir) nusxalar ishlatilmaydi */
+const THUMB = "v2";
+export const thumbName = (key: string, w: number) => `${key}-w${w}-${THUMB}`;
+const MAX_SMALL = 600;
+
+/** Kichraytirilgan nusxa: keshda bo'lmasa — asl rasmdan yasaladi (yasab bo'lmasa asl rasm qaytadi) */
 async function variant(key: string, original: StoredImage, w?: number, style: ImageStyle = "test"): Promise<StoredImage> {
   if (!w) return original;
-  const name = `${key}-w${w}`;
+  const name = thumbName(key, w);
   const hit = small.get(name);
   if (hit) return hit;
   const disk = await fromDisk(name);
   if (disk) {
-    remember(small, name, disk, 400);
+    remember(small, name, disk, MAX_SMALL);
     return disk;
   }
-  if (original.mime !== "image/png") return original;
-  const png = shrinkPng(original.data, w, { square: style === "icon" });
-  if (!png || png.length >= original.data.length) return original;
-  const img = { data: png, mime: "image/png" };
-  remember(small, name, img, 400);
-  await toDisk(name, img);
-  return img;
+  let job = thumbJobs.get(name);
+  if (!job) {
+    job = (async () => {
+      const img = await makeThumb(original, w, { square: style === "icon" }).catch(() => null);
+      if (!img || img.data.length >= original.data.length) return original;
+      remember(small, name, img, MAX_SMALL);
+      await toDisk(name, img);
+      return img;
+    })().finally(() => thumbJobs.delete(name));
+    thumbJobs.set(name, job);
+  }
+  return job;
 }
 
 /** Keshdan olish (yangi rasm chizmasdan) */
 export async function cachedImage(prompt: string, style: ImageStyle = "test", w?: number): Promise<StoredImage | null> {
   const key = imageKey(prompt, style);
   if (w) {
-    const name = `${key}-w${w}`;
+    const name = thumbName(key, w);
     const hit = small.get(name) ?? (await fromDisk(name));
     if (hit) {
-      remember(small, name, hit, 400);
+      remember(small, name, hit, MAX_SMALL);
       return hit;
     }
   }
@@ -149,4 +162,5 @@ export function clearImageMemory() {
   big.clear();
   small.clear();
   jobs.clear();
+  thumbJobs.clear();
 }

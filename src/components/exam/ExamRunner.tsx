@@ -5,11 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExamId, Group, Section, SectionId, Test, WritingTask } from "@/lib/exam";
 import { allQuestions, EXAM_INFO, formatTime, qKey, SECTION_LABEL } from "@/lib/exam";
 import { prefetchAudio, stopAudio } from "@/lib/audio";
+import { imageUrl } from "@/lib/images";
 import { addHistory, KEYS, load, remove, save, saveAiTest, uid, useStored } from "@/lib/store";
 import { TOPIK1 } from "@/data/topik1";
 import { TOPIK2 } from "@/data/topik2";
 import { EPS } from "@/data/eps";
 import { Icon } from "../Icon";
+import { preloadImages } from "../Visual";
 import { ApiError, postJson, useAiErrorText } from "../ui";
 import { GroupView } from "./GroupView";
 import { Results } from "./Results";
@@ -237,6 +239,18 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
       nextSection();
     }
   }, [timeLeft, grace, phase, practice, section, nextSection]);
+
+  // Hozirgi va keyingi 2 guruh rasmlarini oldindan yuklash — savolga o'tganda rasm darhol chiqadi
+  useEffect(() => {
+    if (phase !== "run") return;
+    const urls = groups.slice(groupIdx, groupIdx + 3).flatMap((g) =>
+      g.questions.flatMap((q) => [
+        ...(q.pictureImage?.trim() ? [imageUrl(q.pictureImage, { w: 768 })] : []),
+        ...(q.optionImages ?? []).filter((p) => p?.trim()).map((p) => imageUrl(p, { w: 512 })),
+      ])
+    );
+    preloadImages(urls);
+  }, [phase, groups, groupIdx]);
 
   // Keyingi guruh audiosini oldindan yuklash
   useEffect(() => {

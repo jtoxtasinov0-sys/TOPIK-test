@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TOPIK1 } from "@/data/topik1";
 import { TOPIK2 } from "@/data/topik2";
 import { EPS } from "@/data/eps";
-import { imagePromptsOf, imageUrl } from "@/lib/images";
+import { BRAND_VERSION, imagePromptsOf, imageUrl } from "@/lib/images";
 import { visualPrompts } from "@/data/visuals";
 import { ApiError, useAiErrorText } from "@/components/ui";
 import { Avatar, useAuth } from "@/lib/auth";
@@ -257,7 +257,7 @@ export function AdminView() {
 
       <div className="card row" style={{ marginTop: 18, gap: 14 }}>
         {/* eslint-disable-next-line @next/next/no-img-element -- vektor logo */}
-        <img src="/brand/logo-mark.svg" alt="" width={48} height={48} />
+        <img src={`/brand/logo-mark.svg?v=${BRAND_VERSION}`} alt="" width={48} height={48} />
         <div className="grow">
           <b>Logo va reklama fayllari</b>
           <div className="small muted">SVG va PNG: ilova ikonkasi, gorizontal logo, oq variant, ranglar.</div>

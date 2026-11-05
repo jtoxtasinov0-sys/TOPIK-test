@@ -45,7 +45,7 @@ const FILES: { title: string; desc: string; preview: string; dark?: boolean; fil
   },
   {
     title: "Belgi — fonsiz",
-    desc: "Oq fonli reklama, hujjat, futbolka va sovg‘alar uchun — gradient rangdagi belgi.",
+    desc: "Oq fonli reklama, hujjat, futbolka va sovg‘alar uchun — binafsha gradientdagi belgi.",
     preview: "/brand/logo-symbol.svg",
     files: [
       ["SVG", "/brand/logo-symbol.svg"],
@@ -65,6 +65,8 @@ const FILES: { title: string; desc: string; preview: string; dark?: boolean; fil
 ];
 
 const COLORS: [string, string][] = [
+  ["Logo foni (to‘q binafsha)", "#5004dc"],
+  ["Och binafsha (nur)", "#9b1fff"],
   ["Binafsha", "#6a11ff"],
   ["Siyohrang", "#8b3dff"],
   ["Ko‘k", "#3a86ff"],
@@ -82,7 +84,7 @@ export default function BrandPage() {
           HanUstoz <span className="gradient-text">logotipi</span>
         </h1>
         <p className="lead">
-          Belgi — «H» (HanUstoz): to‘rtta yumaloq bo‘lak, chap pastki va o‘ng yuqori bo‘lak to‘lqinli lenta bilan silliq qo‘shilgan — suhbat va o‘quvchidan ustozga oqim. Fon — binafsha → ko‘k gradient. Yozuv — Inter Display Bold. Reklamada logoni cho‘zmang, rangini o‘zgartirmang va atrofida kamida belgi balandligining yarmicha bo‘sh joy qoldiring.
+          Belgi — «H» (HanUstoz): ikki ustun diagonal to‘lqinli lenta bilan bog‘langan, yon bo‘laklar lentaga parallel kesilgan — o‘quvchidan ustozga oqim va harakat. Fon — to‘q binafsha, burchaklarda och binafsha nur. Yozuv — Inter Display Bold. Reklamada logoni cho‘zmang, qiyshaytirmang, rangini o‘zgartirmang va atrofida kamida belgi balandligining yarmicha bo‘sh joy qoldiring.
         </p>
       </div>
 
@@ -130,7 +132,7 @@ export default function BrandPage() {
               </div>
             ))}
           </div>
-          <p className="small muted" style={{ margin: "12px 0 0" }}>Asosiy fon: binafsha → ko‘k gradient (135°). Urg‘u: quyosh → pushti gradient.</p>
+          <p className="small muted" style={{ margin: "12px 0 0" }}>Logo foni: to‘q binafsha #5004DC, burchaklarda och binafsha #9B1FFF nur. Sayt tugmalari: binafsha → ko‘k gradient. Urg‘u: quyosh → pushti gradient.</p>
         </div>
       </div>
     </main>

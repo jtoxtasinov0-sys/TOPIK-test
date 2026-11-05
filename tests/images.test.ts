@@ -308,8 +308,8 @@ describe("PWA: ilova ikonkasi va manifest", () => {
     const appRoute = await import("../src/app/api/app-icon/route");
     const res = appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=180&v=a1"));
     assert.equal(res.status, 307);
-    assert.equal(res.headers.get("location"), "https://hanustoz.tech/brand/icon-180.png?v=3");
-    assert.equal(appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=7")).headers.get("location"), "https://hanustoz.tech/brand/icon-512.png?v=3");
+    assert.equal(res.headers.get("location"), "https://hanustoz.tech/brand/icon-180.png?v=4");
+    assert.equal(appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=7")).headers.get("location"), "https://hanustoz.tech/brand/icon-512.png?v=4");
   });
 
   test("manifest: 192/512 PNG, maskable, tezkor menyular; service worker fayli bor", async () => {

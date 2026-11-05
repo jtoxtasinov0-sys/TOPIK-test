@@ -19,7 +19,7 @@ export const ICON_STYLE =
   "Do not draw any text, letters, numbers, flags or logos.";
 
 /** Ilova (PWA) ikonkasi — vektor logodan (scripts/brand.mjs → public/brand). Logo o'zgarsa BRAND_VERSION ni oshiring */
-export const BRAND_VERSION = "3";
+export const BRAND_VERSION = "4";
 export const APP_ICON_SIZES = [180, 192, 512] as const;
 export const appIconUrl = (size: (typeof APP_ICON_SIZES)[number]) => `/brand/icon-${size}.png?v=${BRAND_VERSION}`;
 

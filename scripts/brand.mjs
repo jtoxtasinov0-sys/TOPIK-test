@@ -1,8 +1,9 @@
 // HanUstoz logotipi: vektor (SVG) manbalar va PNG eksportlar (public/brand/).
 // Ishlatish: node scripts/brand.mjs        — faqat SVG
 //            node scripts/brand.mjs --png  — SVG + PNG (Playwright/Chromium kerak)
-// Belgi: to'rt yumaloq bo'lakdan H — chap pastki va o'ng yuqori bo'lak to'lqinli lenta bilan silliq qo'shilgan
-// (suhbat, oqim: o'quvchidan ustozga). Fon — binafsha → ko'k gradient, belgi oq.
+// Belgi: tanlangan «H» rasmi (to'lqinli lenta) piksel aniqligida o'lchanib, toza geometriyaga keltirilgan:
+// chap ustun va o'ng ustun diagonal to'lqinli lenta bilan bitta shakl, chap yuqori va o'ng pastki bo'laklar alohida.
+// Fon — to'q binafsha, burchaklarda och binafsha nur va belgining diagonalini takrorlovchi yumshoq tekisliklar; belgi oq.
 // Yozuv: Inter Display Bold (OFL, https://rsms.me/inter) — harflar vektor yo'llarga aylantirilgan, shrift kerak emas.
 // Shrift papkasi: BRAND_FONT_DIR (standart /usr/share/fonts/opentype/inter).
 
@@ -16,7 +17,9 @@ const OUT = path.join(ROOT, "public", "brand");
 const FONT_DIR = process.env.BRAND_FONT_DIR || "/usr/share/fonts/opentype/inter";
 
 export const COLORS = {
+  indigo: "#5004dc", // logo fonining to'q binafshasi
   violet: "#6a11ff",
+  orchid: "#9b1fff", // logo fonidagi och binafsha nur
   purple: "#8b3dff",
   blue: "#3a86ff",
   sun: "#ffc04a",
@@ -26,17 +29,102 @@ export const COLORS = {
   white: "#ffffff",
 };
 
+// Fon (512 katakli to'r): pastki chap va yuqori o'ng burchakda och nur, o'rtasi to'q; ustida ikki yumshoq tekislik —
+// lenta qiyaligidagi soya va yuqori o'ngdagi yumaloq burchakli panel (logoning o'z rasmidagi kabi).
 const defs = `<defs>
-    <linearGradient id="hq-bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${COLORS.violet}"/><stop offset=".55" stop-color="#5b2dff"/><stop offset="1" stop-color="${COLORS.blue}"/>
+    <linearGradient id="hq-bg" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="${COLORS.orchid}"/><stop offset=".32" stop-color="#5d06ea"/><stop offset=".62" stop-color="${COLORS.indigo}"/><stop offset="1" stop-color="#8812ff"/>
     </linearGradient>
+    <linearGradient id="hq-shade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3200a8" stop-opacity="0"/><stop offset=".55" stop-color="#3200a8" stop-opacity=".22"/></linearGradient>
+    <linearGradient id="hq-glow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".08"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <clipPath id="hq-round"><rect width="512" height="512" rx="115.2"/></clipPath>
   </defs>`;
 
-// ---------- Belgi (512 katakli to'r) ----------
-// Chap yuqori va o'ng pastki bo'laklar alohida; chap pastki bo'lak → to'lqinli lenta → o'ng yuqori bo'lak — bitta silliq shakl.
-const MARK_SHAPES = `<rect x="128" y="128" width="64" height="116" rx="32"/>
-    <rect x="320" y="270" width="64" height="116" rx="32"/>
-    <path d="M128 354 A32 32 0 0 0 192 354 V324 C192 304 206 288 228 286 C244 284 252 296 268 294 C286 292 296 270 312 252 C324 238 336 232 352 232 A32 32 0 0 0 384 200 V160 A32 32 0 0 0 320 160 V188 C320 204 310 214 298 226 C284 240 276 254 258 256 C240 258 232 246 216 248 C198 250 184 286 160 286 A32 32 0 0 0 128 318 Z"/>`;
+// ---------- Belgi (512 katakli to'r, markaz 256,256) ----------
+// Har bir bo'lak — burchaklari yumaloqlangan ko'pburchak: [nuqta, radius]. Asosiy shakl 180° burilishga simmetrik,
+// o'ng pastki bo'lak — chap yuqori bo'lakning 180° burilgani.
+const MARK = {
+  x: 128, // chap chet (o'ng chet = 512 - x)
+  y: 126, // yuqori chet (pastki chet = 512 - y)
+  stem: 70, // ustun eni; lenta qalinligi ham shunga yaqin
+  slope: -0.634, // lenta diagonali (≈32.4°)
+  ribbon: 41.5, // lenta yuqori chizig'i markazdan shuncha yuqorida (x = 256 da)
+  wave: { slope: 0.26, rise: 36.5 }, // lentaning ustunga tutashgan yotiqroq qismi
+  gap: 16, // yon bo'lak va lenta orasidagi tirqish (vertikal bo'yicha)
+  capSlope: 0.49, // yon bo'lak tepasining qiyaligi
+  r: { joint: 19.5, wave: 43, inner: 9.5, side: 18, cap: 53 },
+};
+
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const cross = (a, b) => a[0] * b[1] - a[1] * b[0];
+const unit = (a) => {
+  const l = Math.hypot(a[0], a[1]);
+  return [a[0] / l, a[1] / l];
+};
+/** p1 + t·d1 va p2 + u·d2 to'g'ri chiziqlarining kesishgan nuqtasi */
+function meet(p1, d1, p2, d2) {
+  const t = cross(sub(p2, p1), d2) / cross(d1, d2);
+  return [p1[0] + t * d1[0], p1[1] + t * d1[1]];
+}
+const num = (v) => String(Math.round(v * 100) / 100);
+const pt = (p) => `${num(p[0])} ${num(p[1])}`;
+
+/** Burchaklari r radiusli yoy bilan yumaloqlangan yopiq ko'pburchak → SVG yo'li */
+function roundedPath(corners) {
+  const n = corners.length;
+  const ends = corners.map(([p, r], i) => {
+    if (!r) return { a: p, b: p, r: 0 };
+    const u = unit(sub(corners[(i + n - 1) % n][0], p));
+    const v = unit(sub(corners[(i + 1) % n][0], p));
+    const d = r / Math.tan(Math.acos(Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1]))) / 2);
+    const sweep = cross([-u[0], -u[1]], v) > 0 ? 1 : 0;
+    return { a: [p[0] + u[0] * d, p[1] + u[1] * d], b: [p[0] + v[0] * d, p[1] + v[1] * d], r, sweep };
+  });
+  let d = `M${pt(ends[0].b)}`;
+  let last = pt(ends[0].b);
+  for (let i = 1; i <= n; i++) {
+    const e = ends[i % n];
+    if (pt(e.a) !== last) d += ` L${pt(e.a)}`;
+    if (e.r) d += ` A${num(e.r)} ${num(e.r)} 0 0 ${e.sweep} ${pt(e.b)}`;
+    last = pt(e.b);
+  }
+  return d + " Z";
+}
+
+function markPaths() {
+  const { x: L0, y: T, stem, slope, r } = MARK;
+  const L1 = L0 + stem;
+  const R0 = 512 - L1;
+  const R1 = 512 - L0;
+  const turn = ([x, y]) => [512 - x, 512 - y];
+  const down = [0, 1];
+  const diag = [1, slope];
+  const ribbon = [256, 256 - MARK.ribbon];
+  const wave = [256, 256 - MARK.wave.rise];
+  const waveDir = [1, MARK.wave.slope];
+  // Chap ustun → lenta → o'ng ustun qalpog'igacha; qolgan yarmi — 180° burilgani
+  const half = [
+    [meet([L0, 0], down, ribbon, diag), r.joint],
+    [meet(ribbon, diag, wave, waveDir), r.wave],
+    [meet(wave, waveDir, [R0, 0], down), r.inner],
+    [[R0, T], stem / 2],
+    [[R1, T], stem / 2],
+  ];
+  const main = [...half, ...half.map(([p, k]) => [turn(p), k])];
+  // Chap yuqori bo'lak: tepasi qiya va yumaloq, pasti lentaga parallel
+  const cut = [256, 256 - MARK.ribbon - MARK.gap];
+  const side = [
+    [[L1, T], 0],
+    [meet([L1, 0], down, cut, diag), r.side],
+    [meet(cut, diag, [L0, 0], down), 0],
+    [meet([L0, 0], down, [L1, T], [-1, MARK.capSlope]), r.cap],
+  ];
+  return [main, side, side.map(([p, k]) => [turn(p), k])].map(roundedPath);
+}
+
+const MARK_SHAPES = markPaths()
+  .map((d) => `<path d="${d}"/>`)
+  .join("\n    ");
 
 function glyph(size, scale = 1, fill = COLORS.white) {
   const k = (size / 512) * scale;
@@ -45,15 +133,18 @@ function glyph(size, scale = 1, fill = COLORS.white) {
 }
 
 function tile(size, rounded = true) {
-  const r = rounded ? size * 0.225 : 0;
-  return `<rect width="${size}" height="${size}" rx="${r}" fill="url(#hq-bg)"/>`;
+  return `<g transform="scale(${(size / 512).toFixed(4)})"${rounded ? ' clip-path="url(#hq-round)"' : ""}>
+    <rect width="512" height="512" fill="url(#hq-bg)"/>
+    <path d="M0 512 L512 178 V512 Z" fill="url(#hq-shade)"/>
+    <path d="M308 512 V108 A72 72 0 0 1 346.2 44.4 L430.2 0 H512 V512 Z" fill="url(#hq-glow)"/>
+  </g>`;
 }
 
-/** Faqat belgi (fonsiz), gradient rangda — oq fonli reklama va hujjatlar uchun */
+/** Faqat belgi (fonsiz), binafsha gradientda — oq fonli reklama va hujjatlar uchun */
 export function symbolSvg({ size = 512 } = {}) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <defs><linearGradient id="hq-sym" gradientUnits="userSpaceOnUse" x1="128" y1="128" x2="384" y2="386">
-    <stop offset="0" stop-color="${COLORS.violet}"/><stop offset="1" stop-color="${COLORS.blue}"/></linearGradient></defs>
+  <defs><linearGradient id="hq-sym" gradientUnits="userSpaceOnUse" x1="128" y1="126" x2="384" y2="386">
+    <stop offset="0" stop-color="${COLORS.orchid}"/><stop offset=".5" stop-color="${COLORS.violet}"/><stop offset="1" stop-color="${COLORS.indigo}"/></linearGradient></defs>
   ${glyph(size, 1.28, "url(#hq-sym)")}
 </svg>`;
 }
@@ -182,7 +273,9 @@ const PNGS = [
 mkdirSync(OUT, { recursive: true });
 const svgs = Object.fromEntries(Object.entries(FILES).map(([n, f]) => [n, f()]));
 for (const [name, svg] of Object.entries(svgs)) writeFileSync(path.join(OUT, name), svg + "\n");
-console.log("SVG:", Object.keys(svgs).join(", "));
+// Favicon (Next.js src/app/icon.svg) va eski /icon.svg manzili — sayt belgisi bilan bir xil
+for (const f of ["src/app/icon.svg", "public/icon.svg"]) writeFileSync(path.join(ROOT, f), svgs["logo-mark.svg"] + "\n");
+console.log("SVG:", Object.keys(svgs).join(", "), "+ src/app/icon.svg, public/icon.svg");
 
 if (process.argv.includes("--png")) {
   const { createRequire } = await import("node:module");

@@ -24,6 +24,7 @@ export const DAILY_LIMITS = {
   tutor: 120,
   generate: 400, // bitta to'liq AI variant ~40-60 so'rov
   tts: 800,
+  image: 80, // AI variantlardagi rasmlar (tayyor variant rasmlari limitga kirmaydi)
 } as const;
 export type Bucket = keyof typeof DAILY_LIMITS;
 

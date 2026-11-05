@@ -9,6 +9,7 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | **📝 TOPIK I / TOPIK II mock test** | Rasmiy formatda: savollar tartibi, yo‘riqnomalar, `<보기>`, vaqt (40/60, 60/50/70 daqiqa), ball va darajalar (1급–6급). Imtihon va mashq rejimi, OMR javob varaqasi, progressni saqlash va davom ettirish |
 | **🏭 EPS-TOPIK mock test** | Koreyaga E-9 viza bilan ishga boruvchilar uchun: o‘qish 1–20 (25 daqiqa) va tinglash 21–40 (25 daqiqa), har savol 2.5 ball, jami 100. Rasm va xavfsizlik belgisi savollari, yotoqxona e’loni, maosh varaqasi, ish joyidagi dialoglar. Natijada sohalar bo‘yicha minimal ball ko‘rsatiladi: ishlab chiqarish 60+, boshqa sohalar 45+. AI variantlar ham ishlaydi |
 | **🧠 Ustoz bilim bazasi** | `/learn/grammar`: 100+ grammatika kartochkasi (1–6급, o‘zbekcha izoh, o‘zbek tili bilan solishtirish, ovozli misollar), o‘zbeklarga xos 25+ xato (talaffuz, 에/에서, 당신, 반말, imlo), 0 → 6급 va EPS daraja rejasi, 쓰기 qo‘llanmasi, EPS: xavfsizlik belgilari, asboblar, mehnat huquqlari. AI Ustoz, Ovozli ustoz, AI tushuntirish va yozma ish tekshiruvi savolga mos kartochkalarni shu bazadan oladi |
+| **🖼️ Rasmli savollar** | TOPIK I 15–16, TOPIK II 1–2 va EPS-TOPIK rasm savollari uchun rasmlarni Gemini rasm modeli rasmiy imtihon uslubida (oq-qora chizma) chizadi. Har bir rasm bir marta yaratilib, serverda saqlanadi (`/app/data/images`) va keyin hammaga darhol ko‘rsatiladi. Rasm tayyor bo‘lguncha emoji sahna ko‘rinadi. AI variantlarda ham rasm tavsiflari yaratiladi. EPS xavfsizlik belgilari 금지/경고/지시/안내 shaklida chiziladi. `/admin` → «Rasmlarni tayyorlash» tugmasi barcha rasmlarni oldindan yaratadi |
 | **🎧 Tinglash** | Audio Gemini TTS orqali (erkak va ayol ovozi). TOPIK I’da har bir audio 2 marta, TOPIK II’da 1–20 savol 1 marta, 21–50 savol 2 marta tinglanadi. API kalit bo‘lmasa, brauzerning o‘z ovozi ishlatiladi |
 | **✍️ Yozish (쓰기)** | 51–54 topshiriqlar vaqt bilan bajariladi. Javobni daftarga yozib, rasmini yuklaysiz (vaqt tugagach rasm uchun yana 3 daqiqa beriladi) yoki 원고지 ko‘rinishida shu yerda yozasiz. Gemini rasmiy mezonlar bo‘yicha baholaydi: ball, xatolar, tuzatishlar va namunaviy javob |
 | **✨ AI variantlar** | Gemini rasmiy format bo‘yicha cheksiz yangi test variantlarini tuzadi |
@@ -31,7 +32,7 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | Hangul, 12 ta dars, so‘z kartochkalari, Koreyada hayot | AI tushuntirish, yozma ishni AI baholash, Gemini bilan suhbat |
 | TOPIK I / II va EPS-TOPIK mock testlar (brauzer ovozi bilan) | AI Ustoz, cheksiz AI variantlar, tabiiy Gemini ovozi |
 
-AI yo‘llari (`/api/explain`, `writing`, `speak`, `tutor`, `generate`, `tts`) serverda tekshiriladi: kirilmagan bo‘lsa `401`, bepul sinov tugagan bo‘lsa `402`. Sinov muddati — `NEXT_PUBLIC_TRIAL_DAYS` (standart 30). To‘lov tizimi keyinroq qo‘shiladi. Har bir foydalanuvchi uchun kunlik adolatli limit bor (`src/lib/server/guard.ts`, masalan kuniga 25 ta yozma ish tekshiruvi) — bu AI xarajatini nazoratda ushlaydi.
+AI yo‘llari (`/api/explain`, `writing`, `speak`, `tutor`, `generate`, `tts`, AI variant rasmlari uchun `image`) serverda tekshiriladi: kirilmagan bo‘lsa `401`, bepul sinov tugagan bo‘lsa `402`. Sinov muddati — `NEXT_PUBLIC_TRIAL_DAYS` (standart 30). To‘lov tizimi keyinroq qo‘shiladi. Har bir foydalanuvchi uchun kunlik adolatli limit bor (`src/lib/server/guard.ts`, masalan kuniga 25 ta yozma ish tekshiruvi) — bu AI xarajatini nazoratda ushlaydi.
 
 ## Texnologiyalar
 
@@ -40,6 +41,7 @@ AI yo‘llari (`/api/explain`, `writing`, `speak`, `tutor`, `generate`, `tts`) s
   - `gemini-3.8-flash` — tushuntirish, yozma ishni baholash, suhbat, test yaratish, AI Ustoz
   - `gemini-3.5-transcribe` — nutqni matnga aylantirish
   - `gemini-3.8-flash-tts` — tinglash audiosi (ikki kishilik dialog)
+  - rasm modeli (`GEMINI_IMAGE_MODEL` yoki avtomatik tanlanadigan eng yangi `*-flash-image`) — test rasmlari, `generateContent` orqali
 - Google OAuth 2.0 / OpenID Connect (PKCE) va HMAC-imzolangan sessiya cookie — qo‘shimcha kutubxonasiz
 - Foydalanuvchilar va sinov muddati: **Upstash Redis** (REST, kutubxonasiz); lokalda `.data/db.json`
 - Progress avval qurilmada (`localStorage`), kirgandan keyin bulut bilan sinxronlanadi

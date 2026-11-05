@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { TOPIK1 } from "@/data/topik1";
+import { TOPIK2 } from "@/data/topik2";
+import { EPS } from "@/data/eps";
+import { imagePromptsOf, imageUrl } from "@/lib/images";
 import { ApiError, useAiErrorText } from "@/components/ui";
 import { Avatar, useAuth } from "@/lib/auth";
 import type { Access } from "@/lib/access";
@@ -15,6 +19,61 @@ async function getJson<T>(url: string): Promise<T> {
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new ApiError(j?.error || `HTTP ${r.status}`, r.status, j?.code);
   return j as T;
+}
+
+/** Tayyor variantlardagi barcha rasmlarni oldindan yaratib qo'yish (birinchi o'quvchi kutib qolmasin) */
+function ImageWarmup() {
+  const prompts = useMemo(() => imagePromptsOf([TOPIK1, TOPIK2, EPS]), []);
+  const [st, setSt] = useState({ done: 0, failed: 0, running: false, error: "" });
+
+  const run = async () => {
+    let done = 0;
+    let failed = 0;
+    let error = "";
+    let cursor = 0;
+    setSt({ done, failed, running: true, error });
+    const worker = async () => {
+      while (cursor < prompts.length) {
+        const p = prompts[cursor++];
+        try {
+          const r = await fetch(imageUrl(p));
+          if (!r.ok) {
+            failed++;
+            const j = await r.json().catch(() => ({}));
+            error = j?.error || `HTTP ${r.status}`;
+          } else await r.arrayBuffer();
+        } catch (e) {
+          failed++;
+          error = e instanceof Error ? e.message : String(e);
+        }
+        done++;
+        setSt({ done, failed, running: true, error });
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    setSt({ done, failed, running: false, error });
+  };
+
+  return (
+    <div className="card" style={{ marginTop: 18 }}>
+      <h2 className="h3" style={{ marginBottom: 8 }}>🖼️ Test rasmlari</h2>
+      <p className="small muted" style={{ margin: "0 0 12px" }}>
+        {`Tayyor variantlarda ${prompts.length} ta rasm bor. Gemini ularni bir marta chizadi va serverda saqlaydi (/app/data/images). Oldindan tayyorlab qo‘ysangiz, o‘quvchilar rasmni darhol ko‘radi.`}
+      </p>
+      <div className="row-wrap" style={{ alignItems: "center" }}>
+        <button className="btn btn-primary btn-sm" onClick={run} disabled={st.running}>
+          {st.running ? <span className="spinner white" /> : "🖌️"} Rasmlarni tayyorlash
+        </button>
+        {(st.running || st.done > 0) && (
+          <span className="small">
+            {`${st.done} / ${prompts.length}`}
+            {st.failed ? ` · xato: ${st.failed}` : ""}
+          </span>
+        )}
+      </div>
+      {st.error && <div className="callout small" style={{ marginTop: 10 }}>{st.error}</div>}
+    </div>
+  );
 }
 
 export function AdminView() {
@@ -62,6 +121,7 @@ export function AdminView() {
     ["tutor", "AI Ustoz (savollar)"],
     ["generate", "AI variant so‘rovlari (1 variant ≈ 40–60)"],
     ["tts", "AI ovoz (yangi audio)"],
+    ["image", "AI rasm (yangi test rasmi)"],
     ["need_login", "Kirmasdan AI funksiyasini bosgan"],
     ["trial_over", "Sinovi tugab, AI funksiyasini bosgan"],
   ];
@@ -125,6 +185,8 @@ export function AdminView() {
           «Sinovi tugab, AI funksiyasini bosgan» — to‘lov ulanganda pul to‘lashga tayyor odamlar soni haqida eng muhim ko‘rsatkich. Faqat sonlar saqlanadi, shaxsiy ma’lumot emas.
         </p>
       </div>
+
+      <ImageWarmup />
 
       <div className="card" style={{ marginTop: 18 }}>
         <h2 className="h3" style={{ marginBottom: 12 }}>Foydalanuvchini qidirish</h2>

@@ -8,6 +8,7 @@ import { ChartView } from "../ChartView";
 import { Icon } from "../Icon";
 import { Notice, RichKo } from "../ui";
 import { Explain } from "./Explain";
+import { GenImage, SafetySign } from "./GenImage";
 
 /** Tinglash soni: TOPIK I va EPS-TOPIK — 2 marta; TOPIK II — 1~20 bir marta, 21~50 ikki marta */
 export function maxPlays(exam: ExamId, n: number) {
@@ -83,7 +84,7 @@ function Options({ q, chosen, onPick, reveal }: { q: Question; chosen?: number; 
         {q.options.map((o, i) => (
           <button key={i} className={`${cls(i)} pic`} onClick={() => onPick(i + 1)} disabled={reveal}>
             <span className="mark">{i + 1}</span>
-            <div className="scene">{o}</div>
+            {q.optionImages?.[i]?.trim() ? <GenImage key={q.optionImages[i]} prompt={q.optionImages[i]} fallback={o} /> : <div className="scene">{o}</div>}
           </button>
         ))}
       </div>
@@ -201,10 +202,18 @@ export function GroupView({
               )}
             </div>
             {q.script && scriptBlock(k, q.script, q.n, !!chosen)}
-            {q.picture && (
-              <div className="q-picture" role="img" aria-label="Rasm">
-                {q.picture}
+            {q.sign ? (
+              <SafetySign sign={q.sign} />
+            ) : q.pictureImage?.trim() ? (
+              <div className="q-picture img">
+                <GenImage key={q.pictureImage} prompt={q.pictureImage} fallback={q.picture} big />
               </div>
+            ) : (
+              q.picture && (
+                <div className="q-picture" role="img" aria-label="Rasm">
+                  {q.picture}
+                </div>
+              )
             )}
             {q.notice && <Notice notice={q.notice} />}
             {q.chart && (

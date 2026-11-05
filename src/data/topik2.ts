@@ -31,10 +31,22 @@ export const TOPIK2: Test = {
           questions: [
             q(1, ["👩‍💼 👖 🧍‍♂️ 🏬", "🧍‍♂️ 💳 🧾 👩‍💼", "🧍‍♂️ 🧺 👕 🧼", "👩 👗 🛍️ 💃"], 1, {
               optionStyle: "picture",
+              optionImages: [
+                "In a clothing store, a female shop assistant holds up a pair of trousers and offers them to a young Korean man with short black hair in a casual jacket; a fitting room curtain and a tall mirror are in the background.",
+                "At the checkout counter of a clothing store, a young Korean man with short black hair in a casual jacket pays with a credit card while a female cashier hands him a receipt.",
+                "In a laundromat, a young Korean man with short black hair in a casual jacket puts clothes into a washing machine.",
+                "In a clothing store, a woman looks at herself in a tall mirror wearing a new dress, holding shopping bags.",
+              ],
               script: "여자: 손님, 이 바지 한번 입어 보시겠어요?\n남자: 네, 그런데 탈의실이 어디에 있어요?\n여자: 저쪽 거울 옆에 있습니다.",
             }),
             q(2, ["🧍‍♂️ 📦 💪", "🧍‍♀️📦🧍‍♂️ 🤝", "🧍‍♀️ 💺 📦", "🚚 📦 🧍‍♂️"], 2, {
               optionStyle: "picture",
+              optionImages: [
+                "In an office, a young Korean man with short black hair in a casual jacket lifts a large heavy cardboard box all by himself, straining.",
+                "In an office, a young Korean man with short black hair in a casual jacket and a young Korean woman with a ponytail lift one large cardboard box together, holding it from both sides, next to a desk.",
+                "In an office, a young Korean woman with a ponytail sits on a chair and rests next to a large cardboard box on the floor.",
+                "Outside an office building, a delivery man unloads cardboard boxes from a small truck.",
+              ],
               script: "남자: 이 상자 어디에 놓을까요?\n여자: 무거우니까 같이 들어요. 저기 책상 밑에 놓아 주세요.\n남자: 네, 하나, 둘, 셋!",
             }),
             q(3, ["①", "②", "③", "④"], 3, {

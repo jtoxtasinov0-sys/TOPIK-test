@@ -12,6 +12,8 @@ Rules:
 - Use natural, correct standard Korean. Listening scripts use lines like "남자: ..." / "여자: ..." (or a single narrator line without label when the template does).
 - Exactly one option is correct; "answer" is its 1-based index. Vary the correct answer position across questions.
 - For picture options ("optionStyle":"picture"), each option is a short emoji scene (3-5 emojis) that clearly depicts a different situation; only one matches the dialogue.
+- When the template has "optionImages" (or "pictureImage"), also write them: one short English scene description per picture for an illustrator (who, where, doing what; describe the same characters the same way in all four pictures, e.g. "a young Korean man with short black hair in a casual jacket"). The pictures must clearly differ and only the correct one may match the audio/text. Never ask for text, letters or numbers inside the picture.
+- When the template has "sign", choose a different industrial safety sign: kind prohibit (금지, red circle), warn (경고, yellow triangle), order (지시, blue circle) or guide (안내, green), and one emoji as its pictogram.
 - For chart options, fill optionCharts with 4 charts; only one matches the script.
 - Keep markers like ( ), ㉠ ㉡ ㉢ ㉣, (가)(나)(다)(라) and <u>underlined</u> text in the same way as the template.
 - Return only fields that the template uses.`;
@@ -66,6 +68,9 @@ Create a NEW block with question numbers ${g.questions.map((q) => q.n).join(", "
       const options = (q.options ?? []).slice(0, 4);
       if (options.length !== 4 || !(q.answer >= 1 && q.answer <= 4)) throw new AiError("AI noto'g'ri savol yaratdi", 502);
       if (tq.picture && !q.picture?.trim()) throw new AiError("AI rasmni yaratmadi", 502);
+      const sign = tq.sign ? q.sign : undefined;
+      if (tq.sign && !(sign && ["prohibit", "warn", "order", "guide"].includes(sign.kind) && sign.icon?.trim())) throw new AiError("AI belgini yaratmadi", 502);
+      const optionImages = tq.optionImages && q.optionImages?.length === 4 && q.optionImages.every((x) => x?.trim()) ? q.optionImages.map((x) => x.trim().slice(0, 500)) : undefined;
       return {
         ...q,
         n: tq.n,
@@ -74,6 +79,9 @@ Create a NEW block with question numbers ${g.questions.map((q) => q.n).join(", "
         optionStyle: tq.optionStyle,
         prompt: q.prompt ?? tq.prompt,
         picture: tq.picture ? q.picture : undefined,
+        pictureImage: tq.pictureImage && q.pictureImage?.trim() ? q.pictureImage.trim().slice(0, 500) : undefined,
+        sign,
+        optionImages,
         optionCharts: tq.optionStyle === "chart" ? q.optionCharts?.slice(0, 4) : undefined,
       };
     });

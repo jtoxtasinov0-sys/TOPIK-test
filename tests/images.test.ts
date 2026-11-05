@@ -1,0 +1,159 @@
+// Test rasmlari: /api/image (Gemini rasm modeli, model tanlash, disk keshi, ruxsatlar) va ma'lumotlar.
+// Gemini soxta fetch bilan almashtiriladi.
+
+import assert from "node:assert/strict";
+import { existsSync, mkdtempSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { afterEach, before, beforeEach, describe, test } from "node:test";
+
+process.env.GEMINI_API_KEY = "test-key";
+process.env.GOOGLE_CLIENT_ID = "";
+process.env.GOOGLE_CLIENT_SECRET = "";
+process.env.AUTH_SECRET = "test-secret-0123456789abcdef";
+const DIR = mkdtempSync(path.join(tmpdir(), "hq-img-"));
+process.env.IMAGE_DIR = DIR;
+
+const { createMemoryStore, setStore } = await import("../src/lib/server/store");
+const imageRoute = await import("../src/app/api/image/route");
+const { clearImageMemory, imageKey } = await import("../src/lib/server/images");
+const { pickImageModel, resetImageModel } = await import("../src/lib/gemini");
+const { imagePromptsOf, MAX_IMAGE_PROMPT, IMAGE_STYLE } = await import("../src/lib/images");
+const { TOPIK1 } = await import("../src/data/topik1");
+const { TOPIK2 } = await import("../src/data/topik2");
+const { EPS } = await import("../src/data/eps");
+const { allQuestions } = await import("../src/lib/exam");
+
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+const realFetch = globalThis.fetch;
+type Call = { url: string; body?: { contents?: { parts?: { text?: string }[] }[]; generationConfig?: { imageConfig?: unknown } } };
+let calls: Call[] = [];
+
+function mockGemini(opts: { models?: string[]; imageStatus?: number[] } = {}) {
+  calls = [];
+  const statuses = [...(opts.imageStatus ?? [])];
+  globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+    const u = String(url);
+    calls.push({ url: u, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    if (u.includes("/models?")) {
+      return Response.json({ models: (opts.models ?? ["models/gemini-2.5-flash-image"]).map((name) => ({ name, supportedGenerationMethods: ["generateContent"] })) });
+    }
+    const status = statuses.shift() ?? 200;
+    if (status !== 200) return Response.json({ error: { message: `xato ${status}` } }, { status });
+    return Response.json({ candidates: [{ content: { parts: [{ text: "ok" }, { inlineData: { mimeType: "image/png", data: PNG.toString("base64") } }] } }] });
+  }) as typeof fetch;
+}
+
+let ip = 0;
+const get = (prompt: string, cookie = "") =>
+  new Request(`https://hanustoz.tech/api/image?p=${encodeURIComponent(prompt)}`, {
+    headers: { "x-forwarded-for": `10.2.0.${++ip}`, ...(cookie ? { cookie } : {}) },
+  });
+
+const BUILTIN = imagePromptsOf([TOPIK1, TOPIK2, EPS]);
+
+before(() => setStore(createMemoryStore()));
+beforeEach(() => {
+  clearImageMemory();
+  resetImageModel();
+});
+afterEach(() => {
+  globalThis.fetch = realFetch;
+  process.env.GEMINI_API_KEY = "test-key";
+  process.env.GOOGLE_CLIENT_ID = "";
+  process.env.GOOGLE_CLIENT_SECRET = "";
+});
+
+describe("rasm modeli tanlash", () => {
+  test("flash > pro, yangi versiya, imagen va matnli modellar emas", () => {
+    const m = (name: string, methods = ["generateContent"]) => ({ name: `models/${name}`, supportedGenerationMethods: methods });
+    assert.equal(
+      pickImageModel([m("gemini-3.8-flash"), m("imagen-4.0-generate-001", ["predict"]), m("gemini-3-pro-image-preview"), m("gemini-2.5-flash-image"), m("gemini-3.1-flash-image")]),
+      "gemini-3.1-flash-image"
+    );
+    assert.equal(pickImageModel([m("gemini-3-pro-image-preview")]), "gemini-3-pro-image-preview");
+    assert.equal(pickImageModel([m("gemini-3.8-flash")]), null);
+  });
+});
+
+describe("/api/image", () => {
+  test("tayyor variant rasmi: bir marta chiziladi, keyin keshdan (xotira va disk)", async () => {
+    mockGemini({ models: ["models/gemini-3-pro-image-preview", "models/gemini-2.5-flash-image"] });
+    const prompt = BUILTIN[0];
+    const res = await imageRoute.GET(get(prompt));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("content-type"), "image/png");
+    assert.match(res.headers.get("cache-control") ?? "", /public/);
+    assert.deepEqual(Buffer.from(await res.arrayBuffer()), PNG);
+
+    const gen = calls.filter((c) => c.url.includes(":generateContent"));
+    assert.equal(gen.length, 1);
+    assert.match(gen[0].url, /models\/gemini-2\.5-flash-image:generateContent/, "flash model tanlandi");
+    const text = gen[0].body?.contents?.[0]?.parts?.[0]?.text ?? "";
+    assert.ok(text.startsWith(IMAGE_STYLE) && text.endsWith(prompt), "uslub + sahna");
+    assert.deepEqual(gen[0].body?.generationConfig?.imageConfig, { aspectRatio: "4:3" });
+    assert.ok(existsSync(path.join(DIR, `${imageKey(prompt)}.png`)), "diskka yozildi");
+
+    // Xotira tozalansa ham diskdan olinadi — Gemini'ga qayta murojaat yo'q
+    clearImageMemory();
+    mockGemini();
+    const again = await imageRoute.GET(get(prompt));
+    assert.equal(again.status, 200);
+    assert.equal(calls.length, 0);
+  });
+
+  test("imageConfig qabul qilinmasa — sozlamasiz qayta uriniladi", async () => {
+    mockGemini({ imageStatus: [400, 200] });
+    const res = await imageRoute.GET(get(BUILTIN[1]));
+    assert.equal(res.status, 200);
+    const gen = calls.filter((c) => c.url.includes(":generateContent"));
+    assert.equal(gen.length, 2);
+    assert.equal(gen[1].body?.generationConfig?.imageConfig, undefined);
+  });
+
+  test("AI variant rasmi: login yoqilgan bo'lsa kirish kerak, tayyor rasm esa hammaga ochiq", async () => {
+    process.env.GOOGLE_CLIENT_ID = "cid.apps.googleusercontent.com";
+    process.env.GOOGLE_CLIENT_SECRET = "csecret";
+    mockGemini();
+    const res = await imageRoute.GET(get("A man reads a newspaper on a park bench."));
+    assert.equal(res.status, 401);
+    assert.equal(calls.length, 0);
+    const ok = await imageRoute.GET(get(BUILTIN[2]));
+    assert.equal(ok.status, 200);
+  });
+
+  test("ochiq rejimda AI variant rasmi ham chiziladi (private kesh)", async () => {
+    mockGemini();
+    const res = await imageRoute.GET(get("A woman waters flowers on a balcony."));
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("cache-control") ?? "", /private/);
+  });
+
+  test("noto'g'ri so'rovlar: bo'sh, juda uzun, kalitsiz", async () => {
+    mockGemini();
+    assert.equal((await imageRoute.GET(get(""))).status, 400);
+    assert.equal((await imageRoute.GET(get("x".repeat(MAX_IMAGE_PROMPT + 1)))).status, 400);
+    process.env.GEMINI_API_KEY = "";
+    assert.equal((await imageRoute.GET(get(BUILTIN[3]))).status, 503);
+    assert.equal(calls.length, 0);
+  });
+});
+
+describe("rasmli savollar ma'lumotlari", () => {
+  test("rasmli variantlarda 4 ta tavsif, xavfsizlik belgilari to'g'ri, tavsiflar qisqa", () => {
+    let pictureQs = 0;
+    for (const t of [TOPIK1, TOPIK2, EPS])
+      for (const s of t.sections)
+        for (const { q } of allQuestions(s)) {
+          if (q.optionStyle === "picture") {
+            pictureQs++;
+            assert.equal(q.optionImages?.length, 4, `${t.id} ${q.n}: 4 ta rasm tavsifi`);
+          }
+          if (q.sign) assert.ok(["prohibit", "warn", "order", "guide"].includes(q.sign.kind) && q.sign.icon, `${t.id} ${q.n}`);
+        }
+    assert.equal(pictureQs, 6, "TOPIK I 15–16, TOPIK II 1–2, EPS 23–24");
+    assert.ok(BUILTIN.length >= 28, `rasmlar soni: ${BUILTIN.length}`);
+    assert.ok(BUILTIN.every((p) => p.length <= MAX_IMAGE_PROMPT && !/%[MW]/.test(p)));
+    assert.equal(readdirSync(DIR).filter((f) => f.endsWith(".tmp")).length, 0, "vaqtinchalik fayl qolmaydi");
+  });
+});

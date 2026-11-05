@@ -321,3 +321,93 @@ export function errorResponse(e: unknown) {
 
 /** AI tushuntirishlari tili */
 export const LANG_NAME = "Uzbek (Latin script)";
+
+// ---------- Rasm yaratish (TOPIK uslubidagi chizmalar) ----------
+// Rasm modeli generateContent orqali chaqiriladi. Model nomi GEMINI_IMAGE_MODEL dan olinadi,
+// bo'lmasa kalitga ochiq modellar ro'yxatidan avtomatik tanlanadi (eng yangi "flash" rasm modeli).
+
+const API_ROOT = "https://generativelanguage.googleapis.com/v1beta";
+const IMAGE_FALLBACK_MODEL = "gemini-2.5-flash-image";
+let imageModel: string | null = null;
+
+type ModelInfo = { name?: string; supportedGenerationMethods?: string[] };
+
+/** Ro'yxatdan eng mos rasm modelini tanlash: flash > pro, yangi versiya, preview emas */
+export function pickImageModel(models: ModelInfo[]): string | null {
+  const names = models
+    .filter((m) => m.name && /image/i.test(m.name) && !/imagen/i.test(m.name) && (m.supportedGenerationMethods ?? ["generateContent"]).includes("generateContent"))
+    .map((m) => String(m.name).replace(/^models\//, ""));
+  if (!names.length) return null;
+  const rank = (n: string) => {
+    const v = Number(n.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? 0);
+    return [/flash/.test(n) ? 1 : 0, v, /preview|exp/.test(n) ? 0 : 1] as const;
+  };
+  return names.sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    return rb[0] - ra[0] || rb[1] - ra[1] || rb[2] - ra[2];
+  })[0];
+}
+
+async function imageModelName(key: string): Promise<string> {
+  if (process.env.GEMINI_IMAGE_MODEL) return process.env.GEMINI_IMAGE_MODEL;
+  if (imageModel) return imageModel;
+  try {
+    const res = await fetch(`${API_ROOT}/models?pageSize=1000`, { headers: { "x-goog-api-key": key } });
+    const j = (await res.json().catch(() => ({}))) as { models?: ModelInfo[] };
+    imageModel = (res.ok && pickImageModel(j.models ?? [])) || IMAGE_FALLBACK_MODEL;
+  } catch {
+    imageModel = IMAGE_FALLBACK_MODEL;
+  }
+  return imageModel;
+}
+
+/** Faqat testlar uchun: tanlangan modelni unutish */
+export function resetImageModel() {
+  imageModel = null;
+}
+
+type Part = { text?: string; inlineData?: { mimeType?: string; data?: string }; inline_data?: { mime_type?: string; data?: string } };
+
+/** Gemini rasm modeli: matnli tavsifdan rasm (PNG/JPEG) yaratadi */
+export async function generateImage(prompt: string, opts: { aspectRatio?: string; timeoutMs?: number } = {}): Promise<{ data: Buffer; mime: string }> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new AiError("GEMINI_API_KEY sozlanmagan", 503);
+  const model = await imageModelName(key);
+  const send = async (withConfig: boolean) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 55000);
+    try {
+      return await fetch(`${API_ROOT}/models/${model}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
+            ...(withConfig ? { imageConfig: { aspectRatio: opts.aspectRatio ?? "4:3" } } : {}),
+          },
+        }),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      if ((e as Error).name === "AbortError") throw new AiError("Rasm yaratish kechikdi", 504);
+      throw new AiError("Gemini bilan bog'lanib bo'lmadi", 502);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  let res = await send(true);
+  // Eski modellar imageConfig ni qabul qilmasa — sozlamasiz qayta urinamiz
+  if (res.status === 400) res = await send(false);
+  const j = (await res.json().catch(() => ({}))) as { candidates?: { content?: { parts?: Part[] } }[]; error?: { message?: string } };
+  if (!res.ok) {
+    if (res.status === 404) imageModel = null; // model o'chirilgan bo'lsa — keyingi safar qayta tanlanadi
+    throw new AiError(j?.error?.message || `Gemini rasm xatosi (${res.status})`, res.status === 429 ? 429 : 502);
+  }
+  for (const part of j.candidates?.[0]?.content?.parts ?? []) {
+    const data = part.inlineData?.data ?? part.inline_data?.data;
+    if (data) return { data: Buffer.from(data, "base64"), mime: part.inlineData?.mimeType ?? part.inline_data?.mime_type ?? "image/png" };
+  }
+  throw new AiError("Rasm yaratilmadi", 502);
+}

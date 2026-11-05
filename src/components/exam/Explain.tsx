@@ -25,7 +25,8 @@ export function questionContext(g: Group, q: Question) {
   if (script) parts.push(`[듣기 대본]\n${script}`);
   const passage = q.passage ?? g.passage;
   if (passage) parts.push(`[지문]\n${passage.replace(/<\/?u>/g, "__")}`);
-  if (q.picture) parts.push(`[그림] ${q.picture}`);
+  if (q.sign) parts.push(`[안전 표지] ${{ prohibit: "금지표지 (빨간 원과 사선)", warn: "경고표지 (노란 삼각형)", order: "지시표지 (파란 원)", guide: "안내표지 (초록색)" }[q.sign.kind]}: ${q.sign.icon}`);
+  else if (q.pictureImage || q.picture) parts.push(`[그림] ${q.pictureImage ?? q.picture}`);
   const notice = q.notice ?? g.notice;
   if (notice) parts.push(`[안내문]\n${notice.title ?? ""}\n${notice.lines.join("\n")}`);
   const chart = q.chart ?? g.chart;
@@ -34,6 +35,7 @@ export function questionContext(g: Group, q: Question) {
   if (given) parts.push(`[주어진 문장] ${given}`);
   parts.push(`${q.n}. ${q.prompt ?? ""}`);
   if (q.optionStyle === "chart" && q.optionCharts) parts.push(q.optionCharts.map((c, i) => `${CIRCLED[i]} ${JSON.stringify(c)}`).join("\n"));
+  else if (q.optionStyle === "picture" && q.optionImages?.length === 4) parts.push(q.optionImages.map((o, i) => `${CIRCLED[i]} [그림] ${o}`).join("\n"));
   else parts.push(q.options.map((o, i) => `${CIRCLED[i]} ${o}`).join("\n"));
   return parts.join("\n\n");
 }

@@ -29,10 +29,16 @@ export const EPS: Test = {
           to: 4,
           instruction: "※ [1~4] 다음 그림을 보고 맞는 단어나 문장을 고르십시오.",
           questions: [
-            q(1, ["망치", "가위", "드라이버", "톱"], 1, { picture: "🔨" }),
-            q(2, ["모자", "양말", "장갑", "신발"], 3, { picture: "🧤" }),
-            q(3, ["상자를 버립니다.", "상자를 트럭에 싣습니다.", "상자를 엽니다.", "상자를 삽니다."], 2, { picture: "👷 📦 ➡️ 🚚" }),
-            q(4, ["운동을 합니다.", "일을 합니다.", "요리를 합니다.", "잠을 잡니다."], 4, { picture: "😴 🛏️ 🌙" }),
+            q(1, ["망치", "가위", "드라이버", "톱"], 1, { picture: "🔨", pictureImage: "A single claw hammer lying on a workbench, simple object drawing." }),
+            q(2, ["모자", "양말", "장갑", "신발"], 3, { picture: "🧤", pictureImage: "A pair of cotton work gloves lying on a workbench, simple object drawing." }),
+            q(3, ["상자를 버립니다.", "상자를 트럭에 싣습니다.", "상자를 엽니다.", "상자를 삽니다."], 2, {
+              picture: "👷 📦 ➡️ 🚚",
+              pictureImage: "In front of a factory, a worker wearing a safety helmet lifts a cardboard box onto the back of a small delivery truck.",
+            }),
+            q(4, ["운동을 합니다.", "일을 합니다.", "요리를 합니다.", "잠을 잡니다."], 4, {
+              picture: "😴 🛏️ 🌙",
+              pictureImage: "At night in a small dormitory room, a man is sleeping in a bed under a blanket; the moon is visible through the window.",
+            }),
           ],
         },
         {
@@ -65,9 +71,9 @@ export const EPS: Test = {
           to: 12,
           instruction: "※ [10~12] 다음 안전 표지가 뜻하는 것을 고르십시오.",
           questions: [
-            q(10, ["금연", "출입 금지", "화기 금지", "사용 금지"], 2, { picture: "🚷" }),
-            q(11, ["안전모 착용", "보안경 착용", "안전화 착용", "방독 마스크 착용"], 1, { picture: "🔵 ⛑️" }),
-            q(12, ["낙하물 경고", "화재 경고", "고압 전기 경고", "미끄럼 주의"], 3, { picture: "⚠️ ⚡" }),
+            q(10, ["금연", "출입 금지", "화기 금지", "사용 금지"], 2, { sign: { kind: "prohibit", icon: "🚶" } }),
+            q(11, ["안전모 착용", "보안경 착용", "안전화 착용", "방독 마스크 착용"], 1, { sign: { kind: "order", icon: "⛑️" } }),
+            q(12, ["낙하물 경고", "화재 경고", "고압 전기 경고", "미끄럼 주의"], 3, { sign: { kind: "warn", icon: "⚡" } }),
           ],
         },
         {
@@ -194,10 +200,22 @@ export const EPS: Test = {
           questions: [
             q(23, ["👨‍🍳 🍳 🔥", "👷 📦 ➡️ 🚚", "👷 📞 💬", "🧍 🚿 🧼"], 2, {
               optionStyle: "picture",
+              optionImages: [
+                "In a kitchen, a male cook fries food in a pan on a gas stove.",
+                "In a factory yard, a male worker wearing a safety helmet carries a cardboard box toward a small delivery truck.",
+                "In a factory, a male worker wearing a safety helmet talks on a mobile phone.",
+                "In a washroom, a man washes his hands with soap at a sink.",
+              ],
               script: "여자: 지금 뭐 해요?\n남자: 상자를 트럭으로 옮기고 있어요.",
             }),
             q(24, ["🟢 👆 📱", "🔑 🚪 🚶", "🔧 🔩 🧰", "🔴 👆 ⚙️"], 4, {
               optionStyle: "picture",
+              optionImages: [
+                "A male factory worker taps the screen of a smartphone with his finger.",
+                "A male worker unlocks a door with a key and walks out of a room.",
+                "A male worker tightens a bolt with a wrench on a workbench, a toolbox next to him.",
+                "A male factory worker presses a large round emergency stop button on a big factory machine.",
+              ],
               script: "남자: 이 기계는 어떻게 멈춰요?\n여자: 이 빨간 버튼을 누르세요.",
             }),
           ],

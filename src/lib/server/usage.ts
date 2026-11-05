@@ -15,6 +15,7 @@ export const USAGE_EVENTS = [
   "tutor",
   "generate",
   "tts",
+  "image", // Gemini chizgan yangi test rasmi
   "need_login", // kirmasdan AI funksiyasini bosgan
   "trial_over", // bepul sinovi tugagan, lekin AI funksiyasini bosgan
 ] as const;

@@ -17,6 +17,9 @@ export type NoticeSpec = {
   lines: string[];
 };
 
+/** Xavfsizlik belgisi (EPS-TOPIK): 금지 — qizil doira, 경고 — sariq uchburchak, 지시 — ko'k doira, 안내 — yashil */
+export type SignSpec = { kind: "prohibit" | "warn" | "order" | "guide"; icon: string };
+
 export type Question = {
   n: number;
   pts: number;
@@ -24,11 +27,14 @@ export type Question = {
   given?: string; // joylashtiriladigan gap (39~41)
   script?: string; // tinglash matni (남자: ... / 여자: ...)
   passage?: string; // o'qish matni
-  picture?: string; // savoldagi rasm (emoji sahna yoki xavfsizlik belgisi) — EPS-TOPIK uchun
+  picture?: string; // savoldagi rasm (emoji sahna) — rasm yuklanguncha yoki AI'siz ko'rsatiladi
+  pictureImage?: string; // savoldagi rasmning inglizcha tavsifi — Gemini shu bo'yicha rasm chizadi (/api/image)
+  sign?: SignSpec; // savoldagi xavfsizlik belgisi
   notice?: NoticeSpec;
   chart?: ChartSpec;
   options: string[];
   optionStyle?: "text" | "picture" | "chart";
+  optionImages?: string[]; // rasmli variantlar uchun 4 ta inglizcha sahna tavsifi (Gemini rasm chizadi)
   optionCharts?: ChartSpec[];
   answer: number; // 1..4
 };

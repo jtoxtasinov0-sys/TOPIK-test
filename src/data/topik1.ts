@@ -77,10 +77,22 @@ export const TOPIK1: Test = {
           questions: [
             q(15, 4, ["☀️ 👫 🕶️", "🌧️ 🙋‍♀️☂️ 🧍‍♂️", "🌧️ ☂️👫", "❄️ ⛄ 👫"], 3, {
               optionStyle: "picture",
+              optionImages: [
+                "A sunny day on a city street. a young Korean man with short black hair in a casual jacket and a young Korean woman with a ponytail walk side by side wearing sunglasses and smiling.",
+                "Heavy rain on a city street. a young Korean woman with a ponytail holds an umbrella only over herself while a young Korean man with short black hair in a casual jacket stands next to her without an umbrella, getting wet.",
+                "Heavy rain on a city street. a young Korean man with short black hair in a casual jacket and a young Korean woman with a ponytail walk together under one umbrella that the man is holding over both of them.",
+                "A snowy winter day in a park. a young Korean man with short black hair in a casual jacket and a young Korean woman with a ponytail are building a snowman together.",
+              ],
               script: "여자: 비가 많이 오네요. 우산 있어요?\n남자: 네, 제 우산 같이 써요.",
             }),
             q(16, 4, ["🧑‍💼 📚 🧍", "🧑‍🌾 🍎🧺 🧍‍♂️", "👨‍🍳 🍜 🧍", "🧑‍⚕️ 💊 🧍"], 2, {
               optionStyle: "picture",
+              optionImages: [
+                "In a bookstore, a middle-aged female clerk shows a book to a young Korean man with short black hair in a casual jacket.",
+                "At a fruit stall in a traditional Korean market, a middle-aged female vendor shows a basket of apples to a young Korean man with short black hair in a casual jacket.",
+                "In a small restaurant, a middle-aged female cook serves a bowl of noodles to a young Korean man with short black hair in a casual jacket sitting at the counter.",
+                "In a pharmacy, a middle-aged female pharmacist hands a small box of medicine to a young Korean man with short black hair in a casual jacket.",
+              ],
               script: "남자: 이 사과 얼마예요?\n여자: 다섯 개에 만 원이에요. 아주 달고 맛있어요.",
             }),
           ],

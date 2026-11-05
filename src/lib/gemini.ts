@@ -9,6 +9,8 @@ export const MODELS = {
   text: process.env.GEMINI_MODEL || "gemini-3.8-flash",
   transcribe: process.env.GEMINI_TRANSCRIBE_MODEL || "gemini-3.5-transcribe",
   tts: process.env.GEMINI_TTS_MODEL || "gemini-3.8-flash-tts",
+  /** Erkin suhbat (ovozli, tez javob kerak). Bo'sh bo'lsa — asosiy matn modeli */
+  talk: process.env.GEMINI_TALK_MODEL || process.env.GEMINI_MODEL || "gemini-3.8-flash",
 };
 
 export class AiError extends Error {
@@ -75,7 +77,7 @@ function outputText(r: InteractionResponse) {
     .join("");
 }
 
-function parseJson<T>(text: string): T {
+export function parseJson<T>(text: string): T {
   const clean = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
   try {
     return JSON.parse(clean) as T;
@@ -85,6 +87,75 @@ function parseJson<T>(text: string): T {
     if (s >= 0 && e > s) return JSON.parse(clean.slice(s, e + 1)) as T;
     throw new AiError("AI javobini o'qib bo'lmadi", 502);
   }
+}
+
+/**
+ * Oqim bilan kelayotgan (hali tugamagan) JSON obyektidan to'liq kelib bo'lgan yuqori darajadagi maydonlarni oladi.
+ * Masalan `{"heard":"안녕","reply":"반가` → { heard: "안녕" }. Erkin suhbatda javob tayyor bo'lishi bilan
+ * ovozni boshlash uchun (tarjima va maslahatlar keyin keladi).
+ */
+export function partialJson(text: string): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const n = text.length;
+  let i = text.indexOf("{");
+  if (i < 0) return out;
+  i++;
+  /** i dan boshlangan qiymat oxiri (keyingi belgi indeksi); tugamagan bo'lsa -1 */
+  const valueEnd = (from: number): number => {
+    const c = text[from];
+    if (c === '"') {
+      for (let j = from + 1; j < n; j++) {
+        if (text[j] === "\\") j++;
+        else if (text[j] === '"') return j + 1;
+      }
+      return -1;
+    }
+    if (c === "{" || c === "[") {
+      let depth = 0;
+      let str = false;
+      for (let j = from; j < n; j++) {
+        const ch = text[j];
+        if (str) {
+          if (ch === "\\") j++;
+          else if (ch === '"') str = false;
+        } else if (ch === '"') str = true;
+        else if (ch === "{" || ch === "[") depth++;
+        else if (ch === "}" || ch === "]") {
+          depth--;
+          if (depth === 0) return j + 1;
+        }
+      }
+      return -1;
+    }
+    let j = from;
+    while (j < n && !/[,}\]\s]/.test(text[j])) j++;
+    return j < n && j > from ? j : -1;
+  };
+  const skip = () => {
+    while (i < n && /[\s,]/.test(text[i])) i++;
+  };
+  for (;;) {
+    skip();
+    if (i >= n || text[i] !== '"') break;
+    const kEnd = valueEnd(i);
+    if (kEnd < 0) break;
+    const key = JSON.parse(text.slice(i, kEnd)) as string;
+    i = kEnd;
+    while (i < n && /\s/.test(text[i])) i++;
+    if (text[i] !== ":") break;
+    i++;
+    while (i < n && /\s/.test(text[i])) i++;
+    if (i >= n) break;
+    const vEnd = valueEnd(i);
+    if (vEnd < 0) break;
+    try {
+      out[key] = JSON.parse(text.slice(i, vEnd));
+    } catch {
+      break;
+    }
+    i = vEnd;
+  }
+  return out;
 }
 
 type Thinking = "minimal" | "low" | "medium" | "high";
@@ -98,12 +169,13 @@ export async function generateJson<T>(opts: {
   schema: Record<string, unknown>;
   thinking?: Thinking;
   timeoutMs?: number;
+  model?: string;
 }): Promise<T> {
   const thinking = opts.thinking === "minimal" && minimalUnsupported ? "low" : opts.thinking;
   const run = (level?: Thinking) =>
     call(
       {
-        model: MODELS.text,
+        model: opts.model ?? MODELS.text,
         system_instruction: opts.system,
         input: opts.input,
         response_format: { type: "text", mime_type: "application/json", schema: opts.schema },
@@ -168,7 +240,14 @@ export function sseText(events: string[]): { text: string; error?: string } {
  * abadiy to'xtab qoladi. Gemini avval "o'ylash" va xizmat hodisalarini yuboradi, shuning uchun matn kelguncha
  * tarmoqdan o'qishda davom etamiz.
  */
-export async function streamText(opts: { system: string; input: string; thinking?: Thinking }): Promise<ReadableStream<Uint8Array>> {
+export async function streamText(opts: {
+  system: string;
+  input: string | ContentPart[];
+  thinking?: Thinking;
+  /** Berilsa — javob shu sxema bo'yicha JSON matni bo'lib oqadi */
+  schema?: Record<string, unknown>;
+  model?: string;
+}): Promise<ReadableStream<Uint8Array>> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new AiError("GEMINI_API_KEY sozlanmagan", 503);
   const ctrl = new AbortController();
@@ -185,10 +264,11 @@ export async function streamText(opts: { system: string; input: string; thinking
           Accept: "text/event-stream",
         },
         body: JSON.stringify({
-          model: MODELS.text,
+          model: opts.model ?? MODELS.text,
           system_instruction: opts.system,
           input: opts.input,
           stream: true,
+          ...(opts.schema ? { response_format: { type: "text", mime_type: "application/json", schema: opts.schema } } : {}),
           generation_config: { thinking_level: level },
         }),
         signal: ctrl.signal,

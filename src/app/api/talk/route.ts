@@ -1,6 +1,7 @@
-import { errorResponse, generateJson, LANG_NAME, normalizeMime, rateLimit, type ContentPart } from "@/lib/gemini";
+import { AiError, errorResponse, generateJson, LANG_NAME, MODELS, normalizeMime, parseJson, partialJson, rateLimit, streamText, type ContentPart } from "@/lib/gemini";
 import { talkSchema } from "@/lib/schemas";
-import { aiAccess } from "@/lib/server/guard";
+import { aiAccess, authEnabled } from "@/lib/server/guard";
+import { readSession } from "@/lib/server/session";
 import { teacherNotes } from "@/lib/knowledge";
 import { partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
 
@@ -9,8 +10,13 @@ export const maxDuration = 60;
 // Erkin suhbat: o'quvchi koreys do'st (민준 / 지수) bilan koreyscha gaplashadi.
 // Bilmagan so'zini o'zbekcha aytsa yoki tushunmasa — do'st qisqa o'zbekcha tushuntiradi va yana koreyscha davom etadi.
 // Tezlik uchun BITTA Gemini so'rovi: model audioni o'zi eshitadi ("heard") va shu zahoti javob yozadi.
+// stream: true bo'lsa javob NDJSON oqimi bo'lib keladi — tarjima va maslahatlarni kutmasdan:
+//   {"t":"heard"} — o'quvchi gapi (darhol ko'rsatiladi)
+//   {"t":"reply"} — do'st javobi (brauzer shu zahoti ovozni tayyorlay boshlaydi)
+//   {"t":"done"}  — to'liq natija (lotincha yozuv, tarjima, tuzatish, maslahatlar) yoki {empty}/{error}
 
 type Body = {
+  stream?: boolean;
   start?: boolean;
   audio?: { data: string; mime: string };
   text?: string;
@@ -66,7 +72,8 @@ export async function POST(req: Request) {
     const typed = start ? "" : (b.text ?? "").trim().slice(0, 600);
     const audio = !start && !typed && b.audio?.data ? { data: b.audio.data, mime: normalizeMime(b.audio.mime) } : null;
     if (!start && !typed && !audio) return Response.json({ transcript: "", empty: true });
-    await aiAccess(req, "talk");
+    // Kirmagan bo'lsa — bazaga ham, Gemini'ga ham murojaat qilmasdan rad etamiz
+    if (authEnabled() && !readSession(req)) await aiAccess(req, "talk");
 
     const L = LANG_NAME;
     const p = partnerOf(b.partner);
@@ -110,28 +117,139 @@ Keep it friendly and appropriate. If the student brings up something inappropria
     const parts: ContentPart[] = [{ type: "text", text: `Conversation so far:\n${history || "(none — this is the beginning)"}\n\n${task}` }];
     if (audio) parts.push({ type: "audio", data: audio.data, mime_type: audio.mime });
 
-    const r = await generateJson<Raw>({ system, input: parts, schema: talkSchema, thinking: "minimal", timeoutMs: 45000 });
-    const transcript = start ? "" : typed || plain(r.heard);
-    if (!start && !transcript) return Response.json({ transcript: "", empty: true });
+    const ask = { system, input: parts, schema: talkSchema, model: MODELS.talk, thinking: "minimal" as const };
+    const ctx = { start, typed };
 
-    const help = (r.help ?? [])
-      .map((s) => ({ lang: s.lang === "ko" ? ("ko" as const) : ("uz" as const), text: plain(s.text) }))
-      .filter((s) => s.text);
-    const reply = plain(r.reply);
-    if (!reply && !help.length) return Response.json({ error: "AI javob bermadi, qayta urinib ko‘ring" }, { status: 502 });
+    if (b.stream && Date.now() > streamOffUntil) {
+      // Kirish tekshiruvi (baza) va Gemini oqimini ochish parallel — javob tezroq boshlanadi
+      const opened = streamText(ask).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+      try {
+        await aiAccess(req, "talk");
+      } catch (e) {
+        void opened.then((x) => (x instanceof Error ? undefined : x.cancel().catch(() => {})));
+        throw e;
+      }
+      const src = await opened;
+      if (!(src instanceof Error)) return ndjson(talkEvents(src, ctx));
+      if (src instanceof AiError && [429, 503, 504].includes(src.status)) throw src;
+      // Oqim + JSON sxemasi ishlamasa — bir muddat oddiy so'rovga o'tamiz
+      streamOffUntil = Date.now() + 10 * 60_000;
+    } else {
+      await aiAccess(req, "talk");
+    }
 
-    const teachKo = help.length ? plain(r.teach?.ko) : "";
-    const teach = teachKo ? { ko: teachKo, rom: plain(r.teach?.rom), uz: plain(r.teach?.uz) } : undefined;
-    // Tuzatish faqat koreyscha gapga va haqiqatan o'zgargan bo'lsa
-    const fixKo = plain(r.fix?.ko);
-    const fix = fixKo && HANGUL.test(transcript) && !same(fixKo, transcript) ? { ko: fixKo, uz: plain(r.fix?.uz) } : undefined;
-    const hints = (r.hints ?? [])
-      .map((h) => ({ ko: plain(h.ko), uz: plain(h.uz) }))
-      .filter((h) => h.ko)
-      .slice(0, 3);
-
-    return Response.json({ transcript, help, teach, reply, rom: plain(r.reply_rom), uz: plain(r.reply_uz), fix, hints });
+    const out = finish(await generateJson<Raw>({ ...ask, timeoutMs: 45000 }), ctx);
+    return "error" in out ? Response.json(out, { status: 502 }) : Response.json(out);
   } catch (e) {
     return errorResponse(e);
   }
+}
+
+/** Oqim (JSON + sxema) ishlamay qolsa — shu vaqtgacha oddiy so'rov ishlatiladi */
+let streamOffUntil = 0;
+
+type Ctx = { start: boolean; typed: string };
+type Help = { lang: "uz" | "ko"; text: string };
+
+const helpOf = (r: Raw): Help[] =>
+  (r.help ?? [])
+    .map((s) => ({ lang: s.lang === "ko" ? ("ko" as const) : ("uz" as const), text: plain(s.text) }))
+    .filter((s) => s.text);
+
+const teachOf = (r: Raw, help: Help[]) => {
+  const ko = help.length ? plain(r.teach?.ko) : "";
+  return ko ? { ko, rom: plain(r.teach?.rom), uz: plain(r.teach?.uz) } : undefined;
+};
+
+/** Modelning to'liq javobidan mijozga boradigan natija */
+function finish(r: Raw, { start, typed }: Ctx) {
+  const transcript = start ? "" : typed || plain(r.heard);
+  if (!start && !transcript) return { transcript: "", empty: true as const };
+
+  const help = helpOf(r);
+  const reply = plain(r.reply);
+  if (!reply && !help.length) return { error: "AI javob bermadi, qayta urinib ko‘ring" };
+
+  // Tuzatish faqat koreyscha gapga va haqiqatan o'zgargan bo'lsa
+  const fixKo = plain(r.fix?.ko);
+  const fix = fixKo && HANGUL.test(transcript) && !same(fixKo, transcript) ? { ko: fixKo, uz: plain(r.fix?.uz) } : undefined;
+  const hints = (r.hints ?? [])
+    .map((h) => ({ ko: plain(h.ko), uz: plain(h.uz) }))
+    .filter((h) => h.ko)
+    .slice(0, 3);
+
+  return { transcript, help, teach: teachOf(r, help), reply, rom: plain(r.reply_rom), uz: plain(r.reply_uz), fix, hints };
+}
+
+const ndjson = (body: ReadableStream<Uint8Array>) =>
+  new Response(body, {
+    headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" },
+  });
+
+/**
+ * Gemini JSON oqimini suhbat hodisalariga aylantiradi: "heard" va "reply" maydonlari to'liq kelishi bilan
+ * darhol yuboriladi, qolgani (tarjima, tuzatish, maslahatlar) — "done" da.
+ */
+function talkEvents(src: ReadableStream<Uint8Array>, ctx: Ctx): ReadableStream<Uint8Array> {
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+  const reader = src.getReader();
+  let closed = false;
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      const emit = (o: Record<string, unknown>) => {
+        if (!closed) controller.enqueue(enc.encode(JSON.stringify(o) + "\n"));
+      };
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        controller.close();
+      };
+      void (async () => {
+        let buf = "";
+        let heard = false;
+        let replied = false;
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (value) buf += dec.decode(value, { stream: true });
+            if (!replied) {
+              const f = partialJson(buf) as Raw;
+              const voice = !ctx.start && !ctx.typed;
+              if (voice && !heard && "heard" in f) {
+                const transcript = plain(f.heard);
+                if (!transcript) break; // nutq eshitilmadi — "done" da {empty}
+                emit({ t: "heard", transcript });
+                heard = true;
+              }
+              if ("reply" in f && "help" in f && (!voice || heard)) {
+                const help = helpOf(f);
+                const reply = plain(f.reply);
+                if (reply || help.length) {
+                  emit({ t: "reply", transcript: ctx.start ? "" : ctx.typed || plain(f.heard), help, teach: teachOf(f, help), reply });
+                  replied = true;
+                }
+              }
+            }
+            if (done) break;
+          }
+        } catch {
+          // oqim uzildi — kelgan qismi bilan yakunlaymiz
+        }
+        reader.cancel().catch(() => {});
+        let raw: Raw;
+        try {
+          raw = parseJson<Raw>(buf);
+        } catch {
+          raw = partialJson(buf) as Raw;
+        }
+        emit({ t: "done", ...finish(raw, ctx) });
+        close();
+      })();
+    },
+    cancel() {
+      closed = true;
+      reader.cancel().catch(() => {});
+    },
+  });
 }

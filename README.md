@@ -21,8 +21,9 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | **💬 Erkin suhbat** | `/speak/free`: koreys do‘st (민준 — yigit yoki 지수 — qiz) bilan tez-tez, ovozli koreyscha suhbat — 말하기 ni oshirish uchun. Mavzu (erkin, bugungi kun, ovqat, qiziqishlar, Koreyada hayot, ish, sayohat, O‘zbekiston), daraja va uslub (존댓말 / 반말) tanlanadi. Bilmagan so‘zni o‘zbekcha aytsangiz yoki «tushunmadim» desangiz — do‘st qisqa o‘zbekcha tushuntiradi, kerakli koreyscha gapni beradi va yana koreyscha davom etadi. Xatolar suhbatni to‘xtatmasdan, xabar ostida tuzatiladi; 🐢 sekinroq qaytarish, 💡 javob g‘oyalari. Tezlik uchun: bitta Gemini so‘rovi (audio → javob), jimlikda yozuv o‘zi to‘xtaydi, uzluksiz rejimda mikrofon o‘zi yoqiladi, ovoz bo‘laklari parallel tayyorlanadi |
 | **🎙️ Ovozli ustoz** | `/speak/ustoz`: o‘zbekcha gapirib so‘raysiz (“Rahmat koreyschada qanday?”, “Menga dars o‘tib ber”), ustoz o‘zbekcha tushuntiradi va koreyscha so‘zlarni Gemini ovozi bilan aytadi, bosqichma-bosqich dars o‘tadi, takrorlaganingizda talaffuzni tekshiradi. Jimlikda yozuv o‘zi to‘xtaydi, “Uzluksiz suhbat” rejimida mikrofon o‘zi qayta yoqiladi. Mikrofon faqat HTTPS’da ishlaydi |
 | **🌱 0 dan o‘rganish** | Hangul (40 harf ovozi bilan), bo‘g‘in yasash, 받침, viktorina, 12 ta hayotiy dars va mini testlar |
-| **🃏 So‘zlar** | 134 ta so‘z (TOPIK I, TOPIK II, EPS: asboblar, xavfsizlik, yotoqxona va hayot), Leitner usulida takrorlash |
-| **🤖 AI Ustoz** | Grammatika, TOPIK / EPS-TOPIK strategiyasi va gaplarni tekshirish bo‘yicha chat (javob oqim bilan chiqadi). Professional o‘qitish uslubi, bilim bazasidan mos kartochkalar va o‘quvchining maqsadi hamda oxirgi natijalarini hisobga oladi |
+| **🃏 So‘zlar** | ~2 000 so‘z: mavzuli to‘plamlar (TOPIK I, TOPIK II, EPS: asboblar, xavfsizlik, yotoqxona va hayot) + 국립국어원 darajali lug‘ati (TOPIK I — A, TOPIK II — B, chastota tartibida, o‘zbekcha tarjima), qidiruv, Leitner usulida takrorlash |
+| **🗂️ Rasmiy o‘tgan testlar** | topik.go.kr dagi 12 ta ochiq sessiyaga (35–102) havolalar va har bir savol raqami bo‘yicha savol turlari xaritasi |
+| **🤖 AI Ustoz** | Grammatika, TOPIK / EPS-TOPIK strategiyasi va gaplarni tekshirish bo‘yicha chat (javob oqim bilan chiqadi). Professional o‘qitish uslubi, bilim bazasidan mos kartochkalar, rasmiy TOPIK faktlari (2026 jadvali, tuzilma, baholash), lug‘atdan mos so‘zlar va o‘quvchining maqsadi hamda oxirgi natijalarini hisobga oladi |
 | **🇰🇷 Koreyada hayot** | Favqulodda raqamlar (112, 119, 1345, 1350, 1330), foydali ilovalar, birinchi qadamlar, ovozli iboralar |
 | **📈 Natijalarim** | Natijalar tarixi, ball grafigi, imtihongacha qolgan kunlar, kunlik seriya (streak) |
 | **🔐 Gmail orqali kirish** | Google OAuth (PKCE), parolsiz. Birinchi kirishda 30 kunlik bepul sinov avtomatik boshlanadi, karta so‘ralmaydi |
@@ -105,9 +106,10 @@ src/
                   api/{tts,explain,writing,speak,talk,voice,tutor,generate}
   components/     AppShell, ChartView, exam/ (ExamRunner, GroupView, Writing, Results, Explain),
                   account/ (LoginView, AccountView, AdminView)
-  data/           topik1.ts, topik2.ts, eps.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts, talk.ts (erkin suhbat)
+  data/           topik1.ts, topik1v2.ts, topik2.ts, eps.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts, talk.ts (erkin suhbat),
+                  vocabA.ts / vocabB.ts / vocab.ts (국립국어원 lug‘ati), pastExams.ts (rasmiy o‘tgan testlar)
   data/knowledge/ ustoz bilim bazasi: grammar.ts, mistakes.ts, curriculum.ts, writing.ts, work.ts (EPS), sources.ts
-  lib/            gemini.ts (server), audio.ts, mic.ts (mikrofon, jimlikni aniqlash), exam.ts, store.ts, access.ts (sinov muddati), knowledge.ts (bazadan qidirish),
+  lib/            gemini.ts (server), audio.ts, mic.ts (mikrofon, jimlikni aniqlash), exam.ts, store.ts, access.ts (sinov muddati), knowledge.ts (bazadan qidirish, TOPIK faktlari), romanize.ts,
                   auth.tsx (AuthProvider, paywall), sync.ts (bulut sinxron)
   lib/server/     store.ts (Redis/fayl), session.ts, google.ts, users.ts, guard.ts, usage.ts (statistika)
 tests/            npm test — Node’ning o‘zida, qo‘shimcha kutubxonasiz

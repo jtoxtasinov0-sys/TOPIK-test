@@ -1,5 +1,5 @@
 import { errorResponse, LANG_NAME, rateLimit, streamText } from "@/lib/gemini";
-import { TEACHING_METHOD, teacherNotes } from "@/lib/knowledge";
+import { TEACHING_METHOD, teacherNotes, TOPIK_FACTS, vocabNotes } from "@/lib/knowledge";
 import { aiAccess } from "@/lib/server/guard";
 
 export const maxDuration = 60;
@@ -16,13 +16,13 @@ export async function POST(req: Request) {
     const recent = (messages ?? []).slice(-14);
     const convo = recent.map((m) => `${m.role === "user" ? "Student" : "Teacher"}: ${m.text.slice(0, 2000)}`).join("\n\n");
 
-    // Bilim bazasidan: oxirgi ikki savolga mos grammatika, o'zbeklarga xos xatolar va ish joyi ma'lumotlari
+    // Bilim bazasidan: oxirgi ikki savolga mos grammatika, o'zbeklarga xos xatolar, ish joyi ma'lumotlari va lug'at
     const asked = recent
       .filter((m) => m.role === "user")
       .slice(-2)
       .map((m) => m.text.slice(0, 2000))
       .join("\n");
-    const notes = teacherNotes(asked);
+    const notes = [teacherNotes(asked), vocabNotes(asked)].filter(Boolean).join("\n\n");
     const profile = typeof student === "string" ? student.slice(0, 800) : "";
 
     const stream = await streamText({
@@ -31,8 +31,11 @@ Answer in ${L}. Always write Korean in Hangul, and for beginners add romanizatio
 Style: short paragraphs, bullet lists, **bold** key points, 2-4 clear Korean example sentences with ${L} translation. Compare with Uzbek grammar when helpful (e.g. Korean particles vs Uzbek suffixes -ni, -ga, -da).
 You can: explain grammar, check sentences, give TOPIK I/II and EPS-TOPIK strategies, make mini quizzes, teach step-by-step lessons, explain Korean culture, work rules and daily life in Korea (bank, hospital, immigration office, factory).
 Stay on the topic of Korean language, TOPIK, EPS-TOPIK and life in Korea. Use only plain markdown (no tables, no headings larger than ####).
+When recommending practice, point to the app sections: «Testlar» (mock tests), «Rasmiy o‘tgan testlar» (/test/past), «So‘zlar» (TOPIK I/II lug‘ati), «Grammatika», «Yozish», «Gaplashish».
 
-${TEACHING_METHOD}${profile ? `\n\nStudent profile (from the app): ${profile}` : ""}${notes ? `\n\nKnowledge base notes (HanUstoz):\n${notes}` : ""}`,
+${TEACHING_METHOD}
+
+${TOPIK_FACTS}${profile ? `\n\nStudent profile (from the app): ${profile}` : ""}${notes ? `\n\nKnowledge base notes (HanUstoz):\n${notes}` : ""}`,
       input: `${convo}\n\nTeacher:`,
     });
     return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" } });

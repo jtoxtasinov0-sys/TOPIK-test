@@ -10,9 +10,10 @@ export default function LearnHub() {
     { n: 2, href: "/learn/hangul#builder", t: "Bo‘g‘in yasash", d: "Harflarni bo‘g‘inga yig‘ing va eshiting", g: "var(--grad-btn)" },
     { n: 3, href: "/learn/lessons", t: "Hayotiy darslar", d: "12 ta dars: salomlashish, restoran, ish, kasalxona…", g: "var(--grad)" },
     { n: 4, href: "/learn/grammar", t: "Grammatika va ustoz eslatmalari", d: "1–6급 grammatika o‘zbekcha izoh bilan, o‘zbeklarga xos xatolar, daraja rejasi", g: "var(--grad-night)" },
-    { n: 5, href: "/words", t: "So‘z kartochkalari", d: "130+ so‘z: TOPIK va EPS (ish joyi), takrorlash tizimi bilan", g: "var(--grad-pink)" },
+    { n: 5, href: "/words", t: "So‘z kartochkalari", d: "~2 000 so‘z: TOPIK I/II lug‘ati (국립국어원), EPS va mavzular, takrorlash tizimi bilan", g: "var(--grad-pink)" },
     { n: 6, href: "/speak", t: "AI bilan gaplashish", d: "O‘rganganlaringizni jonli suhbatda qo‘llang", g: "var(--grad-sun)" },
     { n: 7, href: "/test", t: "TOPIK / EPS-TOPIK mock test", d: "Darajangizni tekshiring yoki ishga borish imtihoniga tayyorlaning", g: "var(--grad-mint)" },
+    { n: 8, href: "/test/past", t: "Rasmiy o‘tgan testlar", d: "12 ta ochiq TOPIK sessiyasi (기출문제)", g: "var(--grad)" },
   ];
   return (
     <main className="container page">

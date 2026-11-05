@@ -104,6 +104,19 @@ export default function TestHub() {
         ))}
       </div>
 
+      <Link href="/test/past" className="card hover row" style={{ marginTop: 20, gap: 16, flexWrap: "wrap" }}>
+        <span className="icon-tile night">🗂️</span>
+        <div className="grow" style={{ minWidth: 220 }}>
+          <h3 className="h3" style={{ margin: 0 }}>Rasmiy o‘tgan testlar (기출문제)</h3>
+          <p className="small muted" style={{ margin: "4px 0 0" }}>
+            12 ta ochiq sessiya (35–102) — rasmiy saytda audio bilan yechish, savol turlari xaritasi va maslahatlar.
+          </p>
+        </div>
+        <span className="icon-btn primary sm">
+          <Icon name="right" size={18} />
+        </span>
+      </Link>
+
       <div className="grid-3" style={{ marginTop: 20 }}>
         <Link href="/writing" className="card hover stack" style={{ gap: 10 }}>
           <span className="icon-tile pink">✍️</span>

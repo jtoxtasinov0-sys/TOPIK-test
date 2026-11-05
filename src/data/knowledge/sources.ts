@@ -12,6 +12,18 @@ export const SOURCES: Source[] = [
     usedFor: "1–6-darajalar tuzilmasi, har bir daraja uchun mavzular va maqsadlar",
   },
   {
+    name: "한국어 학습용 어휘 목록 (2003)",
+    org: "국립국어원 (Milliy koreys tili instituti) — KOGL 1-tur",
+    url: "https://www.korean.go.kr/front/etcData/etcDataView.do?mn_id=46&etc_seq=71",
+    usedFor: "«So‘zlar» bo‘limidagi TOPIK I (A) va TOPIK II (B) lug‘ati: so‘zlar, turkumi, darajasi va chastota tartibi",
+  },
+  {
+    name: "토픽 기출문제 (ochiq o‘tgan testlar, 35–102-sessiyalar)",
+    org: "국립국제교육원 (NIIED)",
+    url: "https://www.topik.go.kr/TWSTDY/TWSTDY0080.do",
+    usedFor: "«Rasmiy o‘tgan testlar» sahifasidagi havolalar va savol turlari xaritasi (savollar ko‘chirilmagan)",
+  },
+  {
     name: "한국어기초사전",
     org: "국립국어원",
     url: "https://krdict.korean.go.kr",

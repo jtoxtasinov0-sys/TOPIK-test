@@ -32,7 +32,7 @@ export const POS_NAME: Record<string, string> = {
 
 export const GROUPS: { id: PosGroup; label: string; emoji: string }[] = [
   { id: "n", label: "Otlar", emoji: "📦" },
-  { id: "v", label: "Fe’llar", emoji: "🏃" },
+  { id: "v", label: "Fe’llar", emoji: "👟" },
   { id: "a", label: "Sifatlar", emoji: "🎨" },
   { id: "o", label: "Ravish, son va boshqalar", emoji: "🔢" },
 ];

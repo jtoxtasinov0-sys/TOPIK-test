@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
+import { micToLevel, RecMeter } from "@/components/MicWave";
 import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { outputLevel, playTutor, stopAudio, unlockAudio, type Segment } from "@/lib/audio";
@@ -49,6 +51,7 @@ function Reply({ segments }: { segments: Segment[] }) {
 
 export default function VoiceTutorPage() {
   const errText = useAiErrorText();
+  const router = useRouter();
   const [level, setLevel] = useState<Level>("beginner");
   const [showRom, setShowRom] = useState(true);
   const [handsFree, setHandsFree] = useState(true);
@@ -90,6 +93,8 @@ export default function VoiceTutorPage() {
 
   // Shar uchun ovoz balandligi: yozayotganda — mikrofon, gapirayotganda — ustoz ovozi
   const getLevel = useCallback(() => (recState.current === "rec" ? Math.min(1, micLevel.current * 7) : outputLevel()), []);
+  // Yozuv grafigi uchun: faqat mikrofon
+  const getMicLevel = useCallback(() => micToLevel(micLevel.current), []);
 
   const commit = (list: Msg[]) => {
     msgsRef.current = list;
@@ -146,7 +151,8 @@ export default function VoiceTutorPage() {
     stopAudio();
     let r: Recording;
     try {
-      r = await startRecording({ onLevel: (rms) => (micLevel.current = rms) });
+      // O'zbekcha savol odatda uzluksiz aytiladi — 0.9 soniya jimlikdan keyin darhol yuboramiz
+      r = await startRecording({ silenceMs: 900, onLevel: (rms) => (micLevel.current = rms) });
     } catch (e) {
       recState.current = "idle";
       setErr(e instanceof MicError ? e.message : "Mikrofonni ochib bo‘lmadi.");
@@ -189,6 +195,13 @@ export default function VoiceTutorPage() {
     stopAudio();
     setPlaying(null);
     recRef.current?.cancel();
+  };
+
+  /** Ovozli darsdan chiqish: oldingi sahifaga (bo'lmasa — bosh sahifaga) */
+  const exit = () => {
+    endSession();
+    if (window.history.length > 1) router.back();
+    else router.push("/");
   };
 
   const newChat = () => {
@@ -236,11 +249,11 @@ export default function VoiceTutorPage() {
   const levelName = LEVELS.find(([k]) => k === level)?.[1];
 
   return (
-    <main className="container" style={{ maxWidth: 820, paddingTop: 16 }}>
+    <main className="container voice-focus" style={{ maxWidth: 820, paddingTop: 16 }}>
       <div className="card row" style={{ padding: 12, marginBottom: 16, position: "sticky", top: 74, zIndex: 20, gap: 10 }}>
-        <span className="icon-tile" style={{ width: 42, height: 42 }}>
-          <Icon name="mic" size={20} />
-        </span>
+        <button className="icon-btn sm" onClick={exit} aria-label="Chiqish" title="Chiqish">
+          <Icon name="left" size={18} />
+        </button>
         <div className="grow" style={{ minWidth: 0 }}>
           <b>Ovozli ustoz</b>
           <div className="tiny muted">{levelName} daraja</div>
@@ -343,7 +356,7 @@ export default function VoiceTutorPage() {
           </div>
         )}
         {err && <div className="callout">{err}</div>}
-        <div ref={endRef} style={{ height: 4 }} />
+        <div ref={endRef} className="chat-end" style={{ height: 4 }} />
       </div>
 
       <div className="composer">
@@ -369,11 +382,17 @@ export default function VoiceTutorPage() {
             {busy ? <span className="spinner white" style={{ width: 20, height: 20 }} /> : <Icon name={rec ? "send" : "mic"} size={22} />}
           </button>
           <div className="vbar-mid" aria-live="polite">
-            <VoiceOrb mode={mode} getLevel={getLevel} size={40} label="" />
-            <div className="vbar-status">
-              <b>{status}</b>
-              <span>{sub}</span>
-            </div>
+            {rec ? (
+              <RecMeter getLevel={getMicLevel} />
+            ) : (
+              <>
+                <VoiceOrb mode={mode} getLevel={getLevel} size={40} label="" />
+                <div className="vbar-status">
+                  <b>{status}</b>
+                  <span>{sub}</span>
+                </div>
+              </>
+            )}
           </div>
           <button className={`icon-btn sm ${typing ? "on" : ""}`} onClick={() => setTyping((v) => !v)} aria-pressed={typing} aria-label="Yozib so‘rash" title="Yozib so‘rash">
             <Icon name="pen" size={16} />
@@ -384,9 +403,13 @@ export default function VoiceTutorPage() {
             </button>
           )}
         </div>
-        <div className="tiny muted" style={{ textAlign: "center", marginTop: 8 }}>
-          Maslahat: shovqinsiz joyda gapiring; quloqchin bilan ustoz o‘z ovozini eshitmaydi.
-        </div>
+        {rec ? (
+          <div className="rec-hint">Ovozingiz yozilmoqda — gapirib bo‘lgach jim turing, o‘zi yuboriladi</div>
+        ) : (
+          <div className="tiny muted" style={{ textAlign: "center", marginTop: 8 }}>
+            Maslahat: shovqinsiz joyda gapiring; quloqchin bilan ustoz o‘z ovozini eshitmaydi.
+          </div>
+        )}
       </div>
     </main>
   );

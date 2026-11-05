@@ -133,60 +133,134 @@ export async function generateText(opts: { system: string; input: string | Conte
   return outputText(r);
 }
 
-/** Matnni oqim (stream) ko'rinishida qaytaradi — AI Ustoz chati uchun */
-export async function streamText(opts: { system: string; input: string }): Promise<ReadableStream<Uint8Array>> {
+/** Birinchi javob (sarlavhalar) shuncha vaqtda kelmasa — kechikdi */
+const STREAM_FIRST_MS = 25_000;
+/** Oqim o'rtasida shuncha vaqt hech narsa kelmasa — uzib qo'yamiz (cheksiz «yuklanmoqda» bo'lmasin) */
+const STREAM_IDLE_MS = 25_000;
+
+type StreamEvent = { event_type?: string; delta?: { type?: string; text?: string }; error?: { message?: string } };
+
+/** SSE hodisalaridan faqat javob matnini oladi ("o'ylash" va xizmat hodisalari tashlab ketiladi) */
+export function sseText(events: string[]): { text: string; error?: string } {
+  let text = "";
+  for (const ev of events) {
+    const data = ev
+      .split(/\r?\n/)
+      .filter((l) => l.startsWith("data:"))
+      .map((l) => l.slice(5).trim())
+      .join("");
+    if (!data || data === "[DONE]") continue;
+    let j: StreamEvent;
+    try {
+      j = JSON.parse(data) as StreamEvent;
+    } catch {
+      continue;
+    }
+    if (j.event_type === "error" || (j.error && !j.delta)) return { text, error: j.error?.message || "Gemini xatosi" };
+    if ((j.event_type === "step.delta" || j.event_type === "content.delta") && j.delta?.type === "text" && j.delta.text) text += j.delta.text;
+  }
+  return { text };
+}
+
+/**
+ * Matnni oqim (stream) ko'rinishida qaytaradi — AI Ustoz chati uchun.
+ * Muhim: pull() har chaqirilganda kamida bitta bo'lak qo'shishi yoki oqimni yopishi shart — aks holda oqim
+ * abadiy to'xtab qoladi. Gemini avval "o'ylash" va xizmat hodisalarini yuboradi, shuning uchun matn kelguncha
+ * tarmoqdan o'qishda davom etamiz.
+ */
+export async function streamText(opts: { system: string; input: string; thinking?: Thinking }): Promise<ReadableStream<Uint8Array>> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new AiError("GEMINI_API_KEY sozlanmagan", 503);
-  const res = await fetch(BASE, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": key,
-      "Api-Revision": "2026-05-20",
-      Accept: "text/event-stream",
-    },
-    body: JSON.stringify({
-      model: MODELS.text,
-      system_instruction: opts.system,
-      input: opts.input,
-      stream: true,
-      generation_config: { thinking_level: "low" },
-    }),
-  });
+  const ctrl = new AbortController();
+
+  const open = async (level: Thinking) => {
+    const timer = setTimeout(() => ctrl.abort(), STREAM_FIRST_MS);
+    try {
+      return await fetch(BASE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": key,
+          "Api-Revision": "2026-05-20",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({
+          model: MODELS.text,
+          system_instruction: opts.system,
+          input: opts.input,
+          stream: true,
+          generation_config: { thinking_level: level },
+        }),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      if ((e as Error).name === "AbortError") throw new AiError("Gemini javobi kechikdi", 504);
+      throw new AiError("Gemini bilan bog'lanib bo'lmadi", 502);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  // Tezlik uchun — eng kam o'ylash; model qo'llamasa bir marta "low" ga o'tamiz
+  const want = opts.thinking ?? "minimal";
+  const level: Thinking = want === "minimal" && minimalUnsupported ? "low" : want;
+  let res = await open(level);
+  if (res.status === 400 && level === "minimal") {
+    await res.body?.cancel().catch(() => {});
+    minimalUnsupported = true;
+    res = await open("low");
+  }
   if (!res.ok || !res.body) {
     const j = (await res.json().catch(() => ({}))) as InteractionResponse;
     throw new AiError(j?.error?.message || `Gemini xatosi (${res.status})`, res.status === 429 ? 429 : 502);
   }
+
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   const enc = new TextEncoder();
   let buf = "";
+  let sent = false;
+
+  const readWithTimeout = async () => {
+    const timer = setTimeout(() => ctrl.abort(), STREAM_IDLE_MS);
+    try {
+      return await reader.read();
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) {
-        controller.close();
-        return;
-      }
-      buf += dec.decode(value, { stream: true });
-      const events = buf.split(/\r?\n\r?\n/);
-      buf = events.pop() ?? "";
-      for (const ev of events) {
-        const data = ev
-          .split(/\r?\n/)
-          .filter((l) => l.startsWith("data:"))
-          .map((l) => l.slice(5).trim())
-          .join("");
-        if (!data || data === "[DONE]") continue;
-        try {
-          const j = JSON.parse(data) as { event_type?: string; delta?: { type?: string; text?: string } };
-          if (j.event_type === "step.delta" && j.delta?.type === "text" && j.delta.text) {
-            controller.enqueue(enc.encode(j.delta.text));
+      try {
+        for (;;) {
+          const { done, value } = await readWithTimeout();
+          if (done) buf += dec.decode();
+          else buf += dec.decode(value, { stream: true });
+          const events = buf.split(/\r?\n\r?\n/);
+          buf = done ? "" : (events.pop() ?? "");
+          const { text, error } = sseText(events);
+          if (text) {
+            controller.enqueue(enc.encode(text));
+            sent = true;
           }
-        } catch {}
+          if (error) throw new AiError(error, 502);
+          if (done) {
+            controller.close();
+            return;
+          }
+          if (text) return; // navbatdagi bo'lakni iste'molchi so'raganda o'qiymiz
+        }
+      } catch (e) {
+        ctrl.abort();
+        reader.cancel().catch(() => {});
+        // Javobning bir qismi yetib borgan bo'lsa — shu bilan tugatamiz; umuman kelmagan bo'lsa — xato
+        if (sent) controller.close();
+        else controller.error(e instanceof AiError ? e : new AiError("Gemini javobi kechikdi", 504));
       }
     },
     cancel() {
+      ctrl.abort();
       reader.cancel().catch(() => {});
     },
   });
@@ -229,7 +303,7 @@ export async function synthesize(
   opts: { slow?: boolean; voice?: "f" | "m"; tutor?: boolean; talk?: boolean } = {}
 ): Promise<Buffer> {
   const style = opts.tutor
-    ? "A warm, patient Korean teacher talking to an Uzbek student. Speak the Uzbek sentences in natural Uzbek; pronounce every Korean word or phrase clearly and a little slower in standard Seoul Korean, modelling the pronunciation for the student"
+    ? "A warm, energetic young Korean teacher talking to an Uzbek student at a brisk, natural conversational pace — no long pauses, no dragging. Speak the Uzbek sentences in fluent natural Uzbek; pronounce every Korean word or phrase clearly in standard Seoul Korean"
     : opts.talk
       ? opts.slow
         ? "A friendly young Korean chatting with a foreign friend who is learning Korean: warm, natural conversational intonation, a little slower than normal and very clear, standard Seoul pronunciation"

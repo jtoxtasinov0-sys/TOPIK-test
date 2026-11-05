@@ -3,7 +3,7 @@ export const EMERGENCY: { num: string; emoji: string; title: string; desc: strin
   { num: "112", emoji: "🚓", title: "Politsiya", desc: "Jinoyat, o‘g‘rilik, xavfli vaziyat" },
   { num: "119", emoji: "🚑", title: "Tez yordam va o‘t o‘chirish", desc: "Yong‘in, og‘ir kasallik, baxtsiz hodisa" },
   { num: "1345", emoji: "🛂", title: "Chet elliklar markazi", desc: "Viza, yashash muddati, ro‘yxatdan o‘tish — ko‘p tilli maslahat" },
-  { num: "1350", emoji: "👷", title: "Mehnat vazirligi", desc: "Maosh to‘lanmasa, mehnat huquqlari bo‘yicha" },
+  { num: "1350", emoji: "⛑️", title: "Mehnat vazirligi", desc: "Maosh to‘lanmasa, mehnat huquqlari bo‘yicha" },
   { num: "1330", emoji: "🧳", title: "Sayyohlar uchun qo‘ng‘iroq markazi", desc: "Tarjima va ma’lumot, 24 soat" },
 ];
 

@@ -32,7 +32,7 @@ export const DECKS: Deck[] = [
   },
   {
     id: "verb",
-    emoji: "🏃",
+    emoji: "👟",
     title: "Asosiy fe’llar",
     level: "TOPIK I",
     words: build("verb", [

@@ -23,7 +23,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "intro",
-    emoji: "🙋",
+    emoji: "📛",
     ko: "자기소개",
     title: "O‘zini tanishtirish",
     grammar: "N은/는 N이에요/예요 — «Men …man». Undosh bilan tugasa 이에요 (학생이에요), unli bilan tugasa 예요 (의사예요).",
@@ -68,7 +68,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "verbs",
-    emoji: "🏃",
+    emoji: "👟",
     ko: "동사 -아요/어요",
     title: "Kundalik fe’llar",
     grammar: "Fe’l o‘zagida ㅏ/ㅗ bo‘lsa → -아요 (가다→가요), boshqa bo‘lsa → -어요 (먹다→먹어요), 하다 → 해요 (공부하다→공부해요).",

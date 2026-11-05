@@ -29,6 +29,7 @@ export const DAILY_LIMITS = {
   explain: 150,
   writing: 25,
   speak: 200,
+  talk: 300, // erkin suhbat: qisqa va tez-tez xabarlar
   tutor: 120,
   generate: 400, // bitta to'liq AI variant ~40-60 so'rov
   tts: 800,

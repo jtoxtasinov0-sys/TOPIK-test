@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
-import { outputLevel, pickRecorderMime, playTutor, stopAudio, unlockAudio, type Segment } from "@/lib/audio";
+import { outputLevel, playTutor, stopAudio, unlockAudio, type Segment } from "@/lib/audio";
+import { MicError, startRecording, type Recording } from "@/lib/mic";
 import { touchStreak } from "@/lib/store";
 
 // Ovozli ustoz: o'quvchi o'zbekcha so'raydi ("Rahmat koreyschada qanday?"),
@@ -29,52 +30,6 @@ const LEVELS: [Level, string][] = [
   ["intermediate", "O‘rta"],
   ["advanced", "Yuqori"],
 ];
-
-// Ovoz balandligi (RMS) shu chegaradan oshsa — gapiryapti deb hisoblaymiz
-const SPEECH_RMS = 0.025;
-const SILENCE_MS = 1100;
-const NO_SPEECH_MS = 8000;
-const MAX_MS = 60000;
-
-/**
- * Mikrofon ovozini kuzatadi: balandlikni onLevel'ga beradi va gapirib bo'lgach ~1 soniya jim tursa
- * (yoki umuman gapirmasa) onEnd'ni chaqiradi. Qaytgan funksiya kuzatishni to'xtatadi.
- */
-function monitorSpeech(an: AnalyserNode, onLevel: (rms: number) => void, onEnd: (noSpeech: boolean) => void) {
-  const wave = new Float32Array(an.fftSize);
-  const t0 = performance.now();
-  let heard = false;
-  let lastLoud = t0;
-  let done = false;
-  let id = 0;
-  const end = (noSpeech: boolean) => {
-    done = true;
-    onLevel(0);
-    onEnd(noSpeech);
-  };
-  const loop = () => {
-    if (done) return;
-    an.getFloatTimeDomainData(wave);
-    let sum = 0;
-    for (let i = 0; i < wave.length; i++) sum += wave[i] * wave[i];
-    const rms = Math.sqrt(sum / wave.length);
-    onLevel(rms);
-    const now = performance.now();
-    if (rms > SPEECH_RMS) {
-      if (now - t0 > 250) heard = true;
-      lastLoud = now;
-    }
-    if (heard && now - lastLoud > SILENCE_MS) return end(false);
-    if (!heard && now - t0 > NO_SPEECH_MS) return end(true);
-    if (now - t0 > MAX_MS) return end(false);
-    id = requestAnimationFrame(loop);
-  };
-  id = requestAnimationFrame(loop);
-  return () => {
-    done = true;
-    cancelAnimationFrame(id);
-  };
-}
 
 function Reply({ segments }: { segments: Segment[] }) {
   return (
@@ -111,13 +66,10 @@ export default function VoiceTutorPage() {
   const cfg = useRef({ level, handsFree });
   const alive = useRef(true);
   const session = useRef(false); // "Tugatish" bosilsa — avtomatik tinglash to'xtaydi
-  const discard = useRef(false); // yozuvni yubormasdan bekor qilish
   const busyRef = useRef(false);
   const recState = useRef<"idle" | "starting" | "rec">("idle");
   const micLevel = useRef(0);
-  const mediaRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const monitor = useRef<(() => void) | null>(null);
+  const recRef = useRef<Recording | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -132,9 +84,7 @@ export default function VoiceTutorPage() {
     return () => {
       alive.current = false;
       stopAudio();
-      monitor.current?.();
-      if (mediaRef.current?.state === "recording") mediaRef.current.stop();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
+      recRef.current?.cancel();
     };
   }, []);
 
@@ -192,81 +142,40 @@ export default function VoiceTutorPage() {
   const startRec = async () => {
     if (recState.current !== "idle" || busyRef.current) return;
     recState.current = "starting";
-    discard.current = false;
     setErr("");
     stopAudio();
-    let stream: MediaStream;
+    let r: Recording;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-    } catch {
+      r = await startRecording({ onLevel: (rms) => (micLevel.current = rms) });
+    } catch (e) {
       recState.current = "idle";
-      setErr(
-        typeof window !== "undefined" && !window.isSecureContext
-          ? "Mikrofon faqat https:// manzilda ishlaydi."
-          : "Mikrofonga ruxsat berilmadi. Brauzer sozlamalaridan ruxsat bering yoki yozib so‘rang."
-      );
+      setErr(e instanceof MicError ? e.message : "Mikrofonni ochib bo‘lmadi.");
       return;
     }
     if (!alive.current) {
-      stream.getTracks().forEach((t) => t.stop());
+      r.cancel();
       return;
     }
-    streamRef.current = stream;
-    const mime = pickRecorderMime();
-    const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-    const chunks: Blob[] = [];
-    let noSpeech = false;
-    mr.ondataavailable = (e) => {
-      if (e.data.size) chunks.push(e.data);
-    };
-
-    const ctx = new AudioContext();
-    const an = ctx.createAnalyser();
-    an.fftSize = 512;
-    ctx.createMediaStreamSource(stream).connect(an);
-
-    mr.onstop = async () => {
-      monitor.current?.();
-      monitor.current = null;
-      void ctx.close().catch(() => {});
-      stream.getTracks().forEach((t) => t.stop());
-      recState.current = "idle";
-      micLevel.current = 0;
-      mediaRef.current = null;
-      if (!alive.current) return;
-      setRec(false);
-      if (discard.current) return;
-      if (noSpeech) {
-        setErr("Ovoz eshitilmadi — gapirish uchun mikrofonni bosing.");
-        return;
-      }
-      const blob = new Blob(chunks, { type: mr.mimeType || mime || "audio/webm" });
-      if (blob.size < 2000) {
-        setErr("Juda qisqa yozuv. Mikrofonni bosib, gapiring.");
-        return;
-      }
-      await send({ audio: { data: await blobToBase64(blob), mime: blob.type } });
-    };
-
-    mr.start();
-    mediaRef.current = mr;
+    recRef.current = r;
     recState.current = "rec";
     setRec(true);
-    monitor.current = monitorSpeech(
-      an,
-      (rms) => (micLevel.current = rms),
-      (silent) => {
-        noSpeech = silent;
-        if (mr.state === "recording") mr.stop();
-      }
-    );
+    const res = await r.result;
+    recRef.current = null;
+    recState.current = "idle";
+    micLevel.current = 0;
+    if (!alive.current) return;
+    setRec(false);
+    if (res.kind === "cancel") return;
+    if (res.kind === "silent") return setErr("Ovoz eshitilmadi — gapirish uchun mikrofonni bosing.");
+    if (res.kind === "short") return setErr("Juda qisqa yozuv. Mikrofonni bosib, gapiring.");
+    await send({ audio: { data: await blobToBase64(res.blob), mime: res.blob.type } });
   };
 
   const onMic = () => {
     unlockAudio();
     session.current = true;
     if (rec) {
-      if (mediaRef.current?.state === "recording") mediaRef.current.stop();
+      recRef.current?.stop();
       return;
     }
     if (busy) return;
@@ -279,10 +188,7 @@ export default function VoiceTutorPage() {
     session.current = false;
     stopAudio();
     setPlaying(null);
-    if (mediaRef.current?.state === "recording") {
-      discard.current = true;
-      mediaRef.current.stop();
-    }
+    recRef.current?.cancel();
   };
 
   const newChat = () => {

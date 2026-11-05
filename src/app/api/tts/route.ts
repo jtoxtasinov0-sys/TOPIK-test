@@ -14,19 +14,19 @@ export async function POST(req: Request) {
     if (!hasKey()) return Response.json({ error: "TTS o'chirilgan", code: "NO_KEY" }, { status: 503 });
     // Gemini ovozi — kirgan va sinovi tugamaganlar uchun; qolganlarga brauzer ovozi ishlaydi
     const user = await requireAiAccess(req);
-    const { text, slow, voice, tutor } = (await req.json()) as { text?: string; slow?: boolean; voice?: "f" | "m"; tutor?: boolean };
+    const { text, slow, voice, tutor, talk } = (await req.json()) as { text?: string; slow?: boolean; voice?: "f" | "m"; tutor?: boolean; talk?: boolean };
     if (typeof text !== "string" || !text.trim() || text.length > 2500) {
       return Response.json({ error: "Matn noto'g'ri" }, { status: 400 });
     }
-    const key = createHash("sha1").update(`${slow ? 1 : 0}|${voice ?? ""}|${tutor ? "t" : ""}|${text}`).digest("hex");
+    const key = createHash("sha1").update(`${slow ? 1 : 0}|${voice ?? ""}|${tutor ? "t" : talk ? "k" : ""}|${text}`).digest("hex");
     let buf = cache.get(key);
     if (!buf) {
       rateLimit(req, "tts", 90, 5 * 60_000);
       await chargeQuota(user, "tts");
       await trackUsage("tts");
-      // Ovozli ustoz matni (o'zbekcha + koreyscha) — dialog emas, bitta ovoz bilan o'qiladi
-      const turns = tutor ? [{ speaker: null, text: text.trim() }] : parseScript(text);
-      buf = await synthesize(turns, { slow: !!slow, voice, tutor: !!tutor });
+      // Ovozli ustoz (o'zbekcha + koreyscha) va erkin suhbat javobi — dialog emas, bitta ovoz bilan o'qiladi
+      const turns = tutor || talk ? [{ speaker: null, text: text.trim() }] : parseScript(text);
+      buf = await synthesize(turns, { slow: !!slow, voice, tutor: !!tutor, talk: !tutor && !!talk });
       cache.set(key, buf);
       if (cache.size > 400) cache.delete(cache.keys().next().value as string);
     }

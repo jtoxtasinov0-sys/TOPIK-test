@@ -20,11 +20,12 @@ export function hash(s: string) {
   return (h >>> 0).toString(16) + s.length.toString(16);
 }
 
-export type TtsOpts = { slow?: boolean; voice?: "f" | "m"; tutor?: boolean };
+/** tutor — ustoz (o'zbekcha + koreyscha) uslubi; talk — erkin suhbatdagi do'stona koreyscha uslub */
+export type TtsOpts = { slow?: boolean; voice?: "f" | "m"; tutor?: boolean; talk?: boolean };
 
 async function fetchServerAudio(text: string, opts: TtsOpts): Promise<string | null> {
   if (serverTtsOff) return null;
-  const key = hash(`${opts.slow ? "s" : "n"}|${opts.voice ?? ""}|${opts.tutor ? "t" : ""}|${text}`);
+  const key = hash(`${opts.slow ? "s" : "n"}|${opts.voice ?? ""}|${opts.tutor ? "t" : opts.talk ? "k" : ""}|${text}`);
   if (memory.has(key)) return memory.get(key)!;
   if (pending.has(key)) return pending.get(key)!;
 
@@ -45,7 +46,7 @@ async function fetchServerAudio(text: string, opts: TtsOpts): Promise<string | n
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, slow: opts.slow, voice: opts.voice, tutor: opts.tutor }),
+        body: JSON.stringify({ text, slow: opts.slow, voice: opts.voice, tutor: opts.tutor, talk: opts.talk }),
       });
       // 503: AI ulanmagan; 401/402: kirilmagan yoki sinov tugagan — brauzer ovozi ishlatiladi
       if (res.status === 503 || res.status === 401 || res.status === 402) {
@@ -312,7 +313,7 @@ function playUrl(url: string, onStart?: () => void): Promise<void> {
 export type Segment = { lang: "uz" | "ko"; text: string };
 
 /** Bo'laklarni brauzer ovozi bilan ketma-ket o'qiydi: koreyschasi koreyscha, qolgani o'zbekcha (yoki turkcha) ovoz bilan */
-function browserSpeakSegments(segs: Segment[], onStart?: () => void): Promise<void> {
+function browserSpeakSegments(segs: Segment[], onStart?: () => void, pitch = 0.8): Promise<void> {
   return new Promise((resolve) => {
     const synth = window.speechSynthesis;
     if (!synth || !segs.length) return resolve();
@@ -338,7 +339,7 @@ function browserSpeakSegments(segs: Segment[], onStart?: () => void): Promise<vo
       if (i >= segs.length) return done();
       const s = segs[i++];
       const u = new SpeechSynthesisUtterance(s.text);
-      u.pitch = 0.8; // erkak ovoziga yaqinroq
+      u.pitch = pitch; // 0.8 — erkak ovoziga yaqinroq
       if (s.lang === "ko") {
         u.lang = "ko-KR";
         if (ko) u.voice = ko;
@@ -377,26 +378,57 @@ export function splitForSpeech(text: string): string[] {
   return [t];
 }
 
-/** Ustoz javobini ovoz chiqarib o'qiydi: avval Gemini (bitta tabiiy yigit ovozi), bo'lmasa brauzer ovozi */
-export async function playTutor(segs: Segment[], opts: { onLoading?: (b: boolean) => void; onStart?: () => void } = {}) {
+type PlayHooks = { onLoading?: (b: boolean) => void; onStart?: () => void };
+export type SpeechChunk = { text: string; opts: TtsOpts };
+
+/**
+ * Bo'laklarni ketma-ket o'qiydi: hammasi parallel tayyorlanadi, birinchisi tayyor bo'lishi bilan o'ynaydi.
+ * Gemini ovozi bo'lmasa — brauzer ovozi (fallback bo'laklari, tillar bo'yicha).
+ */
+async function playChunks(chunks: SpeechChunk[], fallback: Segment[], hooks: PlayHooks & { pitch?: number } = {}) {
   stopAudio();
   const token = playToken;
-  const text = segs.map((s) => s.text).join(" ").trim();
-  if (!text) return;
-  const parts = splitForSpeech(text);
-  const jobs = parts.map((p) => fetchServerAudio(p, TUTOR_TTS)); // hammasi parallel so'raladi
-  opts.onLoading?.(true);
+  const list = chunks.filter((c) => c.text.trim());
+  if (!list.length) return;
+  const jobs = list.map((c) => fetchServerAudio(c.text.trim(), c.opts)); // hammasi parallel so'raladi
+  hooks.onLoading?.(true);
   const first = await jobs[0];
-  opts.onLoading?.(false);
+  hooks.onLoading?.(false);
   if (token !== playToken) return;
-  if (!first) return browserSpeakSegments(segs, opts.onStart);
-  await playUrl(first, opts.onStart);
+  if (!first) return browserSpeakSegments(fallback, hooks.onStart, hooks.pitch);
+  await playUrl(first, hooks.onStart);
   for (let k = 1; k < jobs.length; k++) {
     if (token !== playToken) return;
     const url = await jobs[k];
     if (!url || token !== playToken) return;
     await playUrl(url);
   }
+}
+
+/** Ustoz javobini ovoz chiqarib o'qiydi: avval Gemini (bitta tabiiy yigit ovozi), bo'lmasa brauzer ovozi */
+export function playTutor(segs: Segment[], opts: PlayHooks = {}) {
+  const text = segs.map((s) => s.text).join(" ").trim();
+  return playChunks(
+    splitForSpeech(text).map((p) => ({ text: p, opts: TUTOR_TTS })),
+    segs,
+    opts
+  );
+}
+
+/** Erkin suhbat uchun o'qiladigan bo'laklar: avval o'zbekcha yordam (ustoz uslubida), keyin koreyscha javob — bitta suhbatdosh ovozi */
+export function talkChunks(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }): SpeechChunk[] {
+  const help = (t.help ?? []).map((s) => s.text).join(" ").trim();
+  const reply = t.reply.trim();
+  return [
+    ...(help ? [{ text: help, opts: { tutor: true, voice: t.voice } }] : []),
+    ...(reply ? splitForSpeech(reply).map((p) => ({ text: p, opts: { talk: true, voice: t.voice, slow: !!t.slow } })) : []),
+  ];
+}
+
+/** Erkin suhbat: koreys do'st javobini ovoz chiqarib o'qiydi */
+export function playTalk(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }, opts: PlayHooks = {}) {
+  const fallback: Segment[] = [...(t.help ?? []), ...(t.reply.trim() ? [{ lang: "ko" as const, text: t.reply.trim() }] : [])];
+  return playChunks(talkChunks(t), fallback, { ...opts, pitch: t.voice === "f" ? 1.15 : 0.8 });
 }
 
 /** Mikrofon yozuvi uchun brauzer qo'llaydigan audio turi */

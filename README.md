@@ -18,6 +18,7 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | **✨ AI variantlar** | Gemini rasmiy format bo‘yicha cheksiz yangi test variantlarini tuzadi |
 | **🧠 AI tushuntirish** | Har bir savolga o‘zbek tilida tarjima, nega to‘g‘ri, kerakli so‘zlar va grammatika |
 | **🗣️ Gaplashish** | 11 ta hayotiy vaziyat: restoran, kasalxona, bank, migratsiya xizmati, zavod, uy ijarasi, ish suhbati, TOPIK Speaking va boshqalar. Nutq **Gemini 3.5 Transcribe** orqali matnga aylanadi, AI xatolarni tuzatadi va talaffuz bo‘yicha maslahat beradi |
+| **💬 Erkin suhbat** | `/speak/free`: koreys do‘st (민준 — yigit yoki 지수 — qiz) bilan tez-tez, ovozli koreyscha suhbat — 말하기 ni oshirish uchun. Mavzu (erkin, bugungi kun, ovqat, qiziqishlar, Koreyada hayot, ish, sayohat, O‘zbekiston), daraja va uslub (존댓말 / 반말) tanlanadi. Bilmagan so‘zni o‘zbekcha aytsangiz yoki «tushunmadim» desangiz — do‘st qisqa o‘zbekcha tushuntiradi, kerakli koreyscha gapni beradi va yana koreyscha davom etadi. Xatolar suhbatni to‘xtatmasdan, xabar ostida tuzatiladi; 🐢 sekinroq qaytarish, 💡 javob g‘oyalari. Tezlik uchun: bitta Gemini so‘rovi (audio → javob), jimlikda yozuv o‘zi to‘xtaydi, uzluksiz rejimda mikrofon o‘zi yoqiladi, ovoz bo‘laklari parallel tayyorlanadi |
 | **🎙️ Ovozli ustoz** | `/speak/ustoz`: o‘zbekcha gapirib so‘raysiz (“Rahmat koreyschada qanday?”, “Menga dars o‘tib ber”), ustoz o‘zbekcha tushuntiradi va koreyscha so‘zlarni Gemini ovozi bilan aytadi, bosqichma-bosqich dars o‘tadi, takrorlaganingizda talaffuzni tekshiradi. Jimlikda yozuv o‘zi to‘xtaydi, “Uzluksiz suhbat” rejimida mikrofon o‘zi qayta yoqiladi. Mikrofon faqat HTTPS’da ishlaydi |
 | **🌱 0 dan o‘rganish** | Hangul (40 harf ovozi bilan), bo‘g‘in yasash, 받침, viktorina, 12 ta hayotiy dars va mini testlar |
 | **🃏 So‘zlar** | 134 ta so‘z (TOPIK I, TOPIK II, EPS: asboblar, xavfsizlik, yotoqxona va hayot), Leitner usulida takrorlash |
@@ -35,7 +36,7 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | Hangul, 12 ta dars, so‘z kartochkalari, Koreyada hayot | AI tushuntirish, yozma ishni AI baholash, Gemini bilan suhbat |
 | TOPIK I / II va EPS-TOPIK mock testlar (brauzer ovozi bilan) | AI Ustoz, cheksiz AI variantlar, tabiiy Gemini ovozi |
 
-AI yo‘llari (`/api/explain`, `writing`, `speak`, `tutor`, `generate`, `tts`, AI variant rasmlari uchun `image`) serverda tekshiriladi: kirilmagan bo‘lsa `401`, bepul sinov tugagan bo‘lsa `402`. Sinov muddati — `NEXT_PUBLIC_TRIAL_DAYS` (standart 30). To‘lov tizimi keyinroq qo‘shiladi. Har bir foydalanuvchi uchun kunlik adolatli limit bor (`src/lib/server/guard.ts`, masalan kuniga 25 ta yozma ish tekshiruvi) — bu AI xarajatini nazoratda ushlaydi.
+AI yo‘llari (`/api/explain`, `writing`, `speak`, `talk`, `voice`, `tutor`, `generate`, `tts`, AI variant rasmlari uchun `image`) serverda tekshiriladi: kirilmagan bo‘lsa `401`, bepul sinov tugagan bo‘lsa `402`. Sinov muddati — `NEXT_PUBLIC_TRIAL_DAYS` (standart 30). To‘lov tizimi keyinroq qo‘shiladi. Har bir foydalanuvchi uchun kunlik adolatli limit bor (`src/lib/server/guard.ts`, masalan kuniga 25 ta yozma ish tekshiruvi) — bu AI xarajatini nazoratda ushlaydi.
 
 ## Texnologiyalar
 
@@ -101,12 +102,12 @@ Loyihada tayyor `Dockerfile` bor (Next.js `standalone` rejimi, Node 22).
 src/
   app/            sahifalar (login, account, admin, ...) va API:
                   api/auth/{google,callback,logout}, api/me, api/sync, api/admin, api/usage,
-                  api/{tts,explain,writing,speak,tutor,generate}
+                  api/{tts,explain,writing,speak,talk,voice,tutor,generate}
   components/     AppShell, ChartView, exam/ (ExamRunner, GroupView, Writing, Results, Explain),
                   account/ (LoginView, AccountView, AdminView)
-  data/           topik1.ts, topik2.ts, eps.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts
+  data/           topik1.ts, topik2.ts, eps.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts, talk.ts (erkin suhbat)
   data/knowledge/ ustoz bilim bazasi: grammar.ts, mistakes.ts, curriculum.ts, writing.ts, work.ts (EPS), sources.ts
-  lib/            gemini.ts (server), audio.ts, exam.ts, store.ts, access.ts (sinov muddati), knowledge.ts (bazadan qidirish),
+  lib/            gemini.ts (server), audio.ts, mic.ts (mikrofon, jimlikni aniqlash), exam.ts, store.ts, access.ts (sinov muddati), knowledge.ts (bazadan qidirish),
                   auth.tsx (AuthProvider, paywall), sync.ts (bulut sinxron)
   lib/server/     store.ts (Redis/fayl), session.ts, google.ts, users.ts, guard.ts, usage.ts (statistika)
 tests/            npm test — Node’ning o‘zida, qo‘shimcha kutubxonasiz

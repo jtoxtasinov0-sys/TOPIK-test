@@ -359,10 +359,16 @@ export default function Home() {
             </h2>
             <p className="lead">
               Restoran, kasalxona, bank, migratsiya xizmati, zavod, ish suhbati… Gapiring — Gemini 3.5 Transcribe nutqingizni yozadi, AI xatolaringizni o‘zbekcha tushuntiradi va koreyscha javob beradi.
+              Erkin suhbatda esa koreys do‘st bilan tez-tez gaplashasiz: bilmagan so‘zingizni o‘zbekcha aytsangiz, u tushuntirib, yana koreyscha davom etadi.
             </p>
-            <Link href="/speak" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
-              <Icon name="mic" size={18} /> Suhbatni boshlash
-            </Link>
+            <div className="row-wrap" style={{ gap: 10 }}>
+              <Link href="/speak" className="btn btn-primary">
+                <Icon name="mic" size={18} /> Suhbatni boshlash
+              </Link>
+              <Link href="/speak/free" className="btn">
+                <Icon name="chat" size={18} /> Erkin suhbat
+              </Link>
+            </div>
           </div>
           <div className="feature-visual" style={{ background: "var(--grad-night)" }}>
             <div className="stack" style={{ width: "min(380px,100%)", gap: 12 }}>

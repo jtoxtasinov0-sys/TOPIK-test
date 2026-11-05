@@ -753,3 +753,35 @@ body.exam-mode .composer { padding-bottom: 24px; }
   color: #d7264a; font: inherit; font-size: 0.86rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0;
 }
 .vbar-end:hover { background: rgba(255, 77, 109, 0.14); }
+
+/* ---------- Erkin suhbat (/speak/free) ---------- */
+.tk-partners { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tk-partner {
+  display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 20px; text-align: left; cursor: pointer; font: inherit; color: inherit;
+  border: 1.5px solid var(--line-2); background: var(--surface); transition: all 0.2s;
+}
+.tk-partner b { font-size: 1.15rem; }
+.tk-partner.on { border-color: var(--p2); box-shadow: 0 0 0 4px rgba(139, 61, 255, 0.12); }
+.tk-avatar {
+  width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; flex-shrink: 0; color: #fff;
+  font-family: var(--font-kr); font-size: 0.72rem; font-weight: 800; background: var(--grad-btn); box-shadow: 0 4px 10px -4px rgba(106, 17, 255, 0.6);
+}
+.tk-avatar.f { background: var(--grad-pink); }
+.tk-avatar.lg { width: 44px; height: 44px; font-size: 1.1rem; }
+.tk-help {
+  display: flex; gap: 8px; align-items: flex-start; margin-bottom: 10px; padding: 10px 12px; border-radius: 14px; font-size: 0.93rem;
+  background: rgba(58, 134, 255, 0.07); border: 1px solid rgba(58, 134, 255, 0.16);
+}
+.tk-quick { gap: 6px; margin-top: 8px; }
+.tk-quick .chip { padding: 6px 12px; font-size: 0.82rem; }
+.tk-hints { display: grid; gap: 8px; margin-top: 8px; padding: 12px; border-radius: 18px; background: var(--surface); border: 1px dashed var(--line-2); }
+.tk-hint { display: flex; align-items: center; gap: 10px; }
+.tk-fix { display: grid; gap: 4px; }
+.tk-head { gap: 8px; }
+.tk-head .chip { padding: 6px 10px; }
+.tk-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 420px) { .tk-head .tk-avatar.lg { width: 36px; height: 36px; font-size: 0.95rem; } }
+.tk-step { display: flex; flex-direction: column; gap: 6px; }
+.tk-num {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 0.85rem; background: var(--grad-btn);
+}

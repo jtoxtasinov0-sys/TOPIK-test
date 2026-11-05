@@ -167,6 +167,21 @@ export default function SpeakPage() {
           </p>
         </div>
 
+        <Link href="/speak/free" className="card row-wrap between" style={{ gap: 16, marginBottom: 12, background: "var(--grad-pink)", color: "#fff", border: 0 }}>
+          <div className="row" style={{ gap: 14 }}>
+            <span className="icon-tile" style={{ width: 52, height: 52, fontSize: "1.6rem", background: "rgba(255,255,255,.18)" }}>💬</span>
+            <div className="stack" style={{ gap: 4 }}>
+              <b>Erkin suhbat — koreys do‘st bilan</b>
+              <span className="small" style={{ opacity: 0.9 }}>
+                Tez-tez, ovozli koreyscha suhbat. Bilmagan so‘zingizni o‘zbekcha ayting — do‘stingiz tushuntiradi va yana koreyscha davom etadi.
+              </span>
+            </div>
+          </div>
+          <span className="btn btn-sm" style={{ background: "#fff", color: "var(--ink)" }}>
+            <Icon name="chat" size={16} /> Gaplashish
+          </span>
+        </Link>
+
         <Link href="/speak/ustoz" className="card row-wrap between" style={{ gap: 16, marginBottom: 20, background: "var(--grad-btn)", color: "#fff", border: 0 }}>
           <div className="row" style={{ gap: 14 }}>
             <span className="icon-tile" style={{ width: 52, height: 52, fontSize: "1.6rem", background: "rgba(255,255,255,.18)" }}>🎙️</span>
@@ -185,7 +200,7 @@ export default function SpeakPage() {
         <h2 className="h3" style={{ margin: "4px 0 12px" }}>Vaziyatli suhbat (koreyscha)</h2>
 
         <div className="grid-4">
-          {SCENARIOS.map((s) => (
+          {SCENARIOS.filter((s) => s.id !== "free").map((s) => (
             <button key={s.id} className={`scenario ${scenario.id === s.id ? "on" : ""}`} onClick={() => setScenario(s)}>
               <span className="em">
                 <VisualOr id={`scenario:${s.id}`} emoji={s.emoji} size={56} />

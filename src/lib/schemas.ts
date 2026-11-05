@@ -143,6 +143,45 @@ export const voiceSchema = {
   required: ["heard", "segments"],
 };
 
+/** Erkin suhbat: koreyscha javob + kerak bo'lsa o'zbekcha yordam, xato tuzatish va javob g'oyalari */
+export const talkSchema = {
+  type: "object",
+  properties: {
+    heard: {
+      type: "string",
+      description: "Exactly what the student said, in the original language and script (empty if no clear speech or if starting)",
+    },
+    help: {
+      type: "array",
+      description: "Short Uzbek help, split by language — only when the student used Uzbek/Russian, asked how to say something or did not understand; otherwise []",
+      items: {
+        type: "object",
+        properties: { lang: { type: "string", enum: ["uz", "ko"] }, text: str },
+        required: ["lang", "text"],
+      },
+    },
+    teach: {
+      type: "object",
+      description: "The full Korean sentence the student wanted to say (only together with help; empty ko otherwise)",
+      properties: { ko: str, rom: str, uz: str },
+    },
+    reply: { type: "string", description: "Your next line in Korean only (Hangul)" },
+    reply_rom: str,
+    reply_uz: str,
+    fix: {
+      type: "object",
+      description: "Natural correct version of the student's Korean sentence and a short Uzbek explanation; empty strings if it was fine",
+      properties: { ko: str, uz: str },
+    },
+    hints: {
+      type: "array",
+      description: "2 short Korean answers the student could say next",
+      items: { type: "object", properties: { ko: str, uz: str }, required: ["ko", "uz"] },
+    },
+  },
+  required: ["heard", "help", "reply", "reply_rom", "reply_uz", "hints"],
+};
+
 export const speakSchema = {
   type: "object",
   properties: {

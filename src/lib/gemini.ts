@@ -226,11 +226,15 @@ const VOICES = { 남자: "Charon", 여자: "Kore", narrator: "Kore", m: "Puck", 
 /** Gemini TTS — WAV (RIFF) bufer qaytaradi */
 export async function synthesize(
   turns: { speaker: string | null; text: string }[],
-  opts: { slow?: boolean; voice?: "f" | "m"; tutor?: boolean } = {}
+  opts: { slow?: boolean; voice?: "f" | "m"; tutor?: boolean; talk?: boolean } = {}
 ): Promise<Buffer> {
   const style = opts.tutor
     ? "A warm, patient Korean teacher talking to an Uzbek student. Speak the Uzbek sentences in natural Uzbek; pronounce every Korean word or phrase clearly and a little slower in standard Seoul Korean, modelling the pronunciation for the student"
-    : opts.slow
+    : opts.talk
+      ? opts.slow
+        ? "A friendly young Korean chatting with a foreign friend who is learning Korean: warm, natural conversational intonation, a little slower than normal and very clear, standard Seoul pronunciation"
+        : "A friendly young Korean chatting with a friend: natural, lively conversational Korean at a normal speaking pace, standard Seoul pronunciation"
+      : opts.slow
       ? "Speak slowly and very clearly like a Korean language teacher for beginners, standard Seoul pronunciation"
       : "Natural, clear standard Korean (Seoul) pronunciation, like a TOPIK listening exam recording";
   const speakers = Array.from(new Set(turns.map((t) => t.speaker).filter(Boolean))) as string[];

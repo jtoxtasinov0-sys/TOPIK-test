@@ -185,6 +185,7 @@ export function AdminView() {
     ["explain", "AI tushuntirish"],
     ["writing", "Yozma ishni AI baholash"],
     ["speak", "Gemini bilan suhbat (xabarlar)"],
+    ["talk", "Erkin suhbat (xabarlar)"],
     ["tutor", "AI Ustoz (savollar)"],
     ["generate", "AI variant so‘rovlari (1 variant ≈ 40–60)"],
     ["tts", "AI ovoz (yangi audio)"],

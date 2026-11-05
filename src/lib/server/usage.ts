@@ -12,6 +12,7 @@ export const USAGE_EVENTS = [
   "explain",
   "writing",
   "speak",
+  "talk", // erkin suhbat (koreys do'st bilan) xabarlari
   "tutor",
   "generate",
   "tts",

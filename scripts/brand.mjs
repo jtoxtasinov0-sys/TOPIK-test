@@ -1,7 +1,8 @@
 // HanUstoz logotipi: vektor (SVG) manbalar va PNG eksportlar (public/brand/).
 // Ishlatish: node scripts/brand.mjs        — faqat SVG
 //            node scripts/brand.mjs --png  — SVG + PNG (Playwright/Chromium kerak)
-// Belgi: lotin «H» ko'ndalang chizig'i o'ngga chiqib koreyscha «ㅏ» ga aylanadi + quyosh nuqtasi.
+// Belgi: to'rt yumaloq bo'lakdan H — chap pastki va o'ng yuqori bo'lak to'lqinli lenta bilan silliq qo'shilgan
+// (suhbat, oqim: o'quvchidan ustozga). Fon — binafsha → ko'k gradient, belgi oq.
 // Yozuv: Inter Display Bold (OFL, https://rsms.me/inter) — harflar vektor yo'llarga aylantirilgan, shrift kerak emas.
 // Shrift papkasi: BRAND_FONT_DIR (standart /usr/share/fonts/opentype/inter).
 
@@ -27,36 +28,34 @@ export const COLORS = {
 
 const defs = `<defs>
     <linearGradient id="hq-bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${COLORS.violet}"/><stop offset=".5" stop-color="${COLORS.purple}"/><stop offset="1" stop-color="${COLORS.blue}"/>
-    </linearGradient>
-    <radialGradient id="hq-glow" cx=".22" cy=".14" r=".75">
-      <stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="hq-sun" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${COLORS.sun}"/><stop offset="1" stop-color="${COLORS.pink}"/>
+      <stop offset="0" stop-color="${COLORS.violet}"/><stop offset=".55" stop-color="#5b2dff"/><stop offset="1" stop-color="${COLORS.blue}"/>
     </linearGradient>
   </defs>`;
 
 // ---------- Belgi (512 katakli to'r) ----------
-// H: chap va o'ng ustun, ko'ndalang chiziq o'ng ustundan chiqib «ㅏ» bo'ladi; tepada quyosh nuqtasi.
-const MARK_SHAPES = `<rect x="110" y="128" width="58" height="256" rx="10"/>
-    <rect x="260" y="128" width="58" height="256" rx="10"/>
-    <rect x="110" y="227" width="274" height="58" rx="10"/>`;
-const MARK_SUN = { cx: 372, cy: 156, r: 32 };
+// Chap yuqori va o'ng pastki bo'laklar alohida; chap pastki bo'lak → to'lqinli lenta → o'ng yuqori bo'lak — bitta silliq shakl.
+const MARK_SHAPES = `<rect x="128" y="128" width="64" height="116" rx="32"/>
+    <rect x="320" y="270" width="64" height="116" rx="32"/>
+    <path d="M128 354 A32 32 0 0 0 192 354 V324 C192 304 206 288 228 286 C244 284 252 296 268 294 C286 292 296 270 312 252 C324 238 336 232 352 232 A32 32 0 0 0 384 200 V160 A32 32 0 0 0 320 160 V188 C320 204 310 214 298 226 C284 240 276 254 258 256 C240 258 232 246 216 248 C198 250 184 286 160 286 A32 32 0 0 0 128 318 Z"/>`;
 
-function glyph(size, scale = 1) {
+function glyph(size, scale = 1, fill = COLORS.white) {
   const k = (size / 512) * scale;
   const t = (size - 512 * k) / 2;
-  return `<g transform="translate(${t.toFixed(2)} ${t.toFixed(2)}) scale(${k.toFixed(4)})">
-    <g fill="${COLORS.white}">${MARK_SHAPES}</g>
-    <circle cx="${MARK_SUN.cx}" cy="${MARK_SUN.cy}" r="${MARK_SUN.r}" fill="url(#hq-sun)"/>
-  </g>`;
+  return `<g transform="translate(${t.toFixed(2)} ${t.toFixed(2)}) scale(${k.toFixed(4)})" fill="${fill}">${MARK_SHAPES}</g>`;
 }
 
 function tile(size, rounded = true) {
   const r = rounded ? size * 0.225 : 0;
-  return `<rect width="${size}" height="${size}" rx="${r}" fill="url(#hq-bg)"/>
-  <rect width="${size}" height="${size}" rx="${r}" fill="url(#hq-glow)"/>`;
+  return `<rect width="${size}" height="${size}" rx="${r}" fill="url(#hq-bg)"/>`;
+}
+
+/** Faqat belgi (fonsiz), gradient rangda — oq fonli reklama va hujjatlar uchun */
+export function symbolSvg({ size = 512 } = {}) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+  <defs><linearGradient id="hq-sym" gradientUnits="userSpaceOnUse" x1="128" y1="128" x2="384" y2="386">
+    <stop offset="0" stop-color="${COLORS.violet}"/><stop offset="1" stop-color="${COLORS.blue}"/></linearGradient></defs>
+  ${glyph(size, 1.28, "url(#hq-sym)")}
+</svg>`;
 }
 
 /** Belgi: rounded=true — yumaloq kvadrat (sayt, reklama), false — to'liq kvadrat (telefon burchagini o'zi yumaloqlaydi) */
@@ -156,6 +155,7 @@ export function stackedSvg({ dark = false, width = 640 } = {}) {
 
 const FILES = {
   "logo-mark.svg": () => markSvg({ size: 512, rounded: true }),
+  "logo-symbol.svg": () => symbolSvg({ size: 512 }),
   "app-icon.svg": () => markSvg({ size: 512, rounded: false }),
   "app-icon-maskable.svg": () => markSvg({ size: 512, rounded: false, scale: 0.8 }),
   "logo-horizontal.svg": () => lockupSvg({ dark: false }),
@@ -171,6 +171,7 @@ const PNGS = [
   ["app-icon.svg", "icon-512.png", 512, 512],
   ["app-icon-maskable.svg", "icon-maskable-512.png", 512, 512],
   ["logo-mark.svg", "logo-1024.png", 1024, 1024],
+  ["logo-symbol.svg", "logo-symbol-1024.png", 1024, 1024],
   ["logo-horizontal.svg", "logo-horizontal.png", null, 320],
   ["logo-horizontal-white.svg", "logo-horizontal-white.png", null, 320],
   ["logo-tagline.svg", "logo-tagline.png", null, 320],

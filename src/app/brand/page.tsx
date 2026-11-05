@@ -44,6 +44,15 @@ const FILES: { title: string; desc: string; preview: string; dark?: boolean; fil
     ],
   },
   {
+    title: "Belgi — fonsiz",
+    desc: "Oq fonli reklama, hujjat, futbolka va sovg‘alar uchun — gradient rangdagi belgi.",
+    preview: "/brand/logo-symbol.svg",
+    files: [
+      ["SVG", "/brand/logo-symbol.svg"],
+      ["PNG 1024", "/brand/logo-symbol-1024.png"],
+    ],
+  },
+  {
     title: "Belgi (ikonka)",
     desc: "Profil rasmi (Telegram, Instagram, YouTube), ilova ikonkasi, kichik joylar.",
     preview: "/brand/logo-mark.svg",
@@ -73,7 +82,7 @@ export default function BrandPage() {
           HanUstoz <span className="gradient-text">logotipi</span>
         </h1>
         <p className="lead">
-          Belgi — lotincha «H» (HanUstoz): uning ko‘ndalang chizig‘i o‘ngga chiqib, koreyscha «ㅏ» unlisiga aylanadi — o‘zbek va koreys yozuvi bitta belgida. Tepadagi nuqta — chiqayotgan quyosh. Yozuv — Inter Display Bold. Reklamada logoni cho‘zmang, rangini o‘zgartirmang va atrofida kamida belgi balandligining yarmicha bo‘sh joy qoldiring.
+          Belgi — «H» (HanUstoz): to‘rtta yumaloq bo‘lak, chap pastki va o‘ng yuqori bo‘lak to‘lqinli lenta bilan silliq qo‘shilgan — suhbat va o‘quvchidan ustozga oqim. Fon — binafsha → ko‘k gradient. Yozuv — Inter Display Bold. Reklamada logoni cho‘zmang, rangini o‘zgartirmang va atrofida kamida belgi balandligining yarmicha bo‘sh joy qoldiring.
         </p>
       </div>
 

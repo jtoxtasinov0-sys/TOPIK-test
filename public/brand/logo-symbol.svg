@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs><linearGradient id="hq-sym" gradientUnits="userSpaceOnUse" x1="128" y1="128" x2="384" y2="386">
+    <stop offset="0" stop-color="#6a11ff"/><stop offset="1" stop-color="#3a86ff"/></linearGradient></defs>
+  <g transform="translate(-71.68 -71.68) scale(1.2800)" fill="url(#hq-sym)"><rect x="128" y="128" width="64" height="116" rx="32"/>
+    <rect x="320" y="270" width="64" height="116" rx="32"/>
+    <path d="M128 354 A32 32 0 0 0 192 354 V324 C192 304 206 288 228 286 C244 284 252 296 268 294 C286 292 296 270 312 252 C324 238 336 232 352 232 A32 32 0 0 0 384 200 V160 A32 32 0 0 0 320 160 V188 C320 204 310 214 298 226 C284 240 276 254 258 256 C240 258 232 246 216 248 C198 250 184 286 160 286 A32 32 0 0 0 128 318 Z"/></g>
+</svg>

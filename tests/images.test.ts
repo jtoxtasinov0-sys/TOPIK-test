@@ -287,7 +287,8 @@ describe("PWA: ilova ikonkasi va manifest", () => {
     assert.deepEqual(size("icon-512.png"), [512, 512]);
     assert.deepEqual(size("icon-maskable-512.png"), [512, 512]);
     assert.deepEqual(size("logo-1024.png"), [1024, 1024]);
-    for (const f of ["logo-mark.svg", "app-icon.svg", "logo-horizontal.svg", "logo-horizontal-white.svg", "logo-tagline.svg", "logo-tagline-white.svg", "logo-stacked.svg"]) {
+    assert.deepEqual(size("logo-symbol-1024.png"), [1024, 1024]);
+    for (const f of ["logo-mark.svg", "logo-symbol.svg", "app-icon.svg", "logo-horizontal.svg", "logo-horizontal-white.svg", "logo-tagline.svg", "logo-tagline-white.svg", "logo-stacked.svg"]) {
       const svg = readFileSync(new URL(f, dir), "utf8");
       assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/, f);
       assert.doesNotMatch(svg, /<text|font-family/, `${f}: shriftsiz (faqat chiziqlar)`);
@@ -307,8 +308,8 @@ describe("PWA: ilova ikonkasi va manifest", () => {
     const appRoute = await import("../src/app/api/app-icon/route");
     const res = appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=180&v=a1"));
     assert.equal(res.status, 307);
-    assert.equal(res.headers.get("location"), "https://hanustoz.tech/brand/icon-180.png?v=2");
-    assert.equal(appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=7")).headers.get("location"), "https://hanustoz.tech/brand/icon-512.png?v=2");
+    assert.equal(res.headers.get("location"), "https://hanustoz.tech/brand/icon-180.png?v=3");
+    assert.equal(appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=7")).headers.get("location"), "https://hanustoz.tech/brand/icon-512.png?v=3");
   });
 
   test("manifest: 192/512 PNG, maskable, tezkor menyular; service worker fayli bor", async () => {

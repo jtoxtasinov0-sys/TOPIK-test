@@ -22,19 +22,66 @@ async function getJson<T>(url: string): Promise<T> {
   return j as T;
 }
 
-/** Tayyor variantlardagi barcha rasmlarni oldindan yaratib qo'yish (birinchi o'quvchi kutib qolmasin) */
+type ImgDiag = {
+  hasKey: boolean;
+  model: { model: string | null; source: "env" | "auto" | "none"; models: string[]; error?: string };
+  appIcon: { ready: boolean; mime?: string; bytes?: number };
+  log: { error?: { at: number; message?: string; style: string }; ok?: { at: number; style: string } };
+  dir: string;
+};
+
+/** Gemini xatosini tushunarli maslahatga aylantirish */
+function imageHint(msg: string): string {
+  const m = msg.toLowerCase();
+  if (/limit: ?0|free[_ ]tier|quota|resource_exhausted|billing/.test(m))
+    return "Bu kalit bepul tarifda ishlayapti: Gemini rasm modellari bepul tarifda ishlamaydi. Google AI Studio → Billing (to‘lov) ni yoqing — har bir rasm bir necha sent turadi, barcha rasmlar bir marta chiziladi.";
+  if (/api key not valid|api_key_invalid|permission|unauthenticated|401|403/.test(m)) return "Kalit noto‘g‘ri yoki ruxsati yo‘q: Dokploy → Environment’dagi GEMINI_API_KEY ni tekshiring.";
+  if (/not found|404|is not supported for generatecontent/.test(m)) return "Rasm modeli topilmadi: Dokploy’da GEMINI_IMAGE_MODEL ga quyidagi ro‘yxatdagi modellardan birini yozing.";
+  if (/location|region|country/.test(m)) return "Server joylashgan hududda Gemini rasm yaratishi ishlamaydi.";
+  if (/kechikdi|timeout|504/.test(m)) return "Gemini javobi kechikdi — yana bir marta urinib ko‘ring.";
+  return "";
+}
+
+/** Rasmlar holati va oldindan tayyorlash (birinchi o'quvchi kutib qolmasin) */
 function ImageWarmup() {
-  // Test rasmlari va sayt ikonkalari (ikonkalar 256 px, test rasmlari 512 px nusxasi bilan tayyorlanadi)
+  // Sayt ikonkalari 256 px, test rasmlari 512 px nusxasi bilan tayyorlanadi; ilova ikonkasi — alohida tugma bilan
   const urls = useMemo(
     () => [
-      appIconUrl(512),
       ...visualPrompts().map((p) => imageUrl(p, { style: "icon", w: 256 })),
       ...imagePromptsOf([TOPIK1, TOPIK2, EPS]).map((p) => imageUrl(p, { w: 512 })),
     ],
     []
   );
-  const icons = useMemo(() => visualPrompts().length + 1, []);
+  const icons = useMemo(() => visualPrompts().length, []);
   const [st, setSt] = useState({ done: 0, failed: 0, running: false, error: "" });
+  const [diag, setDiag] = useState<ImgDiag | null>(null);
+  const [diagErr, setDiagErr] = useState("");
+  const [icon, setIcon] = useState<{ busy: boolean; error: string; t: number }>({ busy: false, error: "", t: 0 });
+
+  const refresh = async () => {
+    try {
+      setDiag(await getJson<ImgDiag>("/api/admin/images"));
+      setDiagErr("");
+    } catch (e) {
+      setDiagErr(e instanceof Error ? e.message : String(e));
+    }
+  };
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const drawIcon = async () => {
+    setIcon((p) => ({ ...p, busy: true, error: "" }));
+    try {
+      const r = await fetch("/api/admin/images", { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      setIcon({ busy: false, error: "", t: Date.now() });
+    } catch (e) {
+      setIcon({ busy: false, error: e instanceof Error ? e.message : String(e), t: 0 });
+    }
+    void refresh();
+  };
 
   const run = async () => {
     let done = 0;
@@ -62,17 +109,59 @@ function ImageWarmup() {
     };
     await Promise.all([worker(), worker(), worker()]);
     setSt({ done, failed, running: false, error });
+    void refresh();
   };
+
+  const lastError = icon.error || diag?.log.error?.message || "";
+  const hint = !diag?.hasKey && diag ? "Dokploy → Environment’ga GEMINI_API_KEY qo‘yilmagan." : imageHint(lastError || diag?.model.error || "");
 
   return (
     <div className="card" style={{ marginTop: 18 }}>
-      <h2 className="h3" style={{ marginBottom: 8 }}>🖼️ Rasmlar va ikonkalar</h2>
+      <h2 className="h3" style={{ marginBottom: 8 }}>🖼️ Rasmlar va ilova ikonkasi</h2>
+
+      {diagErr && <div className="callout small">{diagErr}</div>}
+      {diag && (
+        <div className="stack small" style={{ gap: 4, marginBottom: 12 }}>
+          <div>{diag.hasKey ? "✅" : "❌"} Gemini kaliti {diag.hasKey ? "bor" : "yo‘q"}</div>
+          <div>
+            {diag.model.model ? "✅" : "❌"} Rasm modeli: <b>{diag.model.model ?? "—"}</b>
+            {diag.model.source === "auto" ? " (avtomatik tanlandi)" : diag.model.source === "env" ? " (GEMINI_IMAGE_MODEL)" : ""}
+          </div>
+          {diag.model.models.length > 0 && <div className="tiny muted">Kalitga ochiq rasm modellari: {diag.model.models.join(", ")}</div>}
+          <div>
+            {diag.appIcon.ready ? "✅ Ilova ikonkasi tayyor" : "⏳ Ilova ikonkasi hali chizilmagan — telefonlarda zaxira «한» ikonkasi turibdi"}
+          </div>
+          {diag.log.ok && <div className="tiny muted">Oxirgi chizilgan rasm: {new Date(diag.log.ok.at).toLocaleString("uz-UZ")}</div>}
+        </div>
+      )}
+
+      <div className="row-wrap" style={{ alignItems: "center" }}>
+        <button className="btn btn-primary btn-sm" onClick={drawIcon} disabled={icon.busy}>
+          {icon.busy ? <span className="spinner white" /> : "✨"} Ilova ikonkasini chizish
+        </button>
+        {(icon.t > 0 || diag?.appIcon.ready) && (
+          // eslint-disable-next-line @next/next/no-img-element -- ilova ikonkasi API'dan keladi
+          <img src={`${appIconUrl(192)}&t=${icon.t}`} alt="Ilova ikonkasi" width={56} height={56} style={{ borderRadius: 14 }} />
+        )}
+      </div>
+      {lastError && (
+        <div className="callout small" style={{ marginTop: 10 }}>
+          <b>Gemini xatosi:</b> {lastError}
+          {hint && <div style={{ marginTop: 6 }}>💡 {hint}</div>}
+        </div>
+      )}
+      {!lastError && hint && <div className="callout small" style={{ marginTop: 10 }}>💡 {hint}</div>}
+      <p className="tiny muted" style={{ margin: "10px 0 0" }}>
+        iPhone ikonkani «Ekranga qo‘shish» paytida saqlab qo‘yadi: Gemini ikonkasi tayyor bo‘lgach, ekrandagi HanUstoz ikonkasini o‘chirib, Safari’dan qayta «Ekranga qo‘shish» qiling. Android o‘zi yangilaydi (1–2 kun ichida).
+      </p>
+
+      <hr style={{ border: 0, borderTop: "1px dashed var(--line)", margin: "16px 0" }} />
       <p className="small muted" style={{ margin: "0 0 12px" }}>
-        {`Ilova ikonkasi, saytda ${icons - 1} ta ikonka va tayyor testlarda ${urls.length - icons} ta rasm bor. Gemini ularni bir marta chizadi va serverda saqlaydi (/app/data/images). Oldindan tayyorlab qo‘ysangiz, o‘quvchilar rasmni darhol ko‘radi.`}
+        {`Saytda ${icons} ta ikonka va tayyor testlarda ${urls.length - icons} ta rasm bor. Gemini ularni bir marta chizadi va serverda saqlaydi (${diag?.dir ?? "/app/data/images"}).`}
       </p>
       <div className="row-wrap" style={{ alignItems: "center" }}>
-        <button className="btn btn-primary btn-sm" onClick={run} disabled={st.running}>
-          {st.running ? <span className="spinner white" /> : "🖌️"} Rasmlarni tayyorlash
+        <button className="btn btn-soft btn-sm" onClick={run} disabled={st.running}>
+          {st.running ? <span className="spinner" /> : "🖌️"} Barcha rasmlarni tayyorlash
         </button>
         {(st.running || st.done > 0) && (
           <span className="small">
@@ -81,7 +170,7 @@ function ImageWarmup() {
           </span>
         )}
       </div>
-      {st.error && <div className="callout small" style={{ marginTop: 10 }}>{st.error}</div>}
+      {st.error && st.error !== lastError && <div className="callout small" style={{ marginTop: 10 }}>{st.error}</div>}
     </div>
   );
 }

@@ -1,18 +1,11 @@
 import { connection } from "next/server";
-import { AiError, errorResponse } from "@/lib/gemini";
-import { currentUser } from "@/lib/server/guard";
+import { errorResponse } from "@/lib/gemini";
+import { requireAdmin } from "@/lib/server/guard";
 import { getStore } from "@/lib/server/store";
 import { usageSummary } from "@/lib/server/usage";
-import { accessOf, findUserByEmail, getUser, isAdminEmail, publicUser, USERS_INDEX, type User } from "@/lib/server/users";
+import { accessOf, findUserByEmail, getUser, publicUser, USERS_INDEX, type User } from "@/lib/server/users";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
-
-async function requireAdmin(req: Request) {
-  const me = await currentUser(req);
-  if (!me) throw new AiError("Kirish talab qilinadi", 401, "AUTH");
-  if (!isAdminEmail(me.email)) throw new AiError("Faqat admin uchun", 403, "FORBIDDEN");
-  return me;
-}
 
 const view = (u: User) => ({ ...publicUser(u), lastLoginAt: u.lastLoginAt, access: accessOf(u) });
 

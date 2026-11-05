@@ -16,7 +16,7 @@ process.env.IMAGE_DIR = DIR;
 
 const { createMemoryStore, setStore } = await import("../src/lib/server/store");
 const imageRoute = await import("../src/app/api/image/route");
-const { clearImageMemory, imageKey } = await import("../src/lib/server/images");
+const { clearImageMemory, imageKey, imageLog, pendingImage } = await import("../src/lib/server/images");
 const { pickImageModel, resetImageModel } = await import("../src/lib/gemini");
 const { imagePromptsOf, MAX_IMAGE_PROMPT, IMAGE_STYLE, ICON_STYLE, imageUrl, widthFor } = await import("../src/lib/images");
 const { decodePng, encodePng, resizeBitmap, shrinkPng, toGrayIfPossible } = await import("../src/lib/server/png");
@@ -275,11 +275,17 @@ describe("kichraytirilgan nusxalar va ikonkalar", () => {
 });
 
 describe("PWA: ilova ikonkasi va manifest", () => {
-  test("/api/app-icon: Gemini ikonkasi aniq 192×192 kvadrat bo'lib qaytadi", async () => {
+  test("/api/app-icon: telefon kutmaydi — avval zaxira, Gemini orqa fonda chizgach aniq 192×192 kvadrat", async () => {
     const appRoute = await import("../src/app/api/app-icon/route");
     const { APP_ICON_PROMPT, APP_ICON_STYLE } = await import("../src/lib/images");
     // Gemini kvadrat bo'lmagan rasm qaytarsa ham — markazdan kesiladi
     mockGemini({ png: encodePng(sample(1024, 900)) });
+    const first = await appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=192&v=a1"));
+    assert.equal(first.headers.get("x-icon-fallback"), "1", "darhol zaxira");
+    assert.equal(first.headers.get("cache-control"), "no-store", "zaxira keshlanmaydi");
+    const job = pendingImage(APP_ICON_PROMPT, "app");
+    assert.ok(job, "Gemini orqa fonda chizyapti");
+    await job;
     const res = await appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=192&v=a1"));
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("x-icon-fallback"), null);
@@ -296,7 +302,7 @@ describe("PWA: ilova ikonkasi va manifest", () => {
     assert.equal(calls.length, 0);
   });
 
-  test("kalit bo'lmasa — zaxira «한» ikonkasi (qisqa kesh)", async () => {
+  test("kalit bo'lmasa — zaxira «한» ikonkasi (keshlanmaydi)", async () => {
     const appRoute = await import("../src/app/api/app-icon/route");
     process.env.GEMINI_API_KEY = "";
     // Oldingi testda chizilgan ikonka diskda turibdi — bo'sh papkada sinaymiz
@@ -306,12 +312,13 @@ describe("PWA: ilova ikonkasi va manifest", () => {
     process.env.IMAGE_DIR = DIR;
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("x-icon-fallback"), "1");
-    assert.match(res.headers.get("cache-control") ?? "", /max-age=300/);
+    assert.equal(res.headers.get("cache-control"), "no-store");
     const img = decodePng(new Uint8Array(await res.arrayBuffer()))!;
     assert.deepEqual([img.width, img.height, img.channels], [180, 180, 3]);
     // Markazda oq harf, burchakda binafsha fon
     const px = (x: number, y: number) => Array.from(img.data.subarray((y * 180 + x) * 3, (y * 180 + x) * 3 + 3));
     assert.ok(px(124, 80).every((c) => c > 240), "ㅏ tik chizig'i oq");
+    assert.equal(pendingImage((await import("../src/lib/images")).APP_ICON_PROMPT, "app"), null, "kalitsiz chizilmaydi");
     assert.ok(px(175, 175)[2] > px(175, 175)[0], "pastki o'ng burchak ko'k");
     assert.equal(calls.length, 0);
   });
@@ -329,5 +336,23 @@ describe("PWA: ilova ikonkasi va manifest", () => {
     const sw = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
     assert.match(sw, /addEventListener\("fetch"/);
     assert.match(sw, /Internet yo'q/);
+  });
+});
+
+describe("rasm xatolari ko'rinadi", () => {
+  test("Gemini xatosi (masalan, bepul tarif) javobda va admin jurnalida aniq ko'rinadi", async () => {
+    mockGemini({ imageStatus: [429] });
+    const res = await imageRoute.GET(get(BUILTIN[5]));
+    assert.equal(res.status, 429);
+    assert.match((await res.json()).error, /xato 429/);
+    const log = imageLog();
+    assert.match(log.error?.message ?? "", /xato 429/);
+    assert.equal(log.error?.style, "test");
+  });
+
+  test("/api/admin/images faqat admin uchun", async () => {
+    const adminImages = await import("../src/app/api/admin/images/route");
+    assert.equal((await adminImages.GET(new Request("https://hanustoz.tech/api/admin/images"))).status, 401);
+    assert.equal((await adminImages.POST(new Request("https://hanustoz.tech/api/admin/images", { method: "POST" }))).status, 401);
   });
 });

@@ -349,17 +349,36 @@ export function pickImageModel(models: ModelInfo[]): string | null {
   })[0];
 }
 
+/** Kalitga ochiq rasm modellari (diagnostika uchun ham). Xato bo'lsa — xato matni */
+export async function listImageModels(key = process.env.GEMINI_API_KEY ?? ""): Promise<{ models: string[]; best: string | null; error?: string }> {
+  try {
+    const res = await fetch(`${API_ROOT}/models?pageSize=1000`, { headers: { "x-goog-api-key": key } });
+    const j = (await res.json().catch(() => ({}))) as { models?: ModelInfo[]; error?: { message?: string } };
+    if (!res.ok) return { models: [], best: null, error: j?.error?.message || `HTTP ${res.status}` };
+    const all = j.models ?? [];
+    const models = all
+      .filter((m) => m.name && /image/i.test(m.name))
+      .map((m) => String(m.name).replace(/^models\//, ""));
+    return { models, best: pickImageModel(all) };
+  } catch (e) {
+    return { models: [], best: null, error: (e as Error).message };
+  }
+}
+
 async function imageModelName(key: string): Promise<string> {
   if (process.env.GEMINI_IMAGE_MODEL) return process.env.GEMINI_IMAGE_MODEL;
   if (imageModel) return imageModel;
-  try {
-    const res = await fetch(`${API_ROOT}/models?pageSize=1000`, { headers: { "x-goog-api-key": key } });
-    const j = (await res.json().catch(() => ({}))) as { models?: ModelInfo[] };
-    imageModel = (res.ok && pickImageModel(j.models ?? [])) || IMAGE_FALLBACK_MODEL;
-  } catch {
-    imageModel = IMAGE_FALLBACK_MODEL;
-  }
+  imageModel = (await listImageModels(key)).best || IMAGE_FALLBACK_MODEL;
   return imageModel;
+}
+
+/** Hozir ishlatiladigan rasm modeli va u qayerdan olingani */
+export async function imageModelStatus(): Promise<{ model: string | null; source: "env" | "auto" | "none"; models: string[]; error?: string }> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return { model: null, source: "none", models: [] };
+  const list = await listImageModels(key);
+  if (process.env.GEMINI_IMAGE_MODEL) return { model: process.env.GEMINI_IMAGE_MODEL, source: "env", models: list.models, error: list.error };
+  return { model: list.best || IMAGE_FALLBACK_MODEL, source: "auto", models: list.models, error: list.error };
 }
 
 /** Faqat testlar uchun: tanlangan modelni unutish */

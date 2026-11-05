@@ -15,7 +15,10 @@ export type StoredImage = { data: Buffer; mime: string };
 const EXT: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 const MIME = Object.fromEntries(Object.entries(EXT).map(([m, e]) => [e, m]));
 
+type ImgEvent = { at: number; style: ImageStyle; message?: string; mime?: string; bytes?: number };
+
 const g = globalThis as unknown as {
+  __hqImgLog?: { error?: ImgEvent; ok?: ImgEvent };
   __hqImg?: Map<string, StoredImage>;
   __hqImgSmall?: Map<string, StoredImage>;
   __hqImgJobs?: Map<string, Promise<StoredImage>>;
@@ -23,6 +26,12 @@ const g = globalThis as unknown as {
 const big = (g.__hqImg ??= new Map()); // asl rasmlar — og'ir, kam saqlanadi
 const small = (g.__hqImgSmall ??= new Map()); // kichraytirilgan nusxalar
 const jobs = (g.__hqImgJobs ??= new Map());
+const log = (g.__hqImgLog ??= {});
+
+/** Admin uchun: oxirgi muvaffaqiyatli va oxirgi xato rasm yaratish */
+export function imageLog() {
+  return { ...log };
+}
 
 export function imageDir() {
   if (process.env.IMAGE_DIR) return process.env.IMAGE_DIR;
@@ -114,18 +123,31 @@ export async function createImage(prompt: string, style: ImageStyle = "test", w?
   if (!job) {
     job = (async () => {
       const s = IMAGE_STYLES[style];
-      const img = await generateImage(`${s.text}\nScene: ${prompt}`, { aspectRatio: s.aspect });
-      remember(big, key, img, 24);
-      await toDisk(key, img);
-      return img;
+      try {
+        const img = await generateImage(`${s.text}\nScene: ${prompt}`, { aspectRatio: s.aspect });
+        log.ok = { at: Date.now(), style, mime: img.mime, bytes: img.data.length };
+        remember(big, key, img, 24);
+        await toDisk(key, img);
+        return img;
+      } catch (e) {
+        log.error = { at: Date.now(), style, message: (e as Error).message || String(e) };
+        throw e;
+      }
     })().finally(() => jobs.delete(key));
     jobs.set(key, job);
   }
   return variant(key, await job, w, style);
 }
 
+/** Hozir chizilayotgan rasm (bo'lsa) — tugashini kutish uchun */
+export function pendingImage(prompt: string, style: ImageStyle = "test"): Promise<StoredImage> | null {
+  return jobs.get(imageKey(prompt, style)) ?? null;
+}
+
 /** Faqat testlar uchun */
 export function clearImageMemory() {
+  delete log.error;
+  delete log.ok;
   big.clear();
   small.clear();
   jobs.clear();

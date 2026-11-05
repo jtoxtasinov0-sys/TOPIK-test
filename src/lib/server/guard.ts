@@ -16,6 +16,14 @@ export async function currentUser(req: Request): Promise<User | null> {
   return s ? getUser(s.uid) : null;
 }
 
+/** Faqat admin (ADMIN_EMAILS) uchun yo'llar */
+export async function requireAdmin(req: Request) {
+  const me = await currentUser(req);
+  if (!me) throw new AiError("Kirish talab qilinadi", 401, "AUTH");
+  if (!isAdminEmail(me.email)) throw new AiError("Faqat admin uchun", 403, "FORBIDDEN");
+  return me;
+}
+
 /** Bitta foydalanuvchi uchun kunlik "adolatli foydalanish" limitlari (AI xarajatini nazorat qilish uchun) */
 export const DAILY_LIMITS = {
   explain: 150,

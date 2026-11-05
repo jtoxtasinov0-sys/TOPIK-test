@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
-import { type HistoryItem, SECTION_LABEL, type SectionId } from "@/lib/exam";
+import { EXAM_INFO, type ExamId, type HistoryItem, SECTION_LABEL, type SectionId } from "@/lib/exam";
 import { daysUntil, DEFAULT_PROFILE, KEYS, type Profile, useStored } from "@/lib/store";
 
 function Trend({ items }: { items: HistoryItem[] }) {
@@ -44,7 +44,7 @@ export default function ProgressPage() {
   const [profile, setProfile] = useStored<Profile>(KEYS.profile, DEFAULT_PROFILE);
   const done = history.filter((h) => h.total > 0 || Object.keys(h.sections).length);
   const days = daysUntil(profile.examDate);
-  const best = (exam: "topik1" | "topik2") => done.filter((h) => h.exam === exam).sort((a, b) => b.total - a.total)[0];
+  const best = (exam: ExamId) => done.filter((h) => h.exam === exam).sort((a, b) => b.total - a.total)[0];
 
   return (
     <main className="container page">
@@ -57,7 +57,7 @@ export default function ProgressPage() {
         <p className="lead small">Ma’lumotlar faqat shu qurilmada saqlanadi.</p>
       </div>
 
-      <div className="grid-3">
+      <div className="grid-2">
         <div className="card stack">
           <b>🎯 Maqsad va imtihon sanasi</b>
           <input className="input" placeholder="Ismingiz" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
@@ -76,12 +76,16 @@ export default function ProgressPage() {
             </div>
           )}
         </div>
-        {(["topik1", "topik2"] as const).map((ex) => {
+        {(["topik1", "topik2", "eps"] as const).map((ex) => {
           const b = best(ex);
           return (
-            <div key={ex} className={`level-card ${ex === "topik2" ? "violet" : ""}`}>
+            <div
+              key={ex}
+              className={`level-card ${ex === "topik2" ? "violet" : ""}`}
+              style={ex === "eps" ? { background: "var(--grad-sun)" } : undefined}
+            >
               <div className="small" style={{ fontWeight: 800, opacity: 0.9 }}>
-                🏆 {ex === "topik1" ? "TOPIK I" : "TOPIK II"} · eng yaxshi
+                🏆 {EXAM_INFO[ex].name} · eng yaxshi
               </div>
               {b ? (
                 <>

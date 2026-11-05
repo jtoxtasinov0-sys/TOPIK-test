@@ -29,6 +29,17 @@ export default function TestHub() {
       ],
       pass: "120+ → 3급 · 150+ → 4급 · 190+ → 5급 · 230+ → 6급",
     },
+    {
+      href: "/test/eps",
+      title: "EPS-TOPIK",
+      lv: "Ishchilar · E-9",
+      g: "var(--grad-sun)",
+      rows: [
+        ["📖 읽기", "20", "25"],
+        ["🎧 듣기", "20", "25"],
+      ],
+      pass: "100 ball · ishlab chiqarish 60+ · boshqa sohalar 45+",
+    },
   ];
   return (
     <main className="container page">
@@ -46,7 +57,7 @@ export default function TestHub() {
         <div className="callout info">
           <span>🆓</span>
           <span>
-            {`TOPIK I va TOPIK II asosiy variantlari — bepul, kirmasdan ham ishlaydi. AI tushuntirish, yozma ishni AI baholash va yangi AI variantlar — Gmail orqali kirib, ${TRIAL_DAYS} kun bepul.`}
+            {`TOPIK I, TOPIK II va EPS-TOPIK asosiy variantlari — bepul, kirmasdan ham ishlaydi. AI tushuntirish, yozma ishni AI baholash va yangi AI variantlar — Gmail orqali kirib, ${TRIAL_DAYS} kun bepul.`}
           </span>
         </div>
         <div className="callout">
@@ -57,7 +68,7 @@ export default function TestHub() {
         </div>
       </div>
 
-      <div className="grid-2">
+      <div className="grid-3">
         {cards.map((c) => (
           <Link key={c.href} href={c.href} className="card hover" style={{ padding: 0, overflow: "hidden" }}>
             <div style={{ background: c.g, color: "#fff", padding: "28px 24px" }}>

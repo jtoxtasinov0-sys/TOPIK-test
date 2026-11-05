@@ -45,6 +45,7 @@ export const groupSchema = {
           given: str,
           script: str,
           passage: str,
+          picture: { type: "string", description: "Emoji scene or safety sign shown with the question (only if the template has it)" },
           notice: noticeSchema,
           chart: chartSchema,
           options: strArr,

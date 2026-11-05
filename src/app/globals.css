@@ -446,6 +446,11 @@ button.chip:hover { border-color: rgba(139, 61, 255, 0.45); }
   font-size: clamp(1.6rem, 5vw, 2.4rem); line-height: 1.25; letter-spacing: 0.05em;
   background: linear-gradient(160deg, #f3edff, #e8f1ff);
 }
+.q-picture {
+  display: grid; place-items: center; text-align: center; margin: 4px 0 14px; padding: 18px 12px; min-height: 120px;
+  font-size: clamp(2.6rem, 9vw, 3.6rem); line-height: 1.2; letter-spacing: 0.08em; border-radius: 14px;
+  background: linear-gradient(160deg, #f3edff, #e8f1ff); border: 1.5px solid var(--line);
+}
 .option.chart { padding: 10px; flex-direction: column; }
 .option.chart .mark { align-self: flex-start; }
 

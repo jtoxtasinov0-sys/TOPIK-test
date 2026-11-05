@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Md, useAiErrorText, ApiError, notifyAccess } from "@/components/ui";
-import { touchStreak } from "@/lib/store";
+import { studentSummary, touchStreak } from "@/lib/store";
 
 type M = { role: "user" | "ai"; text: string };
 
@@ -28,6 +28,8 @@ export default function TutorPage() {
     "TOPIK I uchun 3 oylik reja tuzib ber",
     "Bu gapni tekshir: 저는 어제 학교에 가요.",
     "Ishda boshliqqa qanday murojaat qilinadi?",
+    "EPS-TOPIK uchun xavfsizlik belgilarini o‘rgat",
+    "Mening natijalarim bo‘yicha o‘quv reja tuz",
   ];
 
   const ask = async (q: string) => {
@@ -42,7 +44,7 @@ export default function TutorPage() {
       const res = await fetch("/api/tutor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next, student: studentSummary() }),
       });
       if (!res.ok || !res.body) {
         const j = await res.json().catch(() => ({}));

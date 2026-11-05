@@ -8,6 +8,7 @@ import { prefetchAudio, stopAudio } from "@/lib/audio";
 import { addHistory, KEYS, load, remove, save, saveAiTest, uid, useStored } from "@/lib/store";
 import { TOPIK1 } from "@/data/topik1";
 import { TOPIK2 } from "@/data/topik2";
+import { EPS } from "@/data/eps";
 import { Icon } from "../Icon";
 import { ApiError, postJson, useAiErrorText } from "../ui";
 import { GroupView } from "./GroupView";
@@ -31,7 +32,19 @@ type Saved = {
   at: number;
 };
 
-const BUILTIN: Record<ExamId, Test> = { topik1: TOPIK1, topik2: TOPIK2 };
+const BUILTIN: Record<ExamId, Test> = { topik1: TOPIK1, topik2: TOPIK2, eps: EPS };
+
+const INTRO: Record<ExamId, string> = {
+  topik1: "1–2-daraja. Tinglash va o‘qish — haqiqiy TOPIK I tuzilmasi va vaqti bilan.",
+  topik2: "3–6-daraja. Tinglash, yozish (daftardan rasm bilan) va o‘qish — haqiqiy TOPIK II tuzilmasida.",
+  eps: "Koreyaga ishga (E-9 viza) boruvchilar uchun: o‘qish 20 va tinglash 20 savol. Ish joyi, asboblar, xavfsizlik belgilari va kundalik hayot.",
+};
+
+const PLAYS_NOTE: Record<ExamId, string> = {
+  topik1: "har bir audio 2 marta",
+  topik2: "1–20: 1 marta, 21–50: 2 marta",
+  eps: "har bir audio 2 marta",
+};
 const GRACE_SECONDS = 180;
 
 export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId }) {
@@ -338,7 +351,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
           </div>
           <h2 className="h2">AI yangi variant tuzmoqda</h2>
           <p className="lead" style={{ marginTop: 8 }}>
-            Har bir savol bloki rasmiy TOPIK formatida yangidan yozilmoqda…
+            {`Har bir savol bloki rasmiy ${examName} formatida yangidan yozilmoqda…`}
           </p>
           <div className="bar" style={{ margin: "22px 0 10px", height: 14 }}>
             <i style={{ width: `${pct}%` }} />
@@ -372,12 +385,10 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
               {preset === "writing" ? "Yozish imtihoni" : examName}
             </h1>
             <p className="lead" style={{ marginTop: 10, maxWidth: 640 }}>
-              {exam === "topik1"
-                ? "1–2-daraja. Tinglash va o‘qish — haqiqiy TOPIK I tuzilmasi va vaqti bilan."
-                : "3–6-daraja. Tinglash, yozish (daftardan rasm bilan) va o‘qish — haqiqiy TOPIK II tuzilmasida."}
+              {INTRO[exam]}
             </p>
             <p className="small" style={{ marginTop: 10, opacity: 0.8 }}>
-              Mashq testi · rasmiy TOPIK imtihoni emas · natijalar taxminiy
+              {`Mashq testi · rasmiy ${examName} imtihoni emas · natijalar taxminiy`}
             </p>
           </div>
         </div>
@@ -486,7 +497,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
           <div className="row between" style={{ marginTop: 18, flexWrap: "wrap", gap: 12 }}>
             <div className="small muted">
               ⏱️ {mode === "exam" ? `${totalMin} daqiqa` : "Vaqt cheklovi yo‘q"} · 🎧{" "}
-              {exam === "topik1" ? "har bir audio 2 marta" : "1–20: 1 marta, 21–50: 2 marta"}
+              {PLAYS_NOTE[exam]}
             </div>
             <button className="btn btn-primary btn-lg" onClick={() => begin()}>
               Boshlash <Icon name="right" size={20} />

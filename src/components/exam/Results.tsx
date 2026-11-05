@@ -99,6 +99,8 @@ export function Results({
   }, [totals, historyId, writingSection, writingDone, writingFailed]);
 
   const gap = nextLevelGap(test.exam, totals.total);
+  const info = EXAM_INFO[test.exam];
+  const levelText = totals.level ? info.levelText?.[totals.level] : undefined;
   const objective = sections.filter((s) => s.id !== "writing");
   const [reviewSec, setReviewSec] = useState<SectionId>(objective[0]?.id ?? "listening");
   const [onlyWrong, setOnlyWrong] = useState(true);
@@ -128,14 +130,18 @@ export function Results({
               {test.title} · {mode === "exam" ? "Imtihon rejimi" : "Mashq rejimi"}
             </div>
             <h1 className="h1" style={{ marginTop: 12, fontSize: "clamp(2rem,6vw,3.2rem)" }}>
-              {pending ? "Yozma ish tekshirilmoqda…" : totals.level ? <span className="kr">{totals.level}</span> : "Daraja yo‘q"}
+              {pending ? "Yozma ish tekshirilmoqda…" : totals.level ? <span className="kr">{totals.level}</span> : info.levelText ? "Minimal ball yetmadi" : "Daraja yo‘q"}
             </h1>
             <p className="lead" style={{ color: "rgba(255,255,255,.88)", marginTop: 8 }}>
               {pending
                 ? "AI daftaringizdagi javoblarni o‘qib, TOPIK mezonlari bo‘yicha baholamoqda."
-                : totals.level
-                  ? `Tabriklaymiz! Sizning taxminiy darajangiz — ${totals.level}.`
-                  : "Hozircha daraja uchun ball yetmadi — lekin bu boshlanish! Xatolarni tahlil qiling."}
+                : levelText
+                  ? `Tabriklaymiz! ${info.name}: ${levelText}. Haqiqiy tanlovda ball qancha yuqori bo‘lsa, imkoniyat shuncha katta.`
+                  : totals.level
+                    ? `Tabriklaymiz! Sizning taxminiy darajangiz — ${totals.level}.`
+                    : info.levelText
+                      ? `${info.name}: boshqa sohalar uchun kamida 45, ishlab chiqarish uchun 60 ball kerak. Xatolarni tahlil qilib, yana urinib ko‘ring!`
+                      : "Hozircha daraja uchun ball yetmadi — lekin bu boshlanish! Xatolarni tahlil qiling."}
             </p>
             {!pending && gap && (
               <div className="badge white" style={{ marginTop: 10 }}>

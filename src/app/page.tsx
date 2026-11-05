@@ -247,14 +247,15 @@ export default function Home() {
             </h2>
             <p className="lead">Savollar tartibi, yo‘riqnomalar, vaqt va ball tizimi — rasmiy formatda.</p>
           </div>
-          <div className="grid-2">
+          <div className="grid-3">
             {[
               { href: "/test/topik1", t: "TOPIK I", lv: "1–2급", q: "70", m: "100", max: 200, d: "Boshlovchilar uchun: tinglash (30) va o‘qish (40)", g: "var(--grad-mint)" },
               { href: "/test/topik2", t: "TOPIK II", lv: "3–6급", q: "104", m: "180", max: 300, d: "Tinglash (50), yozish (4) va o‘qish (50)", g: "var(--grad)" },
+              { href: "/test/eps", t: "EPS-TOPIK", lv: "Ishchilar", q: "40", m: "50", max: 100, d: "Koreyaga ishga borish uchun: o‘qish (20) va tinglash (20)", g: "var(--grad-sun)" },
             ].map((x) => (
               <Link key={x.href} href={x.href} className="card hover" style={{ padding: 0, overflow: "hidden" }}>
                 <div style={{ background: x.g, color: "#fff", padding: "26px 24px", position: "relative", overflow: "hidden" }}>
-                  <span className="float-kr" style={{ fontSize: 120, right: 10, top: -20, color: "rgba(255,255,255,.14)" }}>{x.t === "TOPIK I" ? "初" : "高"}</span>
+                  <span className="float-kr" style={{ fontSize: 120, right: 10, top: -20, color: "rgba(255,255,255,.14)" }}>{x.t === "TOPIK I" ? "初" : x.t === "TOPIK II" ? "高" : "工"}</span>
                   <div className="badge white">{x.lv}</div>
                   <div className="display" style={{ fontSize: "2rem", fontWeight: 700, marginTop: 10 }}>{x.t}</div>
                   <div style={{ opacity: 0.9, marginTop: 4 }}>{x.d}</div>

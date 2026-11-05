@@ -9,9 +9,9 @@ import { Icon } from "../Icon";
 import { Notice, RichKo } from "../ui";
 import { Explain } from "./Explain";
 
-/** TOPIK'dagi kabi tinglash soni: TOPIK I — 2 marta; TOPIK II — 1~20 bir marta, 21~50 ikki marta */
+/** Tinglash soni: TOPIK I va EPS-TOPIK — 2 marta; TOPIK II — 1~20 bir marta, 21~50 ikki marta */
 export function maxPlays(exam: ExamId, n: number) {
-  if (exam === "topik1") return 2;
+  if (exam !== "topik2") return 2;
   return n <= 20 ? 1 : 2;
 }
 
@@ -201,6 +201,11 @@ export function GroupView({
               )}
             </div>
             {q.script && scriptBlock(k, q.script, q.n, !!chosen)}
+            {q.picture && (
+              <div className="q-picture" role="img" aria-label="Rasm">
+                {q.picture}
+              </div>
+            )}
             {q.notice && <Notice notice={q.notice} />}
             {q.chart && (
               <div className="card flat" style={{ padding: 12, marginBottom: 14 }}>
@@ -228,7 +233,7 @@ export function GroupView({
                     To‘g‘ri javob: <b className="kr">{CIRCLED[q.answer - 1]} {q.optionStyle === "chart" ? "" : q.options[q.answer - 1]}</b>
                   </div>
                 )}
-                <Explain group={group} question={q} userAnswer={chosen} />
+                <Explain group={group} question={q} userAnswer={chosen} exam={exam} />
               </div>
             )}
           </div>

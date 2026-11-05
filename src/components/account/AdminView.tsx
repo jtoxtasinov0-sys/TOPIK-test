@@ -55,6 +55,7 @@ export function AdminView() {
   const usageRows: [string, string][] = [
     ["test_topik1", "TOPIK I mock test yakunlandi"],
     ["test_topik2", "TOPIK II mock test yakunlandi"],
+    ["test_eps", "EPS-TOPIK mock test yakunlandi"],
     ["explain", "AI tushuntirish"],
     ["writing", "Yozma ishni AI baholash"],
     ["speak", "Gemini bilan suhbat (xabarlar)"],

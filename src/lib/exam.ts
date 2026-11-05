@@ -1,6 +1,6 @@
 // TOPIK test tuzilmasi, ballash va daraja hisoblash
 
-export type ExamId = "topik1" | "topik2";
+export type ExamId = "topik1" | "topik2" | "eps";
 export type SectionId = "listening" | "reading" | "writing";
 
 export type ChartSpec = {
@@ -24,6 +24,7 @@ export type Question = {
   given?: string; // joylashtiriladigan gap (39~41)
   script?: string; // tinglash matni (남자: ... / 여자: ...)
   passage?: string; // o'qish matni
+  picture?: string; // savoldagi rasm (emoji sahna yoki xavfsizlik belgisi) — EPS-TOPIK uchun
   notice?: NoticeSpec;
   chart?: ChartSpec;
   options: string[];
@@ -77,7 +78,15 @@ export type Test = {
   sections: Section[];
 };
 
-export const EXAM_INFO: Record<ExamId, { name: string; max: number; levels: { min: number; level: string }[] }> = {
+export type ExamInfo = {
+  name: string;
+  max: number;
+  levels: { min: number; level: string }[];
+  /** Daraja o'rniga minimal ball tizimi (EPS-TOPIK): har bir chegara nimani anglatadi */
+  levelText?: Record<string, string>;
+};
+
+export const EXAM_INFO: Record<ExamId, ExamInfo> = {
   topik1: {
     name: "TOPIK I",
     max: 200,
@@ -95,6 +104,20 @@ export const EXAM_INFO: Record<ExamId, { name: string; max: number; levels: { mi
       { min: 150, level: "4급" },
       { min: 120, level: "3급" },
     ],
+  },
+  // EPS-TOPIK (고용허가제 한국어능력시험): 100 ball, daraja berilmaydi.
+  // Sohalar bo'yicha minimal ball: ishlab chiqarish (제조업) 60, boshqa sohalar 45; keyin reyting bo'yicha tanlanadi.
+  eps: {
+    name: "EPS-TOPIK",
+    max: 100,
+    levels: [
+      { min: 60, level: "60+" },
+      { min: 45, level: "45+" },
+    ],
+    levelText: {
+      "60+": "ishlab chiqarish (제조업) sohasi uchun minimal ball yig‘ildi",
+      "45+": "boshqa sohalar uchun minimal ball yig‘ildi, ishlab chiqarish uchun 60 ball kerak",
+    },
   },
 };
 

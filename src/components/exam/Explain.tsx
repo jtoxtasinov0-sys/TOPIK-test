@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Group, Question } from "@/lib/exam";
+import type { ExamId, Group, Question } from "@/lib/exam";
 import { CIRCLED } from "@/lib/exam";
 import { hash } from "@/lib/audio";
 import { Icon } from "../Icon";
@@ -25,6 +25,7 @@ export function questionContext(g: Group, q: Question) {
   if (script) parts.push(`[듣기 대본]\n${script}`);
   const passage = q.passage ?? g.passage;
   if (passage) parts.push(`[지문]\n${passage.replace(/<\/?u>/g, "__")}`);
+  if (q.picture) parts.push(`[그림] ${q.picture}`);
   const notice = q.notice ?? g.notice;
   if (notice) parts.push(`[안내문]\n${notice.title ?? ""}\n${notice.lines.join("\n")}`);
   const chart = q.chart ?? g.chart;
@@ -37,7 +38,7 @@ export function questionContext(g: Group, q: Question) {
   return parts.join("\n\n");
 }
 
-export function Explain({ group, question, userAnswer }: { group: Group; question: Question; userAnswer?: number }) {
+export function Explain({ group, question, userAnswer, exam }: { group: Group; question: Question; userAnswer?: number; exam?: ExamId }) {
   const errText = useAiErrorText();
   const ctx = questionContext(group, question);
   const key = hash(ctx);
@@ -49,7 +50,7 @@ export function Explain({ group, question, userAnswer }: { group: Group; questio
     setLoading(true);
     setErr("");
     try {
-      const r = await postJson<Explanation>("/api/explain", { context: ctx, answer: question.answer, user: userAnswer });
+      const r = await postJson<Explanation>("/api/explain", { context: ctx, answer: question.answer, user: userAnswer, exam });
       cache.set(key, r);
       setData(r);
     } catch (e) {

@@ -7,6 +7,8 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | Bo‘lim | Nima qiladi |
 |---|---|
 | **📝 TOPIK I / TOPIK II mock test** | Rasmiy formatda: savollar tartibi, yo‘riqnomalar, `<보기>`, vaqt (40/60, 60/50/70 daqiqa), ball va darajalar (1급–6급). Imtihon va mashq rejimi, OMR javob varaqasi, progressni saqlash va davom ettirish |
+| **🏭 EPS-TOPIK mock test** | Koreyaga E-9 viza bilan ishga boruvchilar uchun: o‘qish 1–20 (25 daqiqa) va tinglash 21–40 (25 daqiqa), har savol 2.5 ball, jami 100. Rasm va xavfsizlik belgisi savollari, yotoqxona e’loni, maosh varaqasi, ish joyidagi dialoglar. Natijada sohalar bo‘yicha minimal ball ko‘rsatiladi: ishlab chiqarish 60+, boshqa sohalar 45+. AI variantlar ham ishlaydi |
+| **🧠 Ustoz bilim bazasi** | `/learn/grammar`: 100+ grammatika kartochkasi (1–6급, o‘zbekcha izoh, o‘zbek tili bilan solishtirish, ovozli misollar), o‘zbeklarga xos 25+ xato (talaffuz, 에/에서, 당신, 반말, imlo), 0 → 6급 va EPS daraja rejasi, 쓰기 qo‘llanmasi, EPS: xavfsizlik belgilari, asboblar, mehnat huquqlari. AI Ustoz, Ovozli ustoz, AI tushuntirish va yozma ish tekshiruvi savolga mos kartochkalarni shu bazadan oladi |
 | **🎧 Tinglash** | Audio Gemini TTS orqali (erkak va ayol ovozi). TOPIK I’da har bir audio 2 marta, TOPIK II’da 1–20 savol 1 marta, 21–50 savol 2 marta tinglanadi. API kalit bo‘lmasa, brauzerning o‘z ovozi ishlatiladi |
 | **✍️ Yozish (쓰기)** | 51–54 topshiriqlar vaqt bilan bajariladi. Javobni daftarga yozib, rasmini yuklaysiz (vaqt tugagach rasm uchun yana 3 daqiqa beriladi) yoki 원고지 ko‘rinishida shu yerda yozasiz. Gemini rasmiy mezonlar bo‘yicha baholaydi: ball, xatolar, tuzatishlar va namunaviy javob |
 | **✨ AI variantlar** | Gemini rasmiy format bo‘yicha cheksiz yangi test variantlarini tuzadi |
@@ -14,8 +16,8 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | **🗣️ Gaplashish** | 11 ta hayotiy vaziyat: restoran, kasalxona, bank, migratsiya xizmati, zavod, uy ijarasi, ish suhbati, TOPIK Speaking va boshqalar. Nutq **Gemini 3.5 Transcribe** orqali matnga aylanadi, AI xatolarni tuzatadi va talaffuz bo‘yicha maslahat beradi |
 | **🎙️ Ovozli ustoz** | `/speak/ustoz`: o‘zbekcha gapirib so‘raysiz (“Rahmat koreyschada qanday?”, “Menga dars o‘tib ber”), ustoz o‘zbekcha tushuntiradi va koreyscha so‘zlarni Gemini ovozi bilan aytadi, bosqichma-bosqich dars o‘tadi, takrorlaganingizda talaffuzni tekshiradi. Jimlikda yozuv o‘zi to‘xtaydi, “Uzluksiz suhbat” rejimida mikrofon o‘zi qayta yoqiladi. Mikrofon faqat HTTPS’da ishlaydi |
 | **🌱 0 dan o‘rganish** | Hangul (40 harf ovozi bilan), bo‘g‘in yasash, 받침, viktorina, 12 ta hayotiy dars va mini testlar |
-| **🃏 So‘zlar** | 80 ta so‘z (TOPIK I, ish joyi/EPS, TOPIK II), Leitner usulida takrorlash |
-| **🤖 AI Ustoz** | Grammatika, TOPIK strategiyasi va gaplarni tekshirish bo‘yicha chat (javob oqim bilan chiqadi) |
+| **🃏 So‘zlar** | 134 ta so‘z (TOPIK I, TOPIK II, EPS: asboblar, xavfsizlik, yotoqxona va hayot), Leitner usulida takrorlash |
+| **🤖 AI Ustoz** | Grammatika, TOPIK / EPS-TOPIK strategiyasi va gaplarni tekshirish bo‘yicha chat (javob oqim bilan chiqadi). Professional o‘qitish uslubi, bilim bazasidan mos kartochkalar va o‘quvchining maqsadi hamda oxirgi natijalarini hisobga oladi |
 | **🇰🇷 Koreyada hayot** | Favqulodda raqamlar (112, 119, 1345, 1350, 1330), foydali ilovalar, birinchi qadamlar, ovozli iboralar |
 | **📈 Natijalarim** | Natijalar tarixi, ball grafigi, imtihongacha qolgan kunlar, kunlik seriya (streak) |
 | **🔐 Gmail orqali kirish** | Google OAuth (PKCE), parolsiz. Birinchi kirishda 30 kunlik bepul sinov avtomatik boshlanadi, karta so‘ralmaydi |
@@ -27,7 +29,7 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | Har doim bepul (kirmasdan ham) | AI imkoniyatlari (Gmail orqali kirib, 30 kun bepul) |
 |---|---|
 | Hangul, 12 ta dars, so‘z kartochkalari, Koreyada hayot | AI tushuntirish, yozma ishni AI baholash, Gemini bilan suhbat |
-| TOPIK I / II mock testlar (brauzer ovozi bilan) | AI Ustoz, cheksiz AI variantlar, tabiiy Gemini ovozi |
+| TOPIK I / II va EPS-TOPIK mock testlar (brauzer ovozi bilan) | AI Ustoz, cheksiz AI variantlar, tabiiy Gemini ovozi |
 
 AI yo‘llari (`/api/explain`, `writing`, `speak`, `tutor`, `generate`, `tts`) serverda tekshiriladi: kirilmagan bo‘lsa `401`, bepul sinov tugagan bo‘lsa `402`. Sinov muddati — `NEXT_PUBLIC_TRIAL_DAYS` (standart 30). To‘lov tizimi keyinroq qo‘shiladi. Har bir foydalanuvchi uchun kunlik adolatli limit bor (`src/lib/server/guard.ts`, masalan kuniga 25 ta yozma ish tekshiruvi) — bu AI xarajatini nazoratda ushlaydi.
 
@@ -97,8 +99,9 @@ src/
                   api/{tts,explain,writing,speak,tutor,generate}
   components/     AppShell, ChartView, exam/ (ExamRunner, GroupView, Writing, Results, Explain),
                   account/ (LoginView, AccountView, AdminView)
-  data/           topik1.ts, topik2.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts
-  lib/            gemini.ts (server), audio.ts, exam.ts, store.ts, access.ts (sinov muddati),
+  data/           topik1.ts, topik2.ts, eps.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts
+  data/knowledge/ ustoz bilim bazasi: grammar.ts, mistakes.ts, curriculum.ts, writing.ts, work.ts (EPS), sources.ts
+  lib/            gemini.ts (server), audio.ts, exam.ts, store.ts, access.ts (sinov muddati), knowledge.ts (bazadan qidirish),
                   auth.tsx (AuthProvider, paywall), sync.ts (bulut sinxron)
   lib/server/     store.ts (Redis/fayl), session.ts, google.ts, users.ts, guard.ts, usage.ts (statistika)
 tests/            npm test — Node’ning o‘zida, qo‘shimcha kutubxonasiz
@@ -106,4 +109,8 @@ tests/            npm test — Node’ning o‘zida, qo‘shimcha kutubxonasiz
 
 ## Eslatma
 
-HanUstoz — mustaqil o‘quv loyiha, rasmiy TOPIK (NIIED) sayti emas. Barcha test savollari shu loyiha uchun yozilgan original mashq materiallari. Natijalar taxminiy.
+HanUstoz — mustaqil o‘quv loyiha, rasmiy TOPIK (NIIED) yoki EPS-TOPIK (HRD Korea) sayti emas. Barcha test savollari va bilim bazasidagi tushuntirishlar shu loyiha uchun yozilgan original materiallar; kitoblardan matn ko‘chirilmagan. Tayangan ochiq manbalar ro‘yxati — `src/data/knowledge/sources.ts` va `/learn/grammar` sahifasida. Natijalar taxminiy.
+
+### Bilim bazasini kengaytirish
+
+Yangi grammatika kartochkasi qo‘shish uchun `src/data/knowledge/grammar.ts` ga `g(...)` qatorini yozing: `keys` — matnda qidiriladigan koreyscha bo‘laklar (masalan `"려고 으려고"`), `tags` — o‘zbekcha qidiruv so‘zlari. AI yo‘llari mos kartochkalarni avtomatik oladi; `npm test` id takrorlanmasligi va tuzilmani tekshiradi.

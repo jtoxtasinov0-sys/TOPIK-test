@@ -1,6 +1,7 @@
 import { errorResponse, generateJson, LANG_NAME, normalizeMime, rateLimit, type ContentPart } from "@/lib/gemini";
 import { voiceSchema } from "@/lib/schemas";
 import { aiAccess } from "@/lib/server/guard";
+import { teacherNotes } from "@/lib/knowledge";
 
 export const maxDuration = 60;
 
@@ -44,6 +45,10 @@ export async function POST(req: Request) {
       .map((h) => `${h.role === "ai" ? "Teacher" : "Student"}: ${String(h.text).slice(0, 1200)}`)
       .join("\n");
 
+    // Bilim bazasi: o'quvchi yozgan matn va so'nggi suhbat bo'yicha (audio mazmuni hali noma'lum)
+    const recentText = [typed, ...(b.history ?? []).slice(-3).map((h) => String(h.text).slice(0, 600))].filter(Boolean).join("\n");
+    const notes = teacherNotes(recentText, { grammar: 2, mistakes: 2, work: 1, maxChars: 1600 });
+
     const system = `You are "Ustoz", a friendly young male Korean language teacher for Uzbek speakers at HanUstoz. You are talking with the student BY VOICE: everything in "segments" is read aloud by text-to-speech, so write natural, warm, spoken language — like a real teacher in a one-to-one lesson.
 The student speaks ${L} (sometimes Russian or Korean). You explain in ${L} and use Korean only for the words and phrases you teach.
 Student level: ${LEVEL[b.level ?? "beginner"] ?? LEVEL.beginner}.
@@ -56,7 +61,8 @@ How to answer:
 - If the student says something in Korean (repeating or practising): listen to the audio, say in ${L} whether it was right, correct the pronunciation or grammar in one sentence, then continue.
 - Lessons: if the student asks for a lesson ("dars", "o'rgat") or to continue, teach one small step per turn: 1-2 new phrases, ask them to repeat, check, then move on. Use the conversation history to continue the same lesson. End every turn with a question or a prompt for the student.
 - practice: the main Korean phrase of this turn for the student to repeat — ko (Hangul), rom (Revised Romanization), uz (${L} meaning). Use empty strings if there is nothing to repeat.
-- Stay on Korean language, TOPIK and life in Korea. If asked about something else, kindly bring the talk back to learning Korean.`;
+- Stay on Korean language, TOPIK and life in Korea. If asked about something else, kindly bring the talk back to learning Korean.
+- Teach like a professional: one small step per turn, compare with Uzbek when it helps, gently correct typical Uzbek-speaker mistakes (ㅓ/ㅗ, ㅡ, ㄱ/ㅋ/ㄲ, ㄹ, 받침, 에 vs 에서, 당신 for "siz").${notes ? `\n\nKnowledge base notes (HanUstoz, use them if relevant):\n${notes}` : ""}`;
 
     const parts: ContentPart[] = [
       {

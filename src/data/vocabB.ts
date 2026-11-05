@@ -1,6 +1,6 @@
 // TOPIK II (o‘rta daraja) lug‘ati — 국립국어원 «한국어 학습용 어휘 목록» (2003), 2-bosqich (B) — eng ko‘p ishlatiladigan so‘zlar.
 // Manba: https://www.korean.go.kr/front/etcData/etcDataView.do?mn_id=46&etc_seq=71 — KOGL 1-tur (공공누리 제1유형).
-// Chastota tartibida. O‘zbekcha tarjimalar — HanQadam. Format: so‘z|turkum|tarjima
+// Chastota tartibida. O‘zbekcha tarjimalar — HanUstoz. Format: so‘z|turkum|tarjima
 
 export const RAW_B = `등|의|va hokazo; kabi
 대하다|동|…ga nisbatan (-에 대해: …haqida)

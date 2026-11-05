@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState, useSyncExternalStore } from "react";
-import type { HistoryItem, Test } from "./exam";
+import { EXAM_INFO, type HistoryItem, type Test } from "./exam";
 
 // localStorage bilan xavfsiz ishlash (private rejimda xato bermasligi uchun)
 export function load<T>(key: string, fallback: T): T {
@@ -102,6 +102,30 @@ export const KEYS = {
 };
 
 export const DEFAULT_PROFILE: Profile = { name: "", examDate: "", target: "" };
+
+/** AI ustoz uchun o'quvchi haqida qisqa ma'lumot: maqsad, imtihon sanasi va oxirgi mock test natijalari (shu qurilmadan) */
+export function studentSummary(): string {
+  const p = load<Profile>(KEYS.profile, DEFAULT_PROFILE);
+  const done = load<HistoryItem[]>(KEYS.history, [])
+    .filter((x) => x.total > 0 || Object.keys(x.sections ?? {}).length)
+    .slice(0, 5);
+  const parts: string[] = [];
+  if (p.target) parts.push(`target level ${p.target}`);
+  if (p.examDate) parts.push(`exam date ${p.examDate}`);
+  if (done.length)
+    parts.push(
+      `recent mock tests: ${done
+        .map((x) => {
+          const secs = Object.entries(x.sections ?? {})
+            .map(([k, v]) => `${k} ${v?.score}/${v?.max}`)
+            .join(", ");
+          const date = new Date(x.date).toISOString().slice(0, 10);
+          return `${EXAM_INFO[x.exam]?.name ?? x.exam} ${date}: ${x.total}/${x.max}${x.level ? ` (${x.level})` : ""}${secs ? ` [${secs}]` : ""}`;
+        })
+        .join("; ")}`
+    );
+  return parts.join("; ");
+}
 
 export function addHistory(item: HistoryItem) {
   const list = load<HistoryItem[]>(KEYS.history, []);

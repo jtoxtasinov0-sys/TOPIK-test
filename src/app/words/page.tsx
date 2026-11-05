@@ -5,6 +5,7 @@ import { Icon } from "@/components/Icon";
 import { SpeakBtn } from "@/components/ui";
 import { DECKS, type Deck, type Word } from "@/data/words";
 import { GROUPS, LEVEL_DECKS, POS_NAME, VOCAB_A, VOCAB_ALL, VOCAB_B, VOCAB_SOURCE, type Level, type PosGroup, type VWord } from "@/data/vocab";
+import { VisualOr } from "@/components/Visual";
 import { playKorean } from "@/lib/audio";
 import { KEYS, touchStreak, useStored } from "@/lib/store";
 
@@ -158,7 +159,7 @@ export default function WordsPage() {
                   style={{ width: ld ? 130 : 170 }}
                   onClick={() => pickDeck(d)}
                 >
-                  <span className="em">{d.emoji}</span>
+                  <span className="em">{ld ? d.emoji : <VisualOr id={`deck:${d.id}`} emoji={d.emoji} size={56} />}</span>
                   <b className="small">{ld ? `${ld.from}–${ld.to}` : d.title}</b>
                   <span className="tiny" style={{ opacity: 0.8 }}>
                     {ld ? "" : `${d.level} · `}
@@ -236,7 +237,7 @@ export default function WordsPage() {
           <a href={VOCAB_SOURCE.url} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
             {VOCAB_SOURCE.name}
           </a>{" "}
-          — {VOCAB_SOURCE.license}. So‘zlar chastota tartibida, tarjimalar HanQadam tomonidan.
+          — {VOCAB_SOURCE.license}. So‘zlar chastota tartibida, tarjimalar HanUstoz tomonidan.
         </p>
       )}
     </main>

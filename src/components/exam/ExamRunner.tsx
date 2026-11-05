@@ -5,11 +5,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExamId, Group, Section, SectionId, Test, WritingTask } from "@/lib/exam";
 import { allQuestions, EXAM_INFO, formatTime, qKey, SECTION_LABEL } from "@/lib/exam";
 import { prefetchAudio, stopAudio } from "@/lib/audio";
+import { imageUrl } from "@/lib/images";
 import { addHistory, KEYS, load, remove, save, saveAiTest, uid, useStored } from "@/lib/store";
 import { TOPIK1 } from "@/data/topik1";
 import { TOPIK1_V2 } from "@/data/topik1v2";
 import { TOPIK2 } from "@/data/topik2";
+import { EPS } from "@/data/eps";
 import { Icon } from "../Icon";
+import { preloadImages } from "../Visual";
 import { ApiError, postJson, useAiErrorText } from "../ui";
 import { GroupView } from "./GroupView";
 import { Results } from "./Results";
@@ -33,7 +36,19 @@ type Saved = {
 };
 
 // Tayyor (internet AI’siz ishlaydigan) original variantlar
-const BUILTIN: Record<ExamId, Test[]> = { topik1: [TOPIK1, TOPIK1_V2], topik2: [TOPIK2] };
+const BUILTIN: Record<ExamId, Test[]> = { topik1: [TOPIK1, TOPIK1_V2], topik2: [TOPIK2], eps: [EPS] };
+
+const INTRO: Record<ExamId, string> = {
+  topik1: "1–2-daraja. Tinglash va o‘qish — haqiqiy TOPIK I tuzilmasi va vaqti bilan.",
+  topik2: "3–6-daraja. Tinglash, yozish (daftardan rasm bilan) va o‘qish — haqiqiy TOPIK II tuzilmasida.",
+  eps: "Koreyaga ishga (E-9 viza) boruvchilar uchun: o‘qish 20 va tinglash 20 savol. Ish joyi, asboblar, xavfsizlik belgilari va kundalik hayot.",
+};
+
+const PLAYS_NOTE: Record<ExamId, string> = {
+  topik1: "har bir audio 2 marta",
+  topik2: "1–20: 1 marta, 21–50: 2 marta",
+  eps: "har bir audio 2 marta",
+};
 const GRACE_SECONDS = 180;
 
 export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId }) {
@@ -195,6 +210,13 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
       estimated: true,
     });
     remove(KEYS.attempt(exam));
+    // Statistika: nechta mock test yakunlanganini /admin da ko'rish uchun (faqat son)
+    void fetch("/api/usage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: `test_${exam}` }),
+      keepalive: true,
+    }).catch(() => {});
     setPhase("results");
     window.scrollTo({ top: 0 });
   }, [test, exam, mode]);
@@ -219,6 +241,18 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
       nextSection();
     }
   }, [timeLeft, grace, phase, practice, section, nextSection]);
+
+  // Hozirgi va keyingi 2 guruh rasmlarini oldindan yuklash — savolga o'tganda rasm darhol chiqadi
+  useEffect(() => {
+    if (phase !== "run") return;
+    const urls = groups.slice(groupIdx, groupIdx + 3).flatMap((g) =>
+      g.questions.flatMap((q) => [
+        ...(q.pictureImage?.trim() ? [imageUrl(q.pictureImage, { w: 768 })] : []),
+        ...(q.optionImages ?? []).filter((p) => p?.trim()).map((p) => imageUrl(p, { w: 512 })),
+      ])
+    );
+    preloadImages(urls);
+  }, [phase, groups, groupIdx]);
 
   // Keyingi guruh audiosini oldindan yuklash
   useEffect(() => {
@@ -260,7 +294,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
             out.sections[j.si].writing![j.gi] = await postJson<WritingTask>("/api/generate", { exam, writing: w });
           }
         } catch (e) {
-          if (e instanceof ApiError && (e.status === 503 || e.status === 429)) fatal = e;
+          if (e instanceof ApiError && [401, 402, 429, 503].includes(e.status)) fatal = e;
           failed++;
         }
         setGen((p) => ({ ...p, done: p.done + 1, failed }));
@@ -333,7 +367,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
           </div>
           <h2 className="h2">AI yangi variant tuzmoqda</h2>
           <p className="lead" style={{ marginTop: 8 }}>
-            Har bir savol bloki rasmiy TOPIK formatida yangidan yozilmoqda…
+            {`Har bir savol bloki rasmiy ${examName} formatida yangidan yozilmoqda…`}
           </p>
           <div className="bar" style={{ margin: "22px 0 10px", height: 14 }}>
             <i style={{ width: `${pct}%` }} />
@@ -367,9 +401,10 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
               {preset === "writing" ? "Yozish imtihoni" : examName}
             </h1>
             <p className="lead" style={{ marginTop: 10, maxWidth: 640 }}>
-              {exam === "topik1"
-                ? "1–2-daraja. Tinglash va o‘qish — haqiqiy TOPIK I tuzilmasi va vaqti bilan."
-                : "3–6-daraja. Tinglash, yozish (daftardan rasm bilan) va o‘qish — haqiqiy TOPIK II tuzilmasida."}
+              {INTRO[exam]}
+            </p>
+            <p className="small" style={{ marginTop: 10, opacity: 0.8 }}>
+              {`Mashq testi · rasmiy ${examName} imtihoni emas · natijalar taxminiy`}
             </p>
           </div>
         </div>
@@ -480,7 +515,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
           <div className="row between" style={{ marginTop: 18, flexWrap: "wrap", gap: 12 }}>
             <div className="small muted">
               ⏱️ {mode === "exam" ? `${totalMin} daqiqa` : "Vaqt cheklovi yo‘q"} · 🎧{" "}
-              {exam === "topik1" ? "har bir audio 2 marta" : "1–20: 1 marta, 21–50: 2 marta"}
+              {PLAYS_NOTE[exam]}
             </div>
             <button className="btn btn-primary btn-lg" onClick={() => begin()}>
               Boshlash <Icon name="right" size={20} />

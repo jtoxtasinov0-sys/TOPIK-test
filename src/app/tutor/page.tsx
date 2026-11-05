@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { Md, useAiErrorText, ApiError } from "@/components/ui";
-import { touchStreak } from "@/lib/store";
+import { Md, useAiErrorText, ApiError, notifyAccess } from "@/components/ui";
+import { studentSummary, touchStreak } from "@/lib/store";
 
 type M = { role: "user" | "ai"; text: string };
 
@@ -15,7 +16,10 @@ export default function TutorPage() {
   const [err, setErr] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [msgs]);
+  useEffect(() => {
+    // Yangi brauzerlarda scrollIntoView Promise qaytaradi — effektdan qaytarilmasligi kerak
+    void endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs]);
 
   const chips = [
     "은/는 va 이/가 farqi nima?",
@@ -27,6 +31,8 @@ export default function TutorPage() {
     "TOPIK I uchun 3 oylik reja tuzib ber",
     "Bu gapni tekshir: 저는 어제 학교에 가요.",
     "Ishda boshliqqa qanday murojaat qilinadi?",
+    "EPS-TOPIK uchun xavfsizlik belgilarini o‘rgat",
+    "Mening natijalarim bo‘yicha o‘quv reja tuz",
   ];
 
   const ask = async (q: string) => {
@@ -41,10 +47,11 @@ export default function TutorPage() {
       const res = await fetch("/api/tutor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next, student: studentSummary() }),
       });
       if (!res.ok || !res.body) {
         const j = await res.json().catch(() => ({}));
+        notifyAccess(res.status, j?.code);
         throw new ApiError(j?.error || `HTTP ${res.status}`, res.status, j?.code);
       }
       const reader = res.body.getReader();
@@ -79,6 +86,9 @@ export default function TutorPage() {
           <p className="lead">
             Grammatika, TOPIK strategiyasi, gaplarni tekshirish, Koreyadagi hayot — istalgan savolni o‘zbekcha bering.
           </p>
+          <Link href="/speak/ustoz" className="btn btn-primary" style={{ marginTop: 4 }}>
+            <Icon name="mic" size={18} /> Ovozli rejim — gapirib so‘rang
+          </Link>
           <div className="row-wrap" style={{ justifyContent: "center", marginTop: 8 }}>
             {chips.map((c) => (
               <button key={c} className="chip" style={{ whiteSpace: "normal" }} onClick={() => ask(c)}>

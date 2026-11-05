@@ -20,11 +20,12 @@ export function hash(s: string) {
   return (h >>> 0).toString(16) + s.length.toString(16);
 }
 
-export type TtsOpts = { slow?: boolean; voice?: "f" | "m" };
+/** tutor — ustoz (o'zbekcha + koreyscha) uslubi; talk — erkin suhbatdagi do'stona koreyscha uslub */
+export type TtsOpts = { slow?: boolean; voice?: "f" | "m"; tutor?: boolean; talk?: boolean };
 
 async function fetchServerAudio(text: string, opts: TtsOpts): Promise<string | null> {
   if (serverTtsOff) return null;
-  const key = hash(`${opts.slow ? "s" : "n"}|${opts.voice ?? ""}|${text}`);
+  const key = hash(`${opts.slow ? "s" : "n"}|${opts.voice ?? ""}|${opts.tutor ? "t" : opts.talk ? "k" : ""}|${text}`);
   if (memory.has(key)) return memory.get(key)!;
   if (pending.has(key)) return pending.get(key)!;
 
@@ -45,9 +46,10 @@ async function fetchServerAudio(text: string, opts: TtsOpts): Promise<string | n
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, ...opts }),
+        body: JSON.stringify({ text, slow: opts.slow, voice: opts.voice, tutor: opts.tutor, talk: opts.talk }),
       });
-      if (res.status === 503) {
+      // 503: AI ulanmagan; 401/402: kirilmagan yoki sinov tugagan — brauzer ovozi ishlatiladi
+      if (res.status === 503 || res.status === 401 || res.status === 402) {
         serverTtsOff = true;
         return null;
       }
@@ -77,15 +79,146 @@ export function prefetchAudio(text: string, opts: TtsOpts = {}) {
   void fetchServerAudio(text, opts);
 }
 
+// Har bir to'xtatishda oshadi — bo'laklab o'qiyotgan playTutor davom etmasligi uchun
+let playToken = 0;
+
 export function stopAudio() {
+  playToken++;
   current?.stop();
   current = null;
+  levelSource = null;
+}
+
+// ---------- Bitta umumiy <audio> elementi ----------
+// iPhone (Safari) foydalanuvchi bosmagan paytda yangi Audio() ni o'ynatmaydi. Bitta elementni
+// birinchi bosishda "ochib" qo'ysak, keyingi javoblar ham ovoz bilan o'ynaydi.
+let shared: HTMLAudioElement | null = null;
+let unlocked = false;
+
+function audioEl() {
+  if (!shared) {
+    shared = new Audio();
+    shared.preload = "auto";
+    shared.setAttribute("playsinline", "");
+  }
+  return shared;
+}
+
+function silentWavUrl() {
+  const n = 800;
+  const b = new ArrayBuffer(44 + n);
+  const v = new DataView(b);
+  const s = (o: number, t: string) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  s(0, "RIFF");
+  v.setUint32(4, 36 + n, true);
+  s(8, "WAVEfmt ");
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true);
+  v.setUint32(28, 16000, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  s(36, "data");
+  v.setUint32(40, n, true);
+  return URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
+}
+
+/** Foydalanuvchi bosgan paytda (tugma handler'ida) chaqiring — keyingi avtomatik ovozlar iPhone'da ham ishlaydi */
+export function unlockAudio() {
+  if (unlocked || typeof window === "undefined") return;
+  const a = audioEl();
+  if (!a.paused) return;
+  a.src = silentWavUrl();
+  a.play()
+    .then(() => {
+      unlocked = true;
+    })
+    .catch(() => {});
+}
+
+// ---------- Ovoz balandligi (animatsiya uchun) ----------
+let levelSource: (() => number) | null = null;
+
+/** Hozir o'ynayotgan ovozning balandligi 0..1 (ovozli ustoz shari shunga qarab harakatlanadi) */
+export function outputLevel() {
+  try {
+    return levelSource?.() ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+const envelopes = new Map<string, Float32Array | null>();
+const ENV_FPS = 60;
+
+/** WAV (PCM 16-bit) faylidan har 1/60 soniya uchun ovoz balandligini hisoblaydi */
+export function wavEnvelope(buf: ArrayBuffer, fps = ENV_FPS): Float32Array | null {
+  const v = new DataView(buf);
+  if (v.byteLength < 44 || v.getUint32(0, false) !== 0x52494646) return null; // "RIFF"
+  let off = 12;
+  let rate = 24000;
+  let bits = 16;
+  let ch = 1;
+  while (off + 8 <= v.byteLength) {
+    const id = v.getUint32(off, false);
+    const size = v.getUint32(off + 4, true);
+    if (id === 0x666d7420) {
+      // "fmt "
+      ch = v.getUint16(off + 10, true) || 1;
+      rate = v.getUint32(off + 12, true) || 24000;
+      bits = v.getUint16(off + 22, true);
+    } else if (id === 0x64617461) {
+      // "data"
+      if (bits !== 16) return null;
+      const start = off + 8;
+      const n = Math.floor(Math.min(size, v.byteLength - start) / 2 / ch);
+      const win = Math.max(1, Math.floor(rate / fps));
+      const out = new Float32Array(Math.ceil(n / win));
+      for (let f = 0; f < out.length; f++) {
+        let sum = 0;
+        const a = f * win;
+        const b = Math.min(n, a + win);
+        for (let i = a; i < b; i++) {
+          const x = v.getInt16(start + i * 2 * ch, true) / 32768;
+          sum += x * x;
+        }
+        out[f] = Math.min(1, Math.sqrt(sum / Math.max(1, b - a)) * 4);
+      }
+      return out;
+    }
+    off += 8 + size + (size & 1);
+  }
+  return null;
+}
+
+async function envelopeFor(url: string) {
+  if (envelopes.has(url)) return envelopes.get(url) ?? null;
+  let env: Float32Array | null = null;
+  try {
+    env = wavEnvelope(await (await fetch(url)).arrayBuffer());
+  } catch {}
+  envelopes.set(url, env);
+  return env;
+}
+
+/** Brauzer ovozi uchun: haqiqiy balandlik yo'q — tabiiy ko'rinadigan "gapirish" to'lqini */
+function syntheticLevel() {
+  const t = performance.now();
+  return 0.3 + 0.25 * Math.abs(Math.sin(t / 110)) * (0.6 + 0.4 * Math.sin(t / 370));
 }
 
 function pickKoreanVoice(): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis?.getVoices() ?? [];
   const ko = voices.filter((v) => v.lang?.toLowerCase().startsWith("ko"));
   return ko.find((v) => /google|natural|neural|heami|yuna|sora/i.test(v.name)) ?? ko[0];
+}
+
+/** O'zbekcha ovoz kam uchraydi — bo'lmasa turkcha (lotin yozuvini yaqinroq o'qiydi) */
+function pickUzbekVoice(): SpeechSynthesisVoice | undefined {
+  const voices = window.speechSynthesis?.getVoices() ?? [];
+  const by = (p: string) => voices.find((v) => v.lang?.toLowerCase().startsWith(p));
+  return by("uz") ?? by("tr");
 }
 
 export function hasKoreanBrowserVoice() {
@@ -138,27 +271,169 @@ export async function playKorean(
   const url = await fetchServerAudio(text, opts);
   opts.onLoading?.(false);
   if (url) {
-    await new Promise<void>((resolve) => {
-      const a = new Audio(url);
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        resolve();
-      };
-      current = {
-        stop: () => {
-          a.pause();
-          finish();
-        },
-      };
-      a.onended = finish;
-      a.onerror = finish;
-      a.onplay = () => opts.onStart?.();
-      a.play().catch(finish);
-    });
+    await playUrl(url, opts.onStart);
     return "server";
   }
   await browserSpeak(text, opts, opts.onStart);
   return "browser";
+}
+
+function playUrl(url: string, onStart?: () => void): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const a = audioEl();
+    let done = false;
+    let env: Float32Array | null = envelopes.get(url) ?? null;
+    if (!envelopes.has(url)) void envelopeFor(url).then((e) => (env = e));
+    const finish = () => {
+      if (done) return;
+      done = true;
+      a.onended = a.onerror = a.onplay = null;
+      if (current === ctl) current = null;
+      if (levelSource === level) levelSource = null;
+      resolve();
+    };
+    const level = () => (env ? env[Math.floor(a.currentTime * ENV_FPS)] ?? 0 : a.paused ? 0 : syntheticLevel());
+    const ctl = {
+      stop: () => {
+        a.pause();
+        finish();
+      },
+    };
+    current = ctl;
+    levelSource = level;
+    a.onended = finish;
+    a.onerror = finish;
+    a.onplay = () => onStart?.();
+    a.src = url;
+    a.play().catch(finish);
+  });
+}
+
+// ---------- Ovozli ustoz: o'zbekcha + koreyscha aralash nutq ----------
+export type Segment = { lang: "uz" | "ko"; text: string };
+
+/** Bo'laklarni brauzer ovozi bilan ketma-ket o'qiydi: koreyschasi koreyscha, qolgani o'zbekcha (yoki turkcha) ovoz bilan */
+function browserSpeakSegments(segs: Segment[], onStart?: () => void, pitch = 0.8): Promise<void> {
+  return new Promise((resolve) => {
+    const synth = window.speechSynthesis;
+    if (!synth || !segs.length) return resolve();
+    synth.cancel();
+    const ko = pickKoreanVoice();
+    const uz = pickUzbekVoice();
+    let i = 0;
+    let stopped = false;
+    const done = () => {
+      levelSource = null;
+      resolve();
+    };
+    current = {
+      stop: () => {
+        stopped = true;
+        synth.cancel();
+        done();
+      },
+    };
+    levelSource = syntheticLevel;
+    const next = () => {
+      if (stopped) return;
+      if (i >= segs.length) return done();
+      const s = segs[i++];
+      const u = new SpeechSynthesisUtterance(s.text);
+      u.pitch = pitch; // 0.8 — erkak ovoziga yaqinroq
+      if (s.lang === "ko") {
+        u.lang = "ko-KR";
+        if (ko) u.voice = ko;
+        u.rate = 0.8;
+      } else {
+        u.lang = uz?.lang ?? "uz-UZ";
+        if (uz) u.voice = uz;
+        u.rate = 0.95;
+      }
+      u.onend = () => setTimeout(next, 120);
+      u.onerror = () => setTimeout(next, 50);
+      if (i === 1) u.onstart = () => onStart?.();
+      synth.speak(u);
+    };
+    next();
+  });
+}
+
+/** Ustoz ovozi: Gemini "Puck" (yigit ovozi) */
+const TUTOR_TTS: TtsOpts = { tutor: true, voice: "m" };
+
+/**
+ * Tezroq boshlash uchun javobni ikki bo'lakka ajratadi: birinchi gap tez tayyorlanib o'ynaydi,
+ * qolgani shu vaqtda parallel tayyorlanadi.
+ */
+export function splitForSpeech(text: string): string[] {
+  const t = text.trim();
+  if (t.length < 90) return [t];
+  const re = /[.!?…]+["”']?\s+/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(t))) {
+    const cut = m.index + m[0].length;
+    if (cut >= 30 && t.length - cut >= 25) return [t.slice(0, cut).trim(), t.slice(cut).trim()];
+    if (cut > 160) break;
+  }
+  return [t];
+}
+
+type PlayHooks = { onLoading?: (b: boolean) => void; onStart?: () => void };
+export type SpeechChunk = { text: string; opts: TtsOpts };
+
+/**
+ * Bo'laklarni ketma-ket o'qiydi: hammasi parallel tayyorlanadi, birinchisi tayyor bo'lishi bilan o'ynaydi.
+ * Gemini ovozi bo'lmasa — brauzer ovozi (fallback bo'laklari, tillar bo'yicha).
+ */
+async function playChunks(chunks: SpeechChunk[], fallback: Segment[], hooks: PlayHooks & { pitch?: number } = {}) {
+  stopAudio();
+  const token = playToken;
+  const list = chunks.filter((c) => c.text.trim());
+  if (!list.length) return;
+  const jobs = list.map((c) => fetchServerAudio(c.text.trim(), c.opts)); // hammasi parallel so'raladi
+  hooks.onLoading?.(true);
+  const first = await jobs[0];
+  hooks.onLoading?.(false);
+  if (token !== playToken) return;
+  if (!first) return browserSpeakSegments(fallback, hooks.onStart, hooks.pitch);
+  await playUrl(first, hooks.onStart);
+  for (let k = 1; k < jobs.length; k++) {
+    if (token !== playToken) return;
+    const url = await jobs[k];
+    if (!url || token !== playToken) return;
+    await playUrl(url);
+  }
+}
+
+/** Ustoz javobini ovoz chiqarib o'qiydi: avval Gemini (bitta tabiiy yigit ovozi), bo'lmasa brauzer ovozi */
+export function playTutor(segs: Segment[], opts: PlayHooks = {}) {
+  const text = segs.map((s) => s.text).join(" ").trim();
+  return playChunks(
+    splitForSpeech(text).map((p) => ({ text: p, opts: TUTOR_TTS })),
+    segs,
+    opts
+  );
+}
+
+/** Erkin suhbat uchun o'qiladigan bo'laklar: avval o'zbekcha yordam (ustoz uslubida), keyin koreyscha javob — bitta suhbatdosh ovozi */
+export function talkChunks(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }): SpeechChunk[] {
+  const help = (t.help ?? []).map((s) => s.text).join(" ").trim();
+  const reply = t.reply.trim();
+  return [
+    ...(help ? [{ text: help, opts: { tutor: true, voice: t.voice } }] : []),
+    ...(reply ? splitForSpeech(reply).map((p) => ({ text: p, opts: { talk: true, voice: t.voice, slow: !!t.slow } })) : []),
+  ];
+}
+
+/** Erkin suhbat: koreys do'st javobini ovoz chiqarib o'qiydi */
+export function playTalk(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }, opts: PlayHooks = {}) {
+  const fallback: Segment[] = [...(t.help ?? []), ...(t.reply.trim() ? [{ lang: "ko" as const, text: t.reply.trim() }] : [])];
+  return playChunks(talkChunks(t), fallback, { ...opts, pitch: t.voice === "f" ? 1.15 : 0.8 });
+}
+
+/** Mikrofon yozuvi uchun brauzer qo'llaydigan audio turi */
+export function pickRecorderMime() {
+  if (typeof MediaRecorder === "undefined") return "";
+  for (const m of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"]) if (MediaRecorder.isTypeSupported(m)) return m;
+  return "";
 }

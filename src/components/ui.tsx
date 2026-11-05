@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { NoticeSpec } from "@/lib/exam";
 import { playKorean, stopAudio, type TtsOpts } from "@/lib/audio";
+import { TRIAL_DAYS } from "@/lib/access";
 import { Icon } from "./Icon";
 
 // ---------- AI so'rovlari uchun yordamchi ----------
@@ -10,6 +11,13 @@ export class ApiError extends Error {
   constructor(message: string, public status: number, public code?: string) {
     super(message);
   }
+}
+
+/** Kirish kerak yoki sinov tugagan bo'lsa — global oynani ochadi (AuthProvider tinglaydi) */
+export function notifyAccess(status: number, code?: string) {
+  if (typeof window === "undefined") return;
+  if (status === 401 && code === "AUTH") window.dispatchEvent(new CustomEvent("hq:paywall", { detail: "AUTH" }));
+  if (status === 402) window.dispatchEvent(new CustomEvent("hq:paywall", { detail: "PAYWALL" }));
 }
 
 export async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -20,13 +28,24 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
     throw new ApiError("network", 0);
   }
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(json?.error || `HTTP ${res.status}`, res.status, json?.code);
+  if (!res.ok) {
+    notifyAccess(res.status, json?.code);
+    throw new ApiError(json?.error || `HTTP ${res.status}`, res.status, json?.code);
+  }
   return json as T;
 }
 
 export function useAiErrorText() {
   return (e: unknown) => {
     if (e instanceof ApiError) {
+      if (e.status === 401 && e.code === "AUTH")
+        return `Bu AI funksiya uchun Google orqali kiring — ${TRIAL_DAYS} kun bepul.`;
+      if (e.status === 402)
+        return "Bepul sinov muddati tugadi — AI funksiyalari yopildi.";
+      if (e.code === "QUOTA")
+        return "Bugungi AI limiti tugadi. Ertaga yana davom eting 🙏";
+      if (e.code === "NO_DB")
+        return "Server ma’lumotlar bazasi sozlanmagan (README’ga qarang).";
       if (e.code === "NO_KEY" || e.status === 503)
         return "AI hali ulanmagan: serverda GEMINI_API_KEY sozlanishi kerak (README’ga qarang).";
       if (e.status === 429) return "Juda ko‘p so‘rov. 1-2 daqiqadan keyin urinib ko‘ring.";

@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
+import { VisualOr } from "@/components/Visual";
 import { SCENARIOS, type Scenario } from "@/data/scenarios";
-import { playKorean, stopAudio } from "@/lib/audio";
+import { pickRecorderMime, playKorean, stopAudio } from "@/lib/audio";
 import { touchStreak } from "@/lib/store";
 
 type Level = "beginner" | "intermediate" | "advanced";
@@ -20,12 +22,6 @@ type SpeakRes = {
   suggestions: { ko: string; tr: string }[];
   done?: boolean;
 };
-
-function pickMime() {
-  if (typeof MediaRecorder === "undefined") return "";
-  for (const m of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"]) if (MediaRecorder.isTypeSupported(m)) return m;
-  return "";
-}
 
 export default function SpeakPage() {
   const errText = useAiErrorText();
@@ -48,7 +44,10 @@ export default function SpeakPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [msgs, busy]);
+  useEffect(() => {
+    // Yangi brauzerlarda scrollIntoView Promise qaytaradi — effektdan qaytarilmasligi kerak
+    void endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs, busy]);
   useEffect(
     () => () => {
       stopAudio();
@@ -104,7 +103,7 @@ export default function SpeakPage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       streamRef.current = stream;
-      const mime = pickMime();
+      const mime = pickRecorderMime();
       const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
       chunks.current = [];
       mr.ondataavailable = (e) => e.data.size && chunks.current.push(e.data);
@@ -168,10 +167,44 @@ export default function SpeakPage() {
           </p>
         </div>
 
+        <Link href="/speak/free" className="card row-wrap between" style={{ gap: 16, marginBottom: 12, background: "var(--grad-pink)", color: "#fff", border: 0 }}>
+          <div className="row" style={{ gap: 14 }}>
+            <span className="icon-tile" style={{ width: 52, height: 52, fontSize: "1.6rem", background: "rgba(255,255,255,.18)" }}>💬</span>
+            <div className="stack" style={{ gap: 4 }}>
+              <b>Erkin suhbat — koreys do‘st bilan</b>
+              <span className="small" style={{ opacity: 0.9 }}>
+                Tez-tez, ovozli koreyscha suhbat. Bilmagan so‘zingizni o‘zbekcha ayting — do‘stingiz tushuntiradi va yana koreyscha davom etadi.
+              </span>
+            </div>
+          </div>
+          <span className="btn btn-sm" style={{ background: "#fff", color: "var(--ink)" }}>
+            <Icon name="chat" size={16} /> Gaplashish
+          </span>
+        </Link>
+
+        <Link href="/speak/ustoz" className="card row-wrap between" style={{ gap: 16, marginBottom: 20, background: "var(--grad-btn)", color: "#fff", border: 0 }}>
+          <div className="row" style={{ gap: 14 }}>
+            <span className="icon-tile" style={{ width: 52, height: 52, fontSize: "1.6rem", background: "rgba(255,255,255,.18)" }}>🎙️</span>
+            <div className="stack" style={{ gap: 4 }}>
+              <b>Ovozli ustoz — o‘zbekcha so‘rang</b>
+              <span className="small" style={{ opacity: 0.9 }}>
+                “Rahmat koreyschada qanday?” deb gapiring — ustoz koreyscha va o‘zbekcha ovoz bilan javob beradi va dars o‘tadi.
+              </span>
+            </div>
+          </div>
+          <span className="btn btn-sm" style={{ background: "#fff", color: "var(--ink)" }}>
+            <Icon name="mic" size={16} /> Boshlash
+          </span>
+        </Link>
+
+        <h2 className="h3" style={{ margin: "4px 0 12px" }}>Vaziyatli suhbat (koreyscha)</h2>
+
         <div className="grid-4">
-          {SCENARIOS.map((s) => (
+          {SCENARIOS.filter((s) => s.id !== "free").map((s) => (
             <button key={s.id} className={`scenario ${scenario.id === s.id ? "on" : ""}`} onClick={() => setScenario(s)}>
-              <span className="em">{s.emoji}</span>
+              <span className="em">
+                <VisualOr id={`scenario:${s.id}`} emoji={s.emoji} size={56} />
+              </span>
               <b>{s.title}</b>
               <span className="kr small" style={{ opacity: 0.75 }}>{s.ko}</span>
             </button>
@@ -219,7 +252,7 @@ export default function SpeakPage() {
   return (
     <main className="container" style={{ maxWidth: 820, paddingTop: 16 }}>
       <div className="card row" style={{ padding: 14, marginBottom: 16, position: "sticky", top: 74, zIndex: 20 }}>
-        <span className="icon-tile" style={{ width: 44, height: 44 }}>{scenario.emoji}</span>
+        <VisualOr id={`scenario:${scenario.id}`} emoji={scenario.emoji} size={44} />
         <div className="grow">
           <b>{scenario.title}</b>
           <div className="kr tiny muted">{scenario.ko}</div>

@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
+import { Visual } from "@/components/Visual";
+import { InstallApp } from "@/components/Pwa";
+import type { VisualId } from "@/data/visuals";
 import { daysUntil, DEFAULT_PROFILE, KEYS, type Profile, useStored } from "@/lib/store";
+import { TRIAL_DAYS } from "@/lib/access";
 import type { HistoryItem } from "@/lib/exam";
 
 const LEVELS = [
@@ -99,14 +103,15 @@ export default function Home() {
   const days = daysUntil(profile.examDate);
   const last = history.find((h) => h.total > 0);
 
-  const actions = [
-    { href: "/test", e: "📝", t: "Mock test" },
-    { href: "/writing", e: "✍️", t: "Yozish" },
-    { href: "/speak", e: "🗣️", t: "Gaplashish" },
-    { href: "/learn/hangul", e: "한", t: "Hangul" },
-    { href: "/words", e: "🃏", t: "So‘zlar" },
-    { href: "/tutor", e: "🤖", t: "AI Ustoz" },
-    { href: "/guide", e: "🇰🇷", t: "Koreya" },
+  const actions: { href: string; v: VisualId; t: string }[] = [
+    { href: "/test", v: "home:test", t: "Mock test" },
+    { href: "/writing", v: "home:writing", t: "Yozish" },
+    { href: "/speak", v: "home:speak", t: "Gaplashish" },
+    { href: "/speak/ustoz", v: "home:ustoz", t: "Ovozli ustoz" },
+    { href: "/learn/hangul", v: "home:hangul", t: "Hangul" },
+    { href: "/words", v: "home:words", t: "So‘zlar" },
+    { href: "/tutor", v: "home:tutor", t: "AI Ustoz" },
+    { href: "/guide", v: "home:guide", t: "Koreya" },
   ];
 
   return (
@@ -134,7 +139,7 @@ export default function Home() {
               </span>
             </h1>
             <p className="lead" style={{ maxWidth: 540 }}>
-              Haqiqiy TOPIK formatidagi mock testlar, daftardagi yozma ishni AI tekshiruvi, Gemini bilan jonli suhbat va koreys tilini noldan o‘rganish — hammasi bitta joyda, bepul.
+              Haqiqiy TOPIK formatidagi mock testlar, daftardagi yozma ishni AI tekshiruvi, Gemini bilan jonli suhbat va koreys tilini noldan o‘rganish — hammasi bitta joyda. Gmail orqali kiring — AI {TRIAL_DAYS} kun bepul.
             </p>
             <div className="row-wrap">
               <Link href="/test" className="btn btn-white btn-lg">
@@ -220,12 +225,16 @@ export default function Home() {
           </div>
         </div>
 
+        <InstallApp />
+
         {/* ---------- Tezkor harakatlar ---------- */}
         <div className="card" style={{ marginTop: 18 }}>
           <div className="actions">
             {actions.map((a) => (
               <Link key={a.href} href={a.href} className="action">
-                <span className="ring kr" style={{ fontWeight: 800 }}>{a.e}</span>
+                <span className="ring has-img">
+                  <Visual id={a.v} size={66} eager />
+                </span>
                 {a.t}
               </Link>
             ))}
@@ -241,18 +250,19 @@ export default function Home() {
             <h2 className="h2">
               Xuddi haqiqiy{" "}
               <span className="gradient-text">TOPIK</span>
-               kabi
+               {" "}kabi
             </h2>
             <p className="lead">Savollar tartibi, yo‘riqnomalar, vaqt va ball tizimi — rasmiy formatda.</p>
           </div>
-          <div className="grid-2">
+          <div className="grid-3">
             {[
               { href: "/test/topik1", t: "TOPIK I", lv: "1–2급", q: "70", m: "100", max: 200, d: "Boshlovchilar uchun: tinglash (30) va o‘qish (40)", g: "var(--grad-mint)" },
               { href: "/test/topik2", t: "TOPIK II", lv: "3–6급", q: "104", m: "180", max: 300, d: "Tinglash (50), yozish (4) va o‘qish (50)", g: "var(--grad)" },
+              { href: "/test/eps", t: "EPS-TOPIK", lv: "Ishchilar", q: "40", m: "50", max: 100, d: "Koreyaga ishga borish uchun: o‘qish (20) va tinglash (20)", g: "var(--grad-sun)" },
             ].map((x) => (
               <Link key={x.href} href={x.href} className="card hover" style={{ padding: 0, overflow: "hidden" }}>
                 <div style={{ background: x.g, color: "#fff", padding: "26px 24px", position: "relative", overflow: "hidden" }}>
-                  <span className="float-kr" style={{ fontSize: 120, right: 10, top: -20, color: "rgba(255,255,255,.14)" }}>{x.t === "TOPIK I" ? "初" : "高"}</span>
+                  <span className="float-kr" style={{ fontSize: 120, right: 10, top: -20, color: "rgba(255,255,255,.14)" }}>{x.t === "TOPIK I" ? "初" : x.t === "TOPIK II" ? "高" : "工"}</span>
                   <div className="badge white">{x.lv}</div>
                   <div className="display" style={{ fontSize: "2rem", fontWeight: 700, marginTop: 10 }}>{x.t}</div>
                   <div style={{ opacity: 0.9, marginTop: 4 }}>{x.d}</div>
@@ -349,10 +359,16 @@ export default function Home() {
             </h2>
             <p className="lead">
               Restoran, kasalxona, bank, migratsiya xizmati, zavod, ish suhbati… Gapiring — Gemini 3.5 Transcribe nutqingizni yozadi, AI xatolaringizni o‘zbekcha tushuntiradi va koreyscha javob beradi.
+              Erkin suhbatda esa koreys do‘st bilan tez-tez gaplashasiz: bilmagan so‘zingizni o‘zbekcha aytsangiz, u tushuntirib, yana koreyscha davom etadi.
             </p>
-            <Link href="/speak" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
-              <Icon name="mic" size={18} /> Suhbatni boshlash
-            </Link>
+            <div className="row-wrap" style={{ gap: 10 }}>
+              <Link href="/speak" className="btn btn-primary">
+                <Icon name="mic" size={18} /> Suhbatni boshlash
+              </Link>
+              <Link href="/speak/free" className="btn">
+                <Icon name="chat" size={18} /> Erkin suhbat
+              </Link>
+            </div>
           </div>
           <div className="feature-visual" style={{ background: "var(--grad-night)" }}>
             <div className="stack" style={{ width: "min(380px,100%)", gap: 12 }}>
@@ -390,12 +406,12 @@ export default function Home() {
           </div>
           <div className="grid-3">
             {[
-              { e: "🌱", c: "mint", t: "Noldan boshlovchilar", d: "Hangul alifbosi, bo‘g‘in yasash, 12 ta hayotiy dars va ovozli talaffuz.", href: "/learn" },
-              { e: "🎓", c: "", t: "TOPIK’ka tayyorlanuvchilar", d: "To‘liq mock testlar, AI variantlar, yozma ish tekshiruvi va xatolar tahlili.", href: "/test" },
-              { e: "🇰🇷", c: "pink", t: "Koreyada yashayotganlar", d: "Kasalxona, bank, ish, uy ijarasi iboralari, favqulodda raqamlar va foydali ilovalar.", href: "/guide" },
+              { v: "who:beginner" as const, t: "Noldan boshlovchilar", d: "Hangul alifbosi, bo‘g‘in yasash, 12 ta hayotiy dars, 125 ta grammatika kartochkasi va ovozli talaffuz.", href: "/learn" },
+              { v: "who:topik" as const, t: "TOPIK va EPS-TOPIK’ka tayyorlanuvchilar", d: "To‘liq mock testlar, AI variantlar, yozma ish tekshiruvi va xatolar tahlili.", href: "/test" },
+              { v: "who:korea" as const, t: "Koreyada yashayotganlar", d: "Kasalxona, bank, ish, uy ijarasi iboralari, favqulodda raqamlar va foydali ilovalar.", href: "/guide" },
             ].map((x) => (
               <Link key={x.href} href={x.href} className="card hover stack" style={{ gap: 12 }}>
-                <span className={`icon-tile ${x.c}`}>{x.e}</span>
+                <Visual id={x.v} size={72} shape="tile" />
                 <h3 className="h3">{x.t}</h3>
                 <p className="muted" style={{ margin: 0 }}>{x.d}</p>
                 <span className="small" style={{ color: "var(--p1)", fontWeight: 800 }}>
@@ -407,14 +423,43 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ---------- Bepul sinov ---------- */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="container">
+          <div className="result-hero" style={{ padding: "34px 26px" }}>
+            <div className="feature" style={{ gap: 24 }}>
+              <div className="stack" style={{ gap: 14 }}>
+                <span className="badge white" style={{ alignSelf: "flex-start" }}>🎁 Bepul sinov</span>
+                <h2 className="h2" style={{ color: "#fff" }}>
+                  {`${TRIAL_DAYS} kun — barcha AI imkoniyatlar bepul`}
+                </h2>
+                <p style={{ margin: 0, opacity: 0.9 }}>
+                  Gmail orqali kiring — karta kerak emas. AI tekshiruv, Gemini bilan suhbat, AI Ustoz va AI variantlar darhol ochiladi.
+                </p>
+                <div className="row-wrap">
+                  <Link href="/login" className="btn btn-white btn-lg">
+                    Bepul boshlash <Icon name="right" size={20} />
+                  </Link>
+                </div>
+              </div>
+              <ul className="check-list" style={{ color: "#fff" }}>
+                <li>Parolsiz, bir bosishda kirish</li>
+                <li>Natijalar barcha qurilmalarda sinxron</li>
+                <li>Hangul, darslar, so‘zlar va mock testlar har doim bepul</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <footer className="footer">
         <div className="container stack" style={{ gap: 8 }}>
           <div className="row between" style={{ flexWrap: "wrap", gap: 12 }}>
-            <span style={{ fontWeight: 800, color: "var(--ink)" }}>HanQadam · 한걸음</span>
+            <span style={{ fontWeight: 800, color: "var(--ink)" }}>HanUstoz · 한국어 선생님</span>
             <span>Gemini 3.8 Flash · Gemini 3.5 Transcribe · Gemini TTS</span>
           </div>
           <div>
-            HanQadam — mustaqil o‘quv loyiha, rasmiy TOPIK (NIIED) sayti emas. Barcha test savollari original mashq materiallaridir. Natijalar taxminiy.
+            HanUstoz — mustaqil o‘quv loyiha, rasmiy TOPIK (NIIED) sayti emas. Barcha test savollari original mashq materiallaridir. Natijalar taxminiy.
           </div>
         </div>
       </footer>

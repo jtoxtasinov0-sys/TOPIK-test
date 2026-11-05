@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Noto_Sans_KR, Unbounded } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
+import { TRIAL_DAYS } from "@/lib/access";
+import { appIconUrl } from "@/lib/images";
 
 const display = Unbounded({ variable: "--font-unbounded", subsets: ["latin"], weight: ["500", "600", "700"] });
 const body = Manrope({ variable: "--font-manrope", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
@@ -9,13 +12,16 @@ const kr = Noto_Sans_KR({ variable: "--font-noto-kr", weight: ["400", "500", "70
 
 export const metadata: Metadata = {
   title: {
-    default: "HanQadam — TOPIK mock test va koreys tili 0 dan",
-    template: "%s · HanQadam",
+    default: "HanUstoz — TOPIK mock test va koreys tili 0 dan",
+    template: "%s · HanUstoz",
   },
-  description:
-    "TOPIK I va TOPIK II bepul mock testlari, AI yozma ish tekshiruvi, Gemini bilan ovozli suhbat, Hangul va koreys tilini 0 dan o‘rganish.",
-  applicationName: "HanQadam",
+  description: `TOPIK I va TOPIK II bepul mock testlari, AI yozma ish tekshiruvi, Gemini bilan ovozli suhbat, Hangul va koreys tilini 0 dan o‘rganish. Gmail orqali kiring — AI ${TRIAL_DAYS} kun bepul.`,
+  applicationName: "HanUstoz",
   keywords: ["TOPIK", "TOPIK mock test", "koreys tili", "TOPIK II", "EPS-TOPIK", "Hangul"],
+  // iPhone: «Ekranga qo'shish» qilinganda ilova kabi ochiladi va Gemini chizgan ikonka bilan turadi
+  appleWebApp: { capable: true, title: "HanUstoz", statusBarStyle: "default" },
+  icons: { apple: [{ url: appIconUrl(180), sizes: "180x180", type: "image/png" }] },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -29,7 +35,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="uz" className={`${display.variable} ${body.variable} ${kr.variable}`}>
       <body>
-        <AppShell>{children}</AppShell>
+        <AuthProvider>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
       </body>
     </html>
   );

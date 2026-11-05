@@ -1,6 +1,6 @@
 // TOPIK I (boshlang‘ich) lug‘ati — 국립국어원 «한국어 학습용 어휘 목록» (2003), 1-bosqich (A).
 // Manba: https://www.korean.go.kr/front/etcData/etcDataView.do?mn_id=46&etc_seq=71 — KOGL 1-tur (공공누리 제1유형).
-// So‘zlar chastota tartibida (eng ko‘p ishlatiladiganlari oldinda). O‘zbekcha tarjimalar — HanQadam.
+// So‘zlar chastota tartibida (eng ko‘p ishlatiladiganlari oldinda). O‘zbekcha tarjimalar — HanUstoz.
 // Format: so‘z|turkum|tarjima (명 ot, 대 olmosh, 의 bog‘liq ot/sanoq so‘z, 동 fe’l, 형 sifat, 부 ravish, 관 aniqlovchi, 수 son, 감 undov, 고 atoqli ot)
 
 export const RAW_A = `것|의|narsa (-는 것: …ish)

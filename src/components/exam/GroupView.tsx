@@ -8,10 +8,11 @@ import { ChartView } from "../ChartView";
 import { Icon } from "../Icon";
 import { Notice, RichKo } from "../ui";
 import { Explain } from "./Explain";
+import { GenImage, SafetySign } from "./GenImage";
 
-/** TOPIK'dagi kabi tinglash soni: TOPIK I — 2 marta; TOPIK II — 1~20 bir marta, 21~50 ikki marta */
+/** Tinglash soni: TOPIK I va EPS-TOPIK — 2 marta; TOPIK II — 1~20 bir marta, 21~50 ikki marta */
 export function maxPlays(exam: ExamId, n: number) {
-  if (exam === "topik1") return 2;
+  if (exam !== "topik2") return 2;
   return n <= 20 ? 1 : 2;
 }
 
@@ -83,7 +84,7 @@ function Options({ q, chosen, onPick, reveal }: { q: Question; chosen?: number; 
         {q.options.map((o, i) => (
           <button key={i} className={`${cls(i)} pic`} onClick={() => onPick(i + 1)} disabled={reveal}>
             <span className="mark">{i + 1}</span>
-            <div className="scene">{o}</div>
+            {q.optionImages?.[i]?.trim() ? <GenImage key={q.optionImages[i]} prompt={q.optionImages[i]} fallback={o} /> : <div className="scene">{o}</div>}
           </button>
         ))}
       </div>
@@ -201,6 +202,19 @@ export function GroupView({
               )}
             </div>
             {q.script && scriptBlock(k, q.script, q.n, !!chosen)}
+            {q.sign ? (
+              <SafetySign sign={q.sign} />
+            ) : q.pictureImage?.trim() ? (
+              <div className="q-picture img">
+                <GenImage key={q.pictureImage} prompt={q.pictureImage} fallback={q.picture} big />
+              </div>
+            ) : (
+              q.picture && (
+                <div className="q-picture" role="img" aria-label="Rasm">
+                  {q.picture}
+                </div>
+              )
+            )}
             {q.notice && <Notice notice={q.notice} />}
             {q.chart && (
               <div className="card flat" style={{ padding: 12, marginBottom: 14 }}>
@@ -228,7 +242,7 @@ export function GroupView({
                     To‘g‘ri javob: <b className="kr">{CIRCLED[q.answer - 1]} {q.optionStyle === "chart" ? "" : q.options[q.answer - 1]}</b>
                   </div>
                 )}
-                <Explain group={group} question={q} userAnswer={chosen} />
+                <Explain group={group} question={q} userAnswer={chosen} exam={exam} />
               </div>
             )}
           </div>

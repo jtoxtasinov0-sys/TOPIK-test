@@ -1,6 +1,8 @@
 import { errorResponse, generateJson, LANG_NAME, rateLimit, type ContentPart } from "@/lib/gemini";
 import { writingResultSchema } from "@/lib/schemas";
 import type { WritingTask } from "@/lib/exam";
+import { aiAccess } from "@/lib/server/guard";
+import { writingNotesText } from "@/lib/knowledge";
 
 export const maxDuration = 60;
 
@@ -21,6 +23,7 @@ Deduct points for being under 600 or over 700 characters, copying the prompt, or
 export async function POST(req: Request) {
   try {
     rateLimit(req, "ai", 60, 5 * 60_000);
+    await aiAccess(req, "writing");
     const body = (await req.json()) as {
       task: WritingTask;
       text?: string;
@@ -59,6 +62,8 @@ export async function POST(req: Request) {
     const result = await generateJson({
       system: `You are a certified TOPIK II writing (쓰기) examiner. Grade strictly but fairly, exactly like the official TOPIK scoring.
 ${RUBRIC[task.n]}
+Teacher notes for this task type (HanUstoz; use them in your comments and model answer):
+${writingNotesText(task.n)}
 Write all comments, explanations, strengths and summary in ${L}. Keep Korean text in Hangul.
 - max must be ${task.pts}. score = sum of criteria scores.
 - mistakes: list up to 10 concrete errors (original Korean fragment → corrected Korean → short explanation in ${L}).

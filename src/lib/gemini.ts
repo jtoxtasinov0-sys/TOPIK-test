@@ -12,7 +12,7 @@ export const MODELS = {
 };
 
 export class AiError extends Error {
-  constructor(message: string, public status = 500) {
+  constructor(message: string, public status = 500, public code?: string) {
     super(message);
   }
 }
@@ -87,24 +87,38 @@ function parseJson<T>(text: string): T {
   }
 }
 
+type Thinking = "minimal" | "low" | "medium" | "high";
+// "minimal" (eng tez) darajani model qo'llamasa — bir marta "low" ga o'tamiz va keyin shu bilan davom etamiz
+let minimalUnsupported = false;
+
 /** Tuzilgan (JSON) javob */
 export async function generateJson<T>(opts: {
   system: string;
   input: string | ContentPart[];
   schema: Record<string, unknown>;
-  thinking?: "low" | "medium" | "high";
+  thinking?: Thinking;
   timeoutMs?: number;
 }): Promise<T> {
-  const r = await call(
-    {
-      model: MODELS.text,
-      system_instruction: opts.system,
-      input: opts.input,
-      response_format: { type: "text", mime_type: "application/json", schema: opts.schema },
-      ...(opts.thinking ? { generation_config: { thinking_level: opts.thinking } } : {}),
-    },
-    opts.timeoutMs
-  );
+  const thinking = opts.thinking === "minimal" && minimalUnsupported ? "low" : opts.thinking;
+  const run = (level?: Thinking) =>
+    call(
+      {
+        model: MODELS.text,
+        system_instruction: opts.system,
+        input: opts.input,
+        response_format: { type: "text", mime_type: "application/json", schema: opts.schema },
+        ...(level ? { generation_config: { thinking_level: level } } : {}),
+      },
+      opts.timeoutMs
+    );
+  let r: InteractionResponse;
+  try {
+    r = await run(thinking);
+  } catch (e) {
+    if (thinking !== "minimal" || !(e instanceof AiError) || [429, 503, 504].includes(e.status)) throw e;
+    minimalUnsupported = true;
+    r = await run("low");
+  }
   return parseJson<T>(outputText(r));
 }
 
@@ -178,6 +192,14 @@ export async function streamText(opts: { system: string; input: string }): Promi
   });
 }
 
+/** Brauzer MediaRecorder turini Gemini qabul qiladigan audio turiga keltiradi */
+export function normalizeMime(m: string) {
+  const base = m.split(";")[0].trim().toLowerCase();
+  if (base === "audio/mp4" || base === "audio/x-m4a") return "audio/m4a";
+  if (base === "audio/mpeg3") return "audio/mp3";
+  return base || "audio/webm";
+}
+
 /** Gemini 3.5 Transcribe — nutqni matnga aylantirish */
 export async function transcribe(audioBase64: string, mime: string, languages: string[] = ["ko-KR"]): Promise<string> {
   const body = (langs: string[] | null) => ({
@@ -204,11 +226,17 @@ const VOICES = { 남자: "Charon", 여자: "Kore", narrator: "Kore", m: "Puck", 
 /** Gemini TTS — WAV (RIFF) bufer qaytaradi */
 export async function synthesize(
   turns: { speaker: string | null; text: string }[],
-  opts: { slow?: boolean; voice?: "f" | "m" } = {}
+  opts: { slow?: boolean; voice?: "f" | "m"; tutor?: boolean; talk?: boolean } = {}
 ): Promise<Buffer> {
-  const style = opts.slow
-    ? "Speak slowly and very clearly like a Korean language teacher for beginners, standard Seoul pronunciation"
-    : "Natural, clear standard Korean (Seoul) pronunciation, like a TOPIK listening exam recording";
+  const style = opts.tutor
+    ? "A warm, patient Korean teacher talking to an Uzbek student. Speak the Uzbek sentences in natural Uzbek; pronounce every Korean word or phrase clearly and a little slower in standard Seoul Korean, modelling the pronunciation for the student"
+    : opts.talk
+      ? opts.slow
+        ? "A friendly young Korean chatting with a foreign friend who is learning Korean: warm, natural conversational intonation, a little slower than normal and very clear, standard Seoul pronunciation"
+        : "A friendly young Korean chatting with a friend: natural, lively conversational Korean at a normal speaking pace, standard Seoul pronunciation"
+      : opts.slow
+      ? "Speak slowly and very clearly like a Korean language teacher for beginners, standard Seoul pronunciation"
+      : "Natural, clear standard Korean (Seoul) pronunciation, like a TOPIK listening exam recording";
   const speakers = Array.from(new Set(turns.map((t) => t.speaker).filter(Boolean))) as string[];
   const multi = speakers.length >= 2;
 
@@ -285,10 +313,127 @@ export function rateLimit(req: Request, bucket: string, max: number, windowMs: n
 }
 
 export function errorResponse(e: unknown) {
+  // Ma'lumotlar bazasi sozlanmagan / ishlamayapti
+  if (e instanceof Error && e.name === "StoreError") {
+    return Response.json({ error: e.message, code: "NO_DB" }, { status: 503 });
+  }
   const status = e instanceof AiError ? e.status : 500;
   const message = e instanceof Error ? e.message : "Noma'lum xato";
-  return Response.json({ error: message, code: status === 503 ? "NO_KEY" : undefined }, { status });
+  const code = e instanceof AiError && e.code ? e.code : status === 503 ? "NO_KEY" : undefined;
+  return Response.json({ error: message, code }, { status });
 }
 
 /** AI tushuntirishlari tili */
 export const LANG_NAME = "Uzbek (Latin script)";
+
+// ---------- Rasm yaratish (TOPIK uslubidagi chizmalar) ----------
+// Rasm modeli generateContent orqali chaqiriladi. Model nomi GEMINI_IMAGE_MODEL dan olinadi,
+// bo'lmasa kalitga ochiq modellar ro'yxatidan avtomatik tanlanadi (eng yangi "flash" rasm modeli).
+
+const API_ROOT = "https://generativelanguage.googleapis.com/v1beta";
+const IMAGE_FALLBACK_MODEL = "gemini-2.5-flash-image";
+let imageModel: string | null = null;
+
+type ModelInfo = { name?: string; supportedGenerationMethods?: string[] };
+
+/** Ro'yxatdan eng mos rasm modelini tanlash: flash > pro, yangi versiya, preview emas */
+export function pickImageModel(models: ModelInfo[]): string | null {
+  const names = models
+    .filter((m) => m.name && /image/i.test(m.name) && !/imagen/i.test(m.name) && (m.supportedGenerationMethods ?? ["generateContent"]).includes("generateContent"))
+    .map((m) => String(m.name).replace(/^models\//, ""));
+  if (!names.length) return null;
+  const rank = (n: string) => {
+    const v = Number(n.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? 0);
+    return [/flash/.test(n) ? 1 : 0, v, /preview|exp/.test(n) ? 0 : 1] as const;
+  };
+  return names.sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    return rb[0] - ra[0] || rb[1] - ra[1] || rb[2] - ra[2];
+  })[0];
+}
+
+/** Kalitga ochiq rasm modellari (diagnostika uchun ham). Xato bo'lsa — xato matni */
+export async function listImageModels(key = process.env.GEMINI_API_KEY ?? ""): Promise<{ models: string[]; best: string | null; error?: string }> {
+  try {
+    const res = await fetch(`${API_ROOT}/models?pageSize=1000`, { headers: { "x-goog-api-key": key } });
+    const j = (await res.json().catch(() => ({}))) as { models?: ModelInfo[]; error?: { message?: string } };
+    if (!res.ok) return { models: [], best: null, error: j?.error?.message || `HTTP ${res.status}` };
+    const all = j.models ?? [];
+    const models = all
+      .filter((m) => m.name && /image/i.test(m.name))
+      .map((m) => String(m.name).replace(/^models\//, ""));
+    return { models, best: pickImageModel(all) };
+  } catch (e) {
+    return { models: [], best: null, error: (e as Error).message };
+  }
+}
+
+async function imageModelName(key: string): Promise<string> {
+  if (process.env.GEMINI_IMAGE_MODEL) return process.env.GEMINI_IMAGE_MODEL;
+  if (imageModel) return imageModel;
+  imageModel = (await listImageModels(key)).best || IMAGE_FALLBACK_MODEL;
+  return imageModel;
+}
+
+/** Hozir ishlatiladigan rasm modeli va u qayerdan olingani */
+export async function imageModelStatus(): Promise<{ model: string | null; source: "env" | "auto" | "none"; models: string[]; error?: string }> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return { model: null, source: "none", models: [] };
+  const list = await listImageModels(key);
+  if (process.env.GEMINI_IMAGE_MODEL) return { model: process.env.GEMINI_IMAGE_MODEL, source: "env", models: list.models, error: list.error };
+  return { model: list.best || IMAGE_FALLBACK_MODEL, source: "auto", models: list.models, error: list.error };
+}
+
+/** Faqat testlar uchun: tanlangan modelni unutish */
+export function resetImageModel() {
+  imageModel = null;
+}
+
+type Part = { text?: string; inlineData?: { mimeType?: string; data?: string }; inline_data?: { mime_type?: string; data?: string } };
+
+/** Gemini rasm modeli: matnli tavsifdan (va ixtiyoriy namuna rasmlardan) rasm (PNG/JPEG) yaratadi */
+export async function generateImage(
+  prompt: string,
+  opts: { aspectRatio?: string; timeoutMs?: number; images?: { data: string; mime: string }[] } = {}
+): Promise<{ data: Buffer; mime: string }> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new AiError("GEMINI_API_KEY sozlanmagan", 503);
+  const model = await imageModelName(key);
+  const send = async (withConfig: boolean) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 55000);
+    try {
+      return await fetch(`${API_ROOT}/models/${model}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }, ...(opts.images ?? []).map((im) => ({ inline_data: { mime_type: im.mime, data: im.data } }))] }],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
+            ...(withConfig ? { imageConfig: { aspectRatio: opts.aspectRatio ?? "4:3" } } : {}),
+          },
+        }),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      if ((e as Error).name === "AbortError") throw new AiError("Rasm yaratish kechikdi", 504);
+      throw new AiError("Gemini bilan bog'lanib bo'lmadi", 502);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  let res = await send(true);
+  // Eski modellar imageConfig ni qabul qilmasa — sozlamasiz qayta urinamiz
+  if (res.status === 400) res = await send(false);
+  const j = (await res.json().catch(() => ({}))) as { candidates?: { content?: { parts?: Part[] } }[]; error?: { message?: string } };
+  if (!res.ok) {
+    if (res.status === 404) imageModel = null; // model o'chirilgan bo'lsa — keyingi safar qayta tanlanadi
+    throw new AiError(j?.error?.message || `Gemini rasm xatosi (${res.status})`, res.status === 429 ? 429 : 502);
+  }
+  for (const part of j.candidates?.[0]?.content?.parts ?? []) {
+    const data = part.inlineData?.data ?? part.inline_data?.data;
+    if (data) return { data: Buffer.from(data, "base64"), mime: part.inlineData?.mimeType ?? part.inline_data?.mime_type ?? "image/png" };
+  }
+  throw new AiError("Rasm yaratilmadi", 502);
+}

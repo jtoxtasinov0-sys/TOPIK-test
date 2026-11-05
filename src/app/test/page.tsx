@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
+import { Visual } from "@/components/Visual";
+import type { VisualId } from "@/data/visuals";
+import { TRIAL_DAYS } from "@/lib/access";
 
 export default function TestHub() {
-  const cards = [
+  const cards: { href: string; v: VisualId; title: string; lv: string; g: string; rows: string[][]; pass: string }[] = [
     {
       href: "/test/topik1",
+      v: "exam:topik1",
       title: "TOPIK I",
       lv: "1급 · 2급",
       g: "var(--grad-mint)",
@@ -18,6 +22,7 @@ export default function TestHub() {
     },
     {
       href: "/test/topik2",
+      v: "exam:topik2",
       title: "TOPIK II",
       lv: "3급 – 6급",
       g: "var(--grad)",
@@ -27,6 +32,18 @@ export default function TestHub() {
         ["📖 읽기", "50", "70"],
       ],
       pass: "120+ → 3급 · 150+ → 4급 · 190+ → 5급 · 230+ → 6급",
+    },
+    {
+      href: "/test/eps",
+      v: "exam:eps",
+      title: "EPS-TOPIK",
+      lv: "Ishchilar · E-9",
+      g: "var(--grad-sun)",
+      rows: [
+        ["📖 읽기", "20", "25"],
+        ["🎧 듣기", "20", "25"],
+      ],
+      pass: "100 ball · ishlab chiqarish 60+ · boshqa sohalar 45+",
     },
   ];
   return (
@@ -41,10 +58,28 @@ export default function TestHub() {
           Imtihon rejimida — haqiqiy vaqt va qoidalar bilan. Mashq rejimida — har bir savoldan keyin AI o‘zbek tilida tushuntiradi.
         </p>
       </div>
-      <div className="grid-2">
+      <div className="grid-2" style={{ marginBottom: 20 }}>
+        <div className="callout info">
+          <span>🆓</span>
+          <span>
+            {`TOPIK I, TOPIK II va EPS-TOPIK asosiy variantlari — bepul, kirmasdan ham ishlaydi. AI tushuntirish, yozma ishni AI baholash va yangi AI variantlar — Gmail orqali kirib, ${TRIAL_DAYS} kun bepul.`}
+          </span>
+        </div>
+        <div className="callout">
+          <span>ℹ️</span>
+          <span>
+            Bu — mashq (mock) testi, rasmiy TOPIK imtihoni emas. Rasmiy imtihonni NIIED o‘tkazadi; bu sayt unga ro‘yxatdan o‘tkazmaydi. Natijalar taxminiy.
+          </span>
+        </div>
+      </div>
+
+      <div className="grid-3">
         {cards.map((c) => (
           <Link key={c.href} href={c.href} className="card hover" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ background: c.g, color: "#fff", padding: "28px 24px" }}>
+            <div style={{ background: c.g, color: "#fff", padding: "28px 24px", position: "relative" }}>
+              <span style={{ position: "absolute", top: 18, right: 18 }}>
+                <Visual id={c.v} size={64} shape="tile" />
+              </span>
               <span className="badge white">{c.lv}</span>
               <div className="display" style={{ fontSize: "2.2rem", fontWeight: 700, marginTop: 10 }}>{c.title}</div>
               <div className="small" style={{ opacity: 0.9 }}>{c.pass}</div>

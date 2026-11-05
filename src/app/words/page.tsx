@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { SpeakBtn } from "@/components/ui";
+import { VisualOr } from "@/components/Visual";
 import { DECKS, type Deck } from "@/data/words";
 import { playKorean } from "@/lib/audio";
 import { KEYS, touchStreak, useStored } from "@/lib/store";
@@ -35,7 +36,7 @@ export default function WordsPage() {
       <div className="section-head">
         <span className="eyebrow">🃏 So‘z kartochkalari</span>
         <h1 className="h1">
-          So‘zlarni 
+          So‘zlarni{" "}
           <span className="gradient-text">yodda saqlang</span>
         </h1>
         <p className="lead">
@@ -57,7 +58,9 @@ export default function WordsPage() {
                 setFlip(false);
               }}
             >
-              <span className="em">{d.emoji}</span>
+              <span className="em">
+                <VisualOr id={`deck:${d.id}`} emoji={d.emoji} size={56} />
+              </span>
               <b className="small">{d.title}</b>
               <span className="tiny" style={{ opacity: 0.8 }}>
                 {d.level} · {n}/{d.words.length}

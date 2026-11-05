@@ -19,7 +19,7 @@ export default function LearnHub() {
       <div className="section-head">
         <span className="eyebrow">🌱 0 dan boshlash</span>
         <h1 className="h1">
-          Koreys tili — 
+          Koreys tili —{" "}
           <span className="gradient-text">qadam-baqadam</span>
         </h1>
         <p className="lead">

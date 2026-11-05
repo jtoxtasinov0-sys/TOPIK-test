@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
+import { VisualOr } from "@/components/Visual";
 import { SCENARIOS, type Scenario } from "@/data/scenarios";
 import { pickRecorderMime, playKorean, stopAudio } from "@/lib/audio";
 import { touchStreak } from "@/lib/store";
@@ -158,7 +159,7 @@ export default function SpeakPage() {
         <div className="section-head">
           <span className="eyebrow">🗣️ 말하기 · Gemini 3.5 Transcribe</span>
           <h1 className="h1">
-            AI bilan 
+            AI bilan{" "}
             <span className="gradient-text">gaplashing</span>
           </h1>
           <p className="lead">
@@ -186,7 +187,9 @@ export default function SpeakPage() {
         <div className="grid-4">
           {SCENARIOS.map((s) => (
             <button key={s.id} className={`scenario ${scenario.id === s.id ? "on" : ""}`} onClick={() => setScenario(s)}>
-              <span className="em">{s.emoji}</span>
+              <span className="em">
+                <VisualOr id={`scenario:${s.id}`} emoji={s.emoji} size={56} />
+              </span>
               <b>{s.title}</b>
               <span className="kr small" style={{ opacity: 0.75 }}>{s.ko}</span>
             </button>
@@ -234,7 +237,7 @@ export default function SpeakPage() {
   return (
     <main className="container" style={{ maxWidth: 820, paddingTop: 16 }}>
       <div className="card row" style={{ padding: 14, marginBottom: 16, position: "sticky", top: 74, zIndex: 20 }}>
-        <span className="icon-tile" style={{ width: 44, height: 44 }}>{scenario.emoji}</span>
+        <VisualOr id={`scenario:${scenario.id}`} emoji={scenario.emoji} size={44} />
         <div className="grow">
           <b>{scenario.title}</b>
           <div className="kr tiny muted">{scenario.ko}</div>

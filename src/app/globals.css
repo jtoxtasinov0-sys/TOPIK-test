@@ -351,6 +351,8 @@ button.chip:hover { border-color: rgba(139, 61, 255, 0.45); }
   width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; font-size: 1.5rem;
   background: var(--surface); border: 1.5px solid var(--line-2); transition: all 0.25s; box-shadow: var(--shadow-1);
 }
+.action .ring.has-img { width: 68px; height: 68px; padding: 0; overflow: hidden; }
+.action:hover .ring.has-img { background: var(--surface); }
 .action:hover .ring { transform: translateY(-4px) scale(1.05); border-color: transparent; background: var(--grad-btn); color: #fff; box-shadow: var(--shadow-glow); }
 
 /* Feature sections */
@@ -459,6 +461,14 @@ button.chip:hover { border-color: rgba(139, 61, 255, 0.45); }
 .gen-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .gen-img.load img { opacity: 0; }
 .gen-img .gen-spin { position: absolute; right: 8px; bottom: 8px; width: 18px; height: 18px; }
+/* Gemini chizgan sayt ikonkalari (src/components/Visual.tsx) */
+.visual { position: relative; display: inline-grid; place-items: center; overflow: hidden; flex-shrink: 0; line-height: 1; vertical-align: middle; }
+.visual.round { border-radius: 50%; }
+.visual.tile { border-radius: 26%; }
+.visual img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.visual.load img { opacity: 0; }
+.visual.ok img { animation: fadeIn 0.35s ease; }
+.visual.ok { background: #f3eeff; }
 .option.chart { padding: 10px; flex-direction: column; }
 .option.chart .mark { align-self: flex-start; }
 

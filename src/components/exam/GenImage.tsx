@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import type { SignSpec } from "@/lib/exam";
 import { imageUrl } from "@/lib/images";
+import { useImgState } from "../Visual";
 
 /**
  * Gemini chizgan test rasmi. Rasm tayyor bo'lguncha (birinchi marta 5–15 soniya) va rasm yaratib bo'lmasa
  * (kalit yo'q, limit tugagan) emoji sahna ko'rsatiladi — test har doim ishlaydi.
  */
 export function GenImage({ prompt, fallback, big }: { prompt: string; fallback?: string; big?: boolean }) {
-  const [st, setSt] = useState<"load" | "ok" | "err">("load");
+  const src = imageUrl(prompt, { w: big ? 768 : 512 });
+  const { st, ref, onLoad, onError } = useImgState(src);
   return (
     <div className={`gen-img ${big ? "big" : ""} ${st}`}>
       {st !== "ok" && (
@@ -20,7 +21,7 @@ export function GenImage({ prompt, fallback, big }: { prompt: string; fallback?:
       )}
       {st !== "err" && (
         // eslint-disable-next-line @next/next/no-img-element -- rasm API'dan keladi, o'lchami oldindan noma'lum
-        <img src={imageUrl(prompt)} alt="" decoding="async" onLoad={() => setSt("ok")} onError={() => setSt("err")} />
+        <img ref={ref} src={src} alt="" decoding="async" onLoad={onLoad} onError={onError} />
       )}
     </div>
   );

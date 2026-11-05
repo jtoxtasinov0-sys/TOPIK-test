@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
+import { Visual } from "@/components/Visual";
+import type { VisualId } from "@/data/visuals";
 import { daysUntil, DEFAULT_PROFILE, KEYS, type Profile, useStored } from "@/lib/store";
 import { TRIAL_DAYS } from "@/lib/access";
 import type { HistoryItem } from "@/lib/exam";
@@ -100,15 +102,15 @@ export default function Home() {
   const days = daysUntil(profile.examDate);
   const last = history.find((h) => h.total > 0);
 
-  const actions = [
-    { href: "/test", e: "📝", t: "Mock test" },
-    { href: "/writing", e: "✍️", t: "Yozish" },
-    { href: "/speak", e: "🗣️", t: "Gaplashish" },
-    { href: "/speak/ustoz", e: "🎙️", t: "Ovozli ustoz" },
-    { href: "/learn/hangul", e: "한", t: "Hangul" },
-    { href: "/words", e: "🃏", t: "So‘zlar" },
-    { href: "/tutor", e: "🤖", t: "AI Ustoz" },
-    { href: "/guide", e: "🇰🇷", t: "Koreya" },
+  const actions: { href: string; v: VisualId; t: string }[] = [
+    { href: "/test", v: "home:test", t: "Mock test" },
+    { href: "/writing", v: "home:writing", t: "Yozish" },
+    { href: "/speak", v: "home:speak", t: "Gaplashish" },
+    { href: "/speak/ustoz", v: "home:ustoz", t: "Ovozli ustoz" },
+    { href: "/learn/hangul", v: "home:hangul", t: "Hangul" },
+    { href: "/words", v: "home:words", t: "So‘zlar" },
+    { href: "/tutor", v: "home:tutor", t: "AI Ustoz" },
+    { href: "/guide", v: "home:guide", t: "Koreya" },
   ];
 
   return (
@@ -227,7 +229,9 @@ export default function Home() {
           <div className="actions">
             {actions.map((a) => (
               <Link key={a.href} href={a.href} className="action">
-                <span className="ring kr" style={{ fontWeight: 800 }}>{a.e}</span>
+                <span className="ring has-img">
+                  <Visual id={a.v} size={66} />
+                </span>
                 {a.t}
               </Link>
             ))}
@@ -241,9 +245,9 @@ export default function Home() {
           <div className="section-head">
             <span className="eyebrow">📝 Mock test</span>
             <h2 className="h2">
-              Xuddi haqiqiy 
+              Xuddi haqiqiy{" "}
               <span className="gradient-text">TOPIK</span>
-               kabi
+               {" "}kabi
             </h2>
             <p className="lead">Savollar tartibi, yo‘riqnomalar, vaqt va ball tizimi — rasmiy formatda.</p>
           </div>
@@ -294,7 +298,7 @@ export default function Home() {
           <div className="stack" style={{ gap: 16 }}>
             <span className="eyebrow">✍️ 쓰기 · Writing</span>
             <h2 className="h2">
-              Daftarga yozing — 
+              Daftarga yozing —{" "}
               <span className="gradient-text">AI tekshiradi</span>
             </h2>
             <p className="lead">
@@ -347,7 +351,7 @@ export default function Home() {
           <div className="stack" style={{ gap: 16 }}>
             <span className="eyebrow">🗣️ 말하기 · Gemini</span>
             <h2 className="h2">
-              AI bilan 
+              AI bilan{" "}
               <span className="gradient-text">jonli gaplashing</span>
             </h2>
             <p className="lead">
@@ -393,12 +397,12 @@ export default function Home() {
           </div>
           <div className="grid-3">
             {[
-              { e: "🌱", c: "mint", t: "Noldan boshlovchilar", d: "Hangul alifbosi, bo‘g‘in yasash, 12 ta hayotiy dars va ovozli talaffuz.", href: "/learn" },
-              { e: "🎓", c: "", t: "TOPIK’ka tayyorlanuvchilar", d: "To‘liq mock testlar, AI variantlar, yozma ish tekshiruvi va xatolar tahlili.", href: "/test" },
-              { e: "🇰🇷", c: "pink", t: "Koreyada yashayotganlar", d: "Kasalxona, bank, ish, uy ijarasi iboralari, favqulodda raqamlar va foydali ilovalar.", href: "/guide" },
+              { v: "who:beginner" as const, t: "Noldan boshlovchilar", d: "Hangul alifbosi, bo‘g‘in yasash, 12 ta hayotiy dars, 125 ta grammatika kartochkasi va ovozli talaffuz.", href: "/learn" },
+              { v: "who:topik" as const, t: "TOPIK va EPS-TOPIK’ka tayyorlanuvchilar", d: "To‘liq mock testlar, AI variantlar, yozma ish tekshiruvi va xatolar tahlili.", href: "/test" },
+              { v: "who:korea" as const, t: "Koreyada yashayotganlar", d: "Kasalxona, bank, ish, uy ijarasi iboralari, favqulodda raqamlar va foydali ilovalar.", href: "/guide" },
             ].map((x) => (
               <Link key={x.href} href={x.href} className="card hover stack" style={{ gap: 12 }}>
-                <span className={`icon-tile ${x.c}`}>{x.e}</span>
+                <Visual id={x.v} size={72} shape="tile" />
                 <h3 className="h3">{x.t}</h3>
                 <p className="muted" style={{ margin: 0 }}>{x.d}</p>
                 <span className="small" style={{ color: "var(--p1)", fontWeight: 800 }}>

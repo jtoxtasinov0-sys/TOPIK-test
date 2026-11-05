@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { SpeakBtn } from "@/components/ui";
+import { VisualOr } from "@/components/Visual";
 import { APPS, EMERGENCY, FIRST_STEPS } from "@/data/guide";
 import { LESSONS } from "@/data/lessons";
 
@@ -14,7 +15,7 @@ export default function GuidePage() {
       <div className="section-head">
         <span className="eyebrow">🇰🇷 Koreyada hayot</span>
         <h1 className="h1">
-          Koreyaga 
+          Koreyaga{" "}
           <span className="gradient-text">endi keldingizmi?</span>
         </h1>
         <p className="lead">
@@ -26,7 +27,7 @@ export default function GuidePage() {
       <div className="grid-3">
         {EMERGENCY.map((e) => (
           <a key={e.num} href={`tel:${e.num}`} className="card hover row" style={{ padding: 16 }}>
-            <span className="icon-tile night" style={{ fontSize: "1.4rem" }}>{e.emoji}</span>
+            <VisualOr id={`guide:${e.num}`} emoji={e.emoji} size={56} />
             <div className="grow">
               <div className="display" style={{ fontSize: "1.4rem", fontWeight: 700 }}>{e.num}</div>
               <b className="small">{e.title}</b>
@@ -40,8 +41,8 @@ export default function GuidePage() {
       <h2 className="h3" style={{ margin: "30px 0 12px" }}>🧭 Birinchi qadamlar</h2>
       <div className="grid-2">
         {FIRST_STEPS.map((s) => (
-          <div key={s.emoji} className="card row" style={{ alignItems: "flex-start" }}>
-            <span style={{ fontSize: "1.8rem" }}>{s.emoji}</span>
+          <div key={s.id} className="card row" style={{ alignItems: "flex-start" }}>
+            <VisualOr id={`step:${s.id}`} emoji={s.emoji} size={56} />
             <div>
               <b>{s.title}</b>
               <p className="small muted" style={{ margin: "4px 0 0" }}>{s.text}</p>

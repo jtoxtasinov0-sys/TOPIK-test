@@ -5,6 +5,7 @@ import { TOPIK1 } from "@/data/topik1";
 import { TOPIK2 } from "@/data/topik2";
 import { EPS } from "@/data/eps";
 import { imagePromptsOf, imageUrl } from "@/lib/images";
+import { visualPrompts } from "@/data/visuals";
 import { ApiError, useAiErrorText } from "@/components/ui";
 import { Avatar, useAuth } from "@/lib/auth";
 import type { Access } from "@/lib/access";
@@ -23,7 +24,15 @@ async function getJson<T>(url: string): Promise<T> {
 
 /** Tayyor variantlardagi barcha rasmlarni oldindan yaratib qo'yish (birinchi o'quvchi kutib qolmasin) */
 function ImageWarmup() {
-  const prompts = useMemo(() => imagePromptsOf([TOPIK1, TOPIK2, EPS]), []);
+  // Test rasmlari va sayt ikonkalari (ikonkalar 256 px, test rasmlari 512 px nusxasi bilan tayyorlanadi)
+  const urls = useMemo(
+    () => [
+      ...visualPrompts().map((p) => imageUrl(p, { style: "icon", w: 256 })),
+      ...imagePromptsOf([TOPIK1, TOPIK2, EPS]).map((p) => imageUrl(p, { w: 512 })),
+    ],
+    []
+  );
+  const icons = useMemo(() => visualPrompts().length, []);
   const [st, setSt] = useState({ done: 0, failed: 0, running: false, error: "" });
 
   const run = async () => {
@@ -33,10 +42,10 @@ function ImageWarmup() {
     let cursor = 0;
     setSt({ done, failed, running: true, error });
     const worker = async () => {
-      while (cursor < prompts.length) {
-        const p = prompts[cursor++];
+      while (cursor < urls.length) {
+        const url = urls[cursor++];
         try {
-          const r = await fetch(imageUrl(p));
+          const r = await fetch(url);
           if (!r.ok) {
             failed++;
             const j = await r.json().catch(() => ({}));
@@ -56,9 +65,9 @@ function ImageWarmup() {
 
   return (
     <div className="card" style={{ marginTop: 18 }}>
-      <h2 className="h3" style={{ marginBottom: 8 }}>🖼️ Test rasmlari</h2>
+      <h2 className="h3" style={{ marginBottom: 8 }}>🖼️ Rasmlar va ikonkalar</h2>
       <p className="small muted" style={{ margin: "0 0 12px" }}>
-        {`Tayyor variantlarda ${prompts.length} ta rasm bor. Gemini ularni bir marta chizadi va serverda saqlaydi (/app/data/images). Oldindan tayyorlab qo‘ysangiz, o‘quvchilar rasmni darhol ko‘radi.`}
+        {`Saytda ${icons} ta ikonka va tayyor testlarda ${urls.length - icons} ta rasm bor. Gemini ularni bir marta chizadi va serverda saqlaydi (/app/data/images). Oldindan tayyorlab qo‘ysangiz, o‘quvchilar rasmni darhol ko‘radi.`}
       </p>
       <div className="row-wrap" style={{ alignItems: "center" }}>
         <button className="btn btn-primary btn-sm" onClick={run} disabled={st.running}>
@@ -66,7 +75,7 @@ function ImageWarmup() {
         </button>
         {(st.running || st.done > 0) && (
           <span className="small">
-            {`${st.done} / ${prompts.length}`}
+            {`${st.done} / ${urls.length}`}
             {st.failed ? ` · xato: ${st.failed}` : ""}
           </span>
         )}

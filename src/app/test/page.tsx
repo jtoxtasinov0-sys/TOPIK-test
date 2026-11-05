@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
+import { Visual } from "@/components/Visual";
+import type { VisualId } from "@/data/visuals";
 import { TRIAL_DAYS } from "@/lib/access";
 
 export default function TestHub() {
-  const cards = [
+  const cards: { href: string; v: VisualId; title: string; lv: string; g: string; rows: string[][]; pass: string }[] = [
     {
       href: "/test/topik1",
+      v: "exam:topik1",
       title: "TOPIK I",
       lv: "1급 · 2급",
       g: "var(--grad-mint)",
@@ -19,6 +22,7 @@ export default function TestHub() {
     },
     {
       href: "/test/topik2",
+      v: "exam:topik2",
       title: "TOPIK II",
       lv: "3급 – 6급",
       g: "var(--grad)",
@@ -31,6 +35,7 @@ export default function TestHub() {
     },
     {
       href: "/test/eps",
+      v: "exam:eps",
       title: "EPS-TOPIK",
       lv: "Ishchilar · E-9",
       g: "var(--grad-sun)",
@@ -46,7 +51,7 @@ export default function TestHub() {
       <div className="section-head">
         <span className="eyebrow">📝 Mock test</span>
         <h1 className="h1">
-          Darajangizni 
+          Darajangizni{" "}
           <span className="gradient-text">aniqlang</span>
         </h1>
         <p className="lead">
@@ -71,7 +76,10 @@ export default function TestHub() {
       <div className="grid-3">
         {cards.map((c) => (
           <Link key={c.href} href={c.href} className="card hover" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ background: c.g, color: "#fff", padding: "28px 24px" }}>
+            <div style={{ background: c.g, color: "#fff", padding: "28px 24px", position: "relative" }}>
+              <span style={{ position: "absolute", top: 18, right: 18 }}>
+                <Visual id={c.v} size={64} shape="tile" />
+              </span>
               <span className="badge white">{c.lv}</span>
               <div className="display" style={{ fontSize: "2.2rem", fontWeight: 700, marginTop: 10 }}>{c.title}</div>
               <div className="small" style={{ opacity: 0.9 }}>{c.pass}</div>

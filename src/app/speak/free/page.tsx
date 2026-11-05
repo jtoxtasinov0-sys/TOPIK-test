@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { micToLevel, RecMeter } from "@/components/MicWave";
-import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
+import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { LEVELS, PARTNERS, STYLES, TOPICS, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
 import { outputLevel, playTalk, stopAudio, unlockAudio, type Segment } from "@/lib/audio";
@@ -31,12 +31,18 @@ type TalkRes = {
   fix?: Fix;
   hints?: Hint[];
 };
+/**
+ * /api/talk oqimi hodisalari: heard — o'quvchi gapi; reply — do'st javobi (ovoz darhol boshlanadi);
+ * done — to'liq natija (lotincha yozuv, tarjima, tuzatish, maslahatlar). t bo'lmasa — oddiy (oqimsiz) javob.
+ */
+type TalkEvent = Partial<TalkRes> & { t?: "heard" | "reply" | "done"; error?: string };
 
 type Setup = { partner: string; topic: string; level: TalkLevel; style: TalkStyle; rom: boolean; tr: boolean; handsFree: boolean };
 const DEFAULT_SETUP: Setup = { partner: "minjun", topic: "free", level: "beginner", style: "polite", rom: true, tr: true, handsFree: true };
 
-// Gapirib bo'lgach shuncha jim tursangiz — yuboriladi (boshlang'ichlar gap orasida ko'proq o'ylaydi)
-const SILENCE_MS: Record<TalkLevel, number> = { beginner: 1600, intermediate: 1300, advanced: 1050 };
+// Gapirib bo'lgach shuncha jim tursangiz — yuboriladi (boshlang'ichlar gap orasida ko'proq o'ylaydi).
+// Jonli suhbatdagidek: odam gapini tugatgach ~1 soniyada javob keladi
+const SILENCE_MS: Record<TalkLevel, number> = { beginner: 1300, intermediate: 1000, advanced: 800 };
 const NO_SPEECH_MS = 12000;
 const HANGUL = /[가-힣]/;
 const DIDNT_GET = "🤔 Tushunmadim";
@@ -137,44 +143,80 @@ export default function FreeTalkPage() {
   };
 
   const send = async (payload: { audio?: { data: string; mime: string }; text?: string; start?: boolean }) => {
-    const list = msgsRef.current;
     const c = cfg.current;
     const g = gen.current;
+    const history = historyOf(msgsRef.current);
+    const live = () => g === gen.current;
     busyRef.current = true;
     setBusy(true);
     setErr("");
     setHintsFor(null);
-    let reply: { index: number; msg: AiMsg } | null = null;
-    try {
-      const r = await postJson<TalkRes>("/api/talk", {
-        ...payload,
-        partner: c.partner,
-        topic: c.topic,
-        level: c.level,
-        style: c.style,
-        history: historyOf(list),
-      });
-      if (g !== gen.current) return;
-      if (r.empty) {
-        setErr("Ovoz eshitilmadi. Mikrofonga yaqinroq, aniqroq gapiring.");
+    const idle = () => {
+      if (!live()) return;
+      busyRef.current = false;
+      setBusy(false);
+    };
+
+    let meAt = -1;
+    let aiAt = -1;
+    let playback: Promise<boolean> | null = null;
+    const patchMsg = (i: number, p: Partial<AiMsg> | Partial<MeMsg>) => {
+      const m = msgsRef.current[i];
+      if (!m) return;
+      const next = msgsRef.current.slice();
+      next[i] = { ...m, ...p } as Msg;
+      commit(next);
+    };
+    // O'quvchi gapi — model eshitishi bilan (yozilgan bo'lsa — darhol) ko'rinadi
+    const addMe = (text: string) => {
+      if (payload.start || meAt >= 0 || !text) return;
+      const next: Msg[] = [...msgsRef.current, { role: "me", text }];
+      meAt = next.length - 1;
+      commit(next);
+      touchStreak();
+    };
+    const onEvent = (e: TalkEvent) => {
+      if (!live()) return;
+      if (e.t === "heard") return addMe(e.transcript ?? "");
+      if (e.empty) {
+        if (aiAt < 0) setErr("Ovoz eshitilmadi. Mikrofonga yaqinroq, aniqroq gapiring.");
         return;
       }
-      const ai: AiMsg = { role: "ai", help: r.help ?? [], teach: r.teach, ko: r.reply, rom: r.rom, uz: r.uz, hints: r.hints ?? [] };
-      const me: MeMsg[] = payload.start ? [] : [{ role: "me", text: r.transcript, fix: r.fix }];
-      const next: Msg[] = [...list, ...me, ai];
-      commit(next);
-      if (!payload.start) touchStreak();
-      reply = { index: next.length - 1, msg: ai };
-    } catch (e) {
-      if (g === gen.current) setErr(errText(e));
-    } finally {
-      if (g === gen.current) {
-        busyRef.current = false;
-        setBusy(false);
+      if (e.error) {
+        if (aiAt < 0) setErr(errText(new ApiError(e.error, 502)));
+        return;
       }
+      addMe(e.transcript ?? "");
+      if (aiAt < 0) {
+        // Javob keldi — tarjima va maslahatlarni kutmasdan ko'rsatamiz va ovozni boshlaymiz
+        const ai: AiMsg = { role: "ai", help: e.help ?? [], teach: e.teach, ko: e.reply ?? "", rom: e.rom, uz: e.uz, hints: e.hints ?? [] };
+        const next: Msg[] = [...msgsRef.current, ai];
+        aiAt = next.length - 1;
+        commit(next);
+        idle();
+        if (alive.current && session.current) playback = speak(aiAt, ai);
+      }
+      if (e.t === "reply") return;
+      // To'liq natija: lotincha yozuv, tarjima, maslahatlar va o'quvchi gapidagi tuzatish
+      patchMsg(aiAt, { rom: e.rom, uz: e.uz, hints: e.hints ?? [], ...(e.teach ? { teach: e.teach } : {}) });
+      if (meAt >= 0 && e.fix) patchMsg(meAt, { fix: e.fix });
+    };
+
+    if (payload.text) addMe(payload.text);
+    try {
+      await postNdjson<TalkEvent>(
+        "/api/talk",
+        { ...payload, stream: true, partner: c.partner, topic: c.topic, level: c.level, style: c.style, history },
+        onEvent
+      );
+    } catch (e) {
+      // Javob allaqachon ko'rsatilgan bo'lsa — qolgan qismi (tarjima) kelmay qolgani muhim emas
+      if (live() && aiAt < 0) setErr(errText(e));
+    } finally {
+      idle();
     }
-    if (!reply || !alive.current || g !== gen.current || !session.current) return;
-    if (await speak(reply.index, reply.msg)) listenAgain();
+    if (!playback) return;
+    if ((await playback) && alive.current && live() && session.current) listenAgain();
   };
 
   const startRec = async () => {

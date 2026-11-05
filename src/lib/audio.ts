@@ -432,13 +432,23 @@ export function playTutor(segs: Segment[], opts: PlayHooks = {}) {
   );
 }
 
+/**
+ * Koreyscha javob qisqa (40-60 belgi) bo'lsa ham birinchi gapni ajratamiz: u tezroq tayyorlanib darhol o'ynaydi,
+ * qolgani shu vaqtda parallel tayyorlanadi. Juda qisqa bo'laklar (<4 belgi, masalan «네!») ajratilmaydi.
+ */
+export function splitTalk(text: string): string[] {
+  const t = text.trim();
+  const m = /^(.{4,}?[.!?…]+["”']?)\s+(\S[\s\S]{5,})$/.exec(t);
+  return m ? [m[1].trim(), m[2].trim()] : t ? [t] : [];
+}
+
 /** Erkin suhbat uchun o'qiladigan bo'laklar: avval o'zbekcha yordam (ustoz uslubida), keyin koreyscha javob — bitta suhbatdosh ovozi */
 export function talkChunks(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }): SpeechChunk[] {
   const help = (t.help ?? []).map((s) => s.text).join(" ").trim();
   const reply = t.reply.trim();
   return [
     ...(help ? [{ text: help, opts: { tutor: true, voice: t.voice } }] : []),
-    ...(reply ? splitForSpeech(reply).map((p) => ({ text: p, opts: { talk: true, voice: t.voice, slow: !!t.slow } })) : []),
+    ...splitTalk(reply).map((p) => ({ text: p, opts: { talk: true, voice: t.voice, slow: !!t.slow } })),
   ];
 }
 

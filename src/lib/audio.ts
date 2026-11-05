@@ -78,9 +78,133 @@ export function prefetchAudio(text: string, opts: TtsOpts = {}) {
   void fetchServerAudio(text, opts);
 }
 
+// Har bir to'xtatishda oshadi — bo'laklab o'qiyotgan playTutor davom etmasligi uchun
+let playToken = 0;
+
 export function stopAudio() {
+  playToken++;
   current?.stop();
   current = null;
+  levelSource = null;
+}
+
+// ---------- Bitta umumiy <audio> elementi ----------
+// iPhone (Safari) foydalanuvchi bosmagan paytda yangi Audio() ni o'ynatmaydi. Bitta elementni
+// birinchi bosishda "ochib" qo'ysak, keyingi javoblar ham ovoz bilan o'ynaydi.
+let shared: HTMLAudioElement | null = null;
+let unlocked = false;
+
+function audioEl() {
+  if (!shared) {
+    shared = new Audio();
+    shared.preload = "auto";
+    shared.setAttribute("playsinline", "");
+  }
+  return shared;
+}
+
+function silentWavUrl() {
+  const n = 800;
+  const b = new ArrayBuffer(44 + n);
+  const v = new DataView(b);
+  const s = (o: number, t: string) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  s(0, "RIFF");
+  v.setUint32(4, 36 + n, true);
+  s(8, "WAVEfmt ");
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true);
+  v.setUint32(28, 16000, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  s(36, "data");
+  v.setUint32(40, n, true);
+  return URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
+}
+
+/** Foydalanuvchi bosgan paytda (tugma handler'ida) chaqiring — keyingi avtomatik ovozlar iPhone'da ham ishlaydi */
+export function unlockAudio() {
+  if (unlocked || typeof window === "undefined") return;
+  const a = audioEl();
+  if (!a.paused) return;
+  a.src = silentWavUrl();
+  a.play()
+    .then(() => {
+      unlocked = true;
+    })
+    .catch(() => {});
+}
+
+// ---------- Ovoz balandligi (animatsiya uchun) ----------
+let levelSource: (() => number) | null = null;
+
+/** Hozir o'ynayotgan ovozning balandligi 0..1 (ovozli ustoz shari shunga qarab harakatlanadi) */
+export function outputLevel() {
+  try {
+    return levelSource?.() ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+const envelopes = new Map<string, Float32Array | null>();
+const ENV_FPS = 60;
+
+/** WAV (PCM 16-bit) faylidan har 1/60 soniya uchun ovoz balandligini hisoblaydi */
+export function wavEnvelope(buf: ArrayBuffer, fps = ENV_FPS): Float32Array | null {
+  const v = new DataView(buf);
+  if (v.byteLength < 44 || v.getUint32(0, false) !== 0x52494646) return null; // "RIFF"
+  let off = 12;
+  let rate = 24000;
+  let bits = 16;
+  let ch = 1;
+  while (off + 8 <= v.byteLength) {
+    const id = v.getUint32(off, false);
+    const size = v.getUint32(off + 4, true);
+    if (id === 0x666d7420) {
+      // "fmt "
+      ch = v.getUint16(off + 10, true) || 1;
+      rate = v.getUint32(off + 12, true) || 24000;
+      bits = v.getUint16(off + 22, true);
+    } else if (id === 0x64617461) {
+      // "data"
+      if (bits !== 16) return null;
+      const start = off + 8;
+      const n = Math.floor(Math.min(size, v.byteLength - start) / 2 / ch);
+      const win = Math.max(1, Math.floor(rate / fps));
+      const out = new Float32Array(Math.ceil(n / win));
+      for (let f = 0; f < out.length; f++) {
+        let sum = 0;
+        const a = f * win;
+        const b = Math.min(n, a + win);
+        for (let i = a; i < b; i++) {
+          const x = v.getInt16(start + i * 2 * ch, true) / 32768;
+          sum += x * x;
+        }
+        out[f] = Math.min(1, Math.sqrt(sum / Math.max(1, b - a)) * 4);
+      }
+      return out;
+    }
+    off += 8 + size + (size & 1);
+  }
+  return null;
+}
+
+async function envelopeFor(url: string) {
+  if (envelopes.has(url)) return envelopes.get(url) ?? null;
+  let env: Float32Array | null = null;
+  try {
+    env = wavEnvelope(await (await fetch(url)).arrayBuffer());
+  } catch {}
+  envelopes.set(url, env);
+  return env;
+}
+
+/** Brauzer ovozi uchun: haqiqiy balandlik yo'q — tabiiy ko'rinadigan "gapirish" to'lqini */
+function syntheticLevel() {
+  const t = performance.now();
+  return 0.3 + 0.25 * Math.abs(Math.sin(t / 110)) * (0.6 + 0.4 * Math.sin(t / 370));
 }
 
 function pickKoreanVoice(): SpeechSynthesisVoice | undefined {
@@ -155,22 +279,31 @@ export async function playKorean(
 
 function playUrl(url: string, onStart?: () => void): Promise<void> {
   return new Promise<void>((resolve) => {
-    const a = new Audio(url);
+    const a = audioEl();
     let done = false;
+    let env: Float32Array | null = envelopes.get(url) ?? null;
+    if (!envelopes.has(url)) void envelopeFor(url).then((e) => (env = e));
     const finish = () => {
       if (done) return;
       done = true;
+      a.onended = a.onerror = a.onplay = null;
+      if (current === ctl) current = null;
+      if (levelSource === level) levelSource = null;
       resolve();
     };
-    current = {
+    const level = () => (env ? env[Math.floor(a.currentTime * ENV_FPS)] ?? 0 : a.paused ? 0 : syntheticLevel());
+    const ctl = {
       stop: () => {
         a.pause();
         finish();
       },
     };
+    current = ctl;
+    levelSource = level;
     a.onended = finish;
     a.onerror = finish;
     a.onplay = () => onStart?.();
+    a.src = url;
     a.play().catch(finish);
   });
 }
@@ -188,18 +321,24 @@ function browserSpeakSegments(segs: Segment[], onStart?: () => void): Promise<vo
     const uz = pickUzbekVoice();
     let i = 0;
     let stopped = false;
+    const done = () => {
+      levelSource = null;
+      resolve();
+    };
     current = {
       stop: () => {
         stopped = true;
         synth.cancel();
-        resolve();
+        done();
       },
     };
+    levelSource = syntheticLevel;
     const next = () => {
       if (stopped) return;
-      if (i >= segs.length) return resolve();
+      if (i >= segs.length) return done();
       const s = segs[i++];
       const u = new SpeechSynthesisUtterance(s.text);
+      u.pitch = 0.8; // erkak ovoziga yaqinroq
       if (s.lang === "ko") {
         u.lang = "ko-KR";
         if (ko) u.voice = ko;
@@ -218,16 +357,46 @@ function browserSpeakSegments(segs: Segment[], onStart?: () => void): Promise<vo
   });
 }
 
-/** Ustoz javobini ovoz chiqarib o'qiydi: avval Gemini (bitta tabiiy ovoz), bo'lmasa brauzer ovozi */
+/** Ustoz ovozi: Gemini "Puck" (yigit ovozi) */
+const TUTOR_TTS: TtsOpts = { tutor: true, voice: "m" };
+
+/**
+ * Tezroq boshlash uchun javobni ikki bo'lakka ajratadi: birinchi gap tez tayyorlanib o'ynaydi,
+ * qolgani shu vaqtda parallel tayyorlanadi.
+ */
+export function splitForSpeech(text: string): string[] {
+  const t = text.trim();
+  if (t.length < 90) return [t];
+  const re = /[.!?…]+["”']?\s+/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(t))) {
+    const cut = m.index + m[0].length;
+    if (cut >= 30 && t.length - cut >= 25) return [t.slice(0, cut).trim(), t.slice(cut).trim()];
+    if (cut > 160) break;
+  }
+  return [t];
+}
+
+/** Ustoz javobini ovoz chiqarib o'qiydi: avval Gemini (bitta tabiiy yigit ovozi), bo'lmasa brauzer ovozi */
 export async function playTutor(segs: Segment[], opts: { onLoading?: (b: boolean) => void; onStart?: () => void } = {}) {
   stopAudio();
+  const token = playToken;
   const text = segs.map((s) => s.text).join(" ").trim();
   if (!text) return;
+  const parts = splitForSpeech(text);
+  const jobs = parts.map((p) => fetchServerAudio(p, TUTOR_TTS)); // hammasi parallel so'raladi
   opts.onLoading?.(true);
-  const url = await fetchServerAudio(text, { tutor: true });
+  const first = await jobs[0];
   opts.onLoading?.(false);
-  if (url) return playUrl(url, opts.onStart);
-  return browserSpeakSegments(segs, opts.onStart);
+  if (token !== playToken) return;
+  if (!first) return browserSpeakSegments(segs, opts.onStart);
+  await playUrl(first, opts.onStart);
+  for (let k = 1; k < jobs.length; k++) {
+    if (token !== playToken) return;
+    const url = await jobs[k];
+    if (!url || token !== playToken) return;
+    await playUrl(url);
+  }
 }
 
 /** Mikrofon yozuvi uchun brauzer qo'llaydigan audio turi */

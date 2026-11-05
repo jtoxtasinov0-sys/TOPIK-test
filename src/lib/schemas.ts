@@ -112,6 +112,10 @@ export const writingResultSchema = {
 export const voiceSchema = {
   type: "object",
   properties: {
+    heard: {
+      type: "string",
+      description: "Exactly what the student said in the attached audio, in the original language and script (empty if no clear speech)",
+    },
     segments: {
       type: "array",
       description: "What the teacher says, in order, split by language",
@@ -127,7 +131,7 @@ export const voiceSchema = {
       properties: { ko: str, rom: str, uz: str },
     },
   },
-  required: ["segments"],
+  required: ["heard", "segments"],
 };
 
 export const speakSchema = {

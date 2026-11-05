@@ -87,24 +87,38 @@ function parseJson<T>(text: string): T {
   }
 }
 
+type Thinking = "minimal" | "low" | "medium" | "high";
+// "minimal" (eng tez) darajani model qo'llamasa — bir marta "low" ga o'tamiz va keyin shu bilan davom etamiz
+let minimalUnsupported = false;
+
 /** Tuzilgan (JSON) javob */
 export async function generateJson<T>(opts: {
   system: string;
   input: string | ContentPart[];
   schema: Record<string, unknown>;
-  thinking?: "low" | "medium" | "high";
+  thinking?: Thinking;
   timeoutMs?: number;
 }): Promise<T> {
-  const r = await call(
-    {
-      model: MODELS.text,
-      system_instruction: opts.system,
-      input: opts.input,
-      response_format: { type: "text", mime_type: "application/json", schema: opts.schema },
-      ...(opts.thinking ? { generation_config: { thinking_level: opts.thinking } } : {}),
-    },
-    opts.timeoutMs
-  );
+  const thinking = opts.thinking === "minimal" && minimalUnsupported ? "low" : opts.thinking;
+  const run = (level?: Thinking) =>
+    call(
+      {
+        model: MODELS.text,
+        system_instruction: opts.system,
+        input: opts.input,
+        response_format: { type: "text", mime_type: "application/json", schema: opts.schema },
+        ...(level ? { generation_config: { thinking_level: level } } : {}),
+      },
+      opts.timeoutMs
+    );
+  let r: InteractionResponse;
+  try {
+    r = await run(thinking);
+  } catch (e) {
+    if (thinking !== "minimal" || !(e instanceof AiError) || [429, 503, 504].includes(e.status)) throw e;
+    minimalUnsupported = true;
+    r = await run("low");
+  }
   return parseJson<T>(outputText(r));
 }
 

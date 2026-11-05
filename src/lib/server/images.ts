@@ -71,7 +71,7 @@ async function cachedOriginal(key: string): Promise<StoredImage | null> {
 }
 
 /** Kichraytirilgan nusxa: keshda bo'lmasa — asl rasmdan yasaladi (PNG bo'lmasa asl rasm qaytadi) */
-async function variant(key: string, original: StoredImage, w?: number): Promise<StoredImage> {
+async function variant(key: string, original: StoredImage, w?: number, style: ImageStyle = "test"): Promise<StoredImage> {
   if (!w) return original;
   const name = `${key}-w${w}`;
   const hit = small.get(name);
@@ -82,8 +82,10 @@ async function variant(key: string, original: StoredImage, w?: number): Promise<
     return disk;
   }
   if (original.mime !== "image/png") return original;
-  const png = shrinkPng(original.data, w);
-  if (!png || png.length >= original.data.length) return original;
+  // Ilova ikonkasi aniq kvadrat va aniq o'lchamda bo'lishi shart (manifestdagi sizes bilan bir xil)
+  const exact = style === "app";
+  const png = shrinkPng(original.data, w, { square: exact });
+  if (!png || (!exact && png.length >= original.data.length)) return original;
   const img = { data: png, mime: "image/png" };
   remember(small, name, img, 400);
   await toDisk(name, img);
@@ -102,7 +104,7 @@ export async function cachedImage(prompt: string, style: ImageStyle = "test", w?
     }
   }
   const original = await cachedOriginal(key);
-  return original ? variant(key, original, w) : null;
+  return original ? variant(key, original, w, style) : null;
 }
 
 /** Keshda bo'lmasa — Gemini chizadi. Bir vaqtda kelgan bir xil so'rovlar bitta yaratishni kutadi */
@@ -119,7 +121,7 @@ export async function createImage(prompt: string, style: ImageStyle = "test", w?
     })().finally(() => jobs.delete(key));
     jobs.set(key, job);
   }
-  return variant(key, await job, w);
+  return variant(key, await job, w, style);
 }
 
 /** Faqat testlar uchun */

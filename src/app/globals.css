@@ -461,6 +461,11 @@ button.chip:hover { border-color: rgba(139, 61, 255, 0.45); }
 .gen-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .gen-img.load img { opacity: 0; }
 .gen-img .gen-spin { position: absolute; right: 8px; bottom: 8px; width: 18px; height: 18px; }
+/* PWA: «Ilovani o'rnatish» kartasi */
+.install-card { display: flex; gap: 14px; align-items: flex-start; background: linear-gradient(160deg, #f6f1ff, #eef4ff); border-color: #e3d8ff; }
+.install-icon { width: 64px; height: 64px; border-radius: 16px; flex-shrink: 0; box-shadow: 0 10px 24px -10px rgba(106, 17, 255, 0.6); object-fit: cover; }
+.install-steps { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 3px; }
+
 /* Gemini chizgan sayt ikonkalari (src/components/Visual.tsx) */
 .visual { position: relative; display: inline-grid; place-items: center; overflow: hidden; flex-shrink: 0; line-height: 1; vertical-align: middle; }
 .visual.round { border-radius: 50%; }

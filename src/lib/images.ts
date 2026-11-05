@@ -3,7 +3,7 @@
 
 import type { Test } from "./exam";
 
-export type ImageStyle = "test" | "icon";
+export type ImageStyle = "test" | "icon" | "app";
 
 /** Test savollari uchun uslub (rasmiy TOPIK kitobchasidagi kabi oq-qora chizma) */
 export const IMAGE_STYLE =
@@ -18,10 +18,25 @@ export const ICON_STYLE =
   "plain very light lavender background filling the whole square, no border, no frame. " +
   "Do not draw any text, letters, numbers, flags or logos.";
 
+/** Ilova (PWA) ikonkasi uchun uslub: telefon ekranida turadi, burchaklarini telefonning o'zi yumaloqlaydi */
+export const APP_ICON_STYLE =
+  "Premium mobile app icon artwork for a Korean language learning app. Square, full-bleed: the background fills the whole square edge to edge, " +
+  "no rounded corners, no border, no white margin (the phone rounds the corners itself). Keep the main subject centred and inside the central 70% of the square. " +
+  "Rich glossy 3D style with soft studio lighting, subtle depth and a gentle glow, vivid violet (#6a11ff) to sky-blue (#3a86ff) diagonal gradient background. " +
+  "It must look striking and unusual, yet stay simple and readable at small sizes. Do not draw any text, letters, numbers or logos.";
+
+/** Ilova ikonkasining mavzusi. O'zgartirilsa — APP_ICON_VERSION ni oshiring (telefonlar yangi ikonkani oladi) */
+export const APP_ICON_PROMPT =
+  "an origami crane folded from shimmering violet and sky-blue paper, flying upward out of an open glowing book, with a small golden star sparkling above it";
+export const APP_ICON_VERSION = "a1";
+export const APP_ICON_SIZES = [180, 192, 512] as const;
+export const appIconUrl = (size: (typeof APP_ICON_SIZES)[number]) => `/api/app-icon?size=${size}&v=${APP_ICON_VERSION}`;
+
 /** Uslub o'zgartirilsa, versiyani oshiring — eski kesh ishlatilmaydi */
 export const IMAGE_STYLES: Record<ImageStyle, { version: string; text: string; aspect: string }> = {
   test: { version: "v1", text: IMAGE_STYLE, aspect: "4:3" },
   icon: { version: "i1", text: ICON_STYLE, aspect: "1:1" },
+  app: { version: APP_ICON_VERSION, text: APP_ICON_STYLE, aspect: "1:1" },
 };
 
 export const IMAGE_STYLE_VERSION = IMAGE_STYLES.test.version;

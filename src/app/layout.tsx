@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { TRIAL_DAYS } from "@/lib/access";
+import { appIconUrl } from "@/lib/images";
 
 const display = Unbounded({ variable: "--font-unbounded", subsets: ["latin"], weight: ["500", "600", "700"] });
 const body = Manrope({ variable: "--font-manrope", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
@@ -17,6 +18,10 @@ export const metadata: Metadata = {
   description: `TOPIK I va TOPIK II bepul mock testlari, AI yozma ish tekshiruvi, Gemini bilan ovozli suhbat, Hangul va koreys tilini 0 dan o‘rganish. Gmail orqali kiring — AI ${TRIAL_DAYS} kun bepul.`,
   applicationName: "HanUstoz",
   keywords: ["TOPIK", "TOPIK mock test", "koreys tili", "TOPIK II", "EPS-TOPIK", "Hangul"],
+  // iPhone: «Ekranga qo'shish» qilinganda ilova kabi ochiladi va Gemini chizgan ikonka bilan turadi
+  appleWebApp: { capable: true, title: "HanUstoz", statusBarStyle: "default" },
+  icons: { apple: [{ url: appIconUrl(180), sizes: "180x180", type: "image/png" }] },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

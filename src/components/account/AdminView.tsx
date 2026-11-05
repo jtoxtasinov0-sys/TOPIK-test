@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TOPIK1 } from "@/data/topik1";
 import { TOPIK2 } from "@/data/topik2";
 import { EPS } from "@/data/eps";
-import { imagePromptsOf, imageUrl } from "@/lib/images";
+import { appIconUrl, imagePromptsOf, imageUrl } from "@/lib/images";
 import { visualPrompts } from "@/data/visuals";
 import { ApiError, useAiErrorText } from "@/components/ui";
 import { Avatar, useAuth } from "@/lib/auth";
@@ -27,12 +27,13 @@ function ImageWarmup() {
   // Test rasmlari va sayt ikonkalari (ikonkalar 256 px, test rasmlari 512 px nusxasi bilan tayyorlanadi)
   const urls = useMemo(
     () => [
+      appIconUrl(512),
       ...visualPrompts().map((p) => imageUrl(p, { style: "icon", w: 256 })),
       ...imagePromptsOf([TOPIK1, TOPIK2, EPS]).map((p) => imageUrl(p, { w: 512 })),
     ],
     []
   );
-  const icons = useMemo(() => visualPrompts().length, []);
+  const icons = useMemo(() => visualPrompts().length + 1, []);
   const [st, setSt] = useState({ done: 0, failed: 0, running: false, error: "" });
 
   const run = async () => {
@@ -67,7 +68,7 @@ function ImageWarmup() {
     <div className="card" style={{ marginTop: 18 }}>
       <h2 className="h3" style={{ marginBottom: 8 }}>🖼️ Rasmlar va ikonkalar</h2>
       <p className="small muted" style={{ margin: "0 0 12px" }}>
-        {`Saytda ${icons} ta ikonka va tayyor testlarda ${urls.length - icons} ta rasm bor. Gemini ularni bir marta chizadi va serverda saqlaydi (/app/data/images). Oldindan tayyorlab qo‘ysangiz, o‘quvchilar rasmni darhol ko‘radi.`}
+        {`Ilova ikonkasi, saytda ${icons - 1} ta ikonka va tayyor testlarda ${urls.length - icons} ta rasm bor. Gemini ularni bir marta chizadi va serverda saqlaydi (/app/data/images). Oldindan tayyorlab qo‘ysangiz, o‘quvchilar rasmni darhol ko‘radi.`}
       </p>
       <div className="row-wrap" style={{ alignItems: "center" }}>
         <button className="btn btn-primary btn-sm" onClick={run} disabled={st.running}>

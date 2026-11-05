@@ -222,9 +222,22 @@ export function encodePng(img: Bitmap): Buffer {
   return Buffer.concat([SIG, chunk("IHDR", ihdr), chunk("IDAT", deflateSync(out, { level: 9 })), chunk("IEND", Buffer.alloc(0))]);
 }
 
-/** PNG ni berilgan kenglikka kichraytirish. PNG bo'lmasa yoki o'qib bo'lmasa — null */
-export function shrinkPng(buf: Uint8Array, width: number): Buffer | null {
+/** Markazdan kvadrat qilib kesish (ilova ikonkasi uchun) */
+export function cropSquare(img: Bitmap): Bitmap {
+  if (img.width === img.height) return img;
+  const side = Math.min(img.width, img.height);
+  const x0 = Math.floor((img.width - side) / 2);
+  const y0 = Math.floor((img.height - side) / 2);
+  const ch = img.channels;
+  const data = new Uint8Array(side * side * ch);
+  for (let y = 0; y < side; y++) data.set(img.data.subarray(((y0 + y) * img.width + x0) * ch, ((y0 + y) * img.width + x0 + side) * ch), y * side * ch);
+  return { width: side, height: side, channels: ch, data };
+}
+
+/** PNG ni berilgan kenglikka kichraytirish (square — avval kvadrat qilib kesiladi). PNG bo'lmasa yoki o'qib bo'lmasa — null */
+export function shrinkPng(buf: Uint8Array, width: number, opts: { square?: boolean } = {}): Buffer | null {
   const img = decodePng(buf);
   if (!img) return null;
-  return encodePng(toGrayIfPossible(resizeBitmap(img, width)));
+  const base = opts.square ? cropSquare(img) : img;
+  return encodePng(toGrayIfPossible(resizeBitmap(base, width)));
 }

@@ -273,3 +273,61 @@ describe("kichraytirilgan nusxalar va ikonkalar", () => {
     assert.equal(imageUrl("a b"), "/api/image?p=a%20b");
   });
 });
+
+describe("PWA: ilova ikonkasi va manifest", () => {
+  test("/api/app-icon: Gemini ikonkasi aniq 192×192 kvadrat bo'lib qaytadi", async () => {
+    const appRoute = await import("../src/app/api/app-icon/route");
+    const { APP_ICON_PROMPT, APP_ICON_STYLE } = await import("../src/lib/images");
+    // Gemini kvadrat bo'lmagan rasm qaytarsa ham — markazdan kesiladi
+    mockGemini({ png: encodePng(sample(1024, 900)) });
+    const res = await appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=192&v=a1"));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("x-icon-fallback"), null);
+    const img = decodePng(new Uint8Array(await res.arrayBuffer()))!;
+    assert.deepEqual([img.width, img.height], [192, 192]);
+    const gen = calls.filter((c) => c.url.includes(":generateContent"));
+    const text = gen[0].body?.contents?.[0]?.parts?.[0]?.text ?? "";
+    assert.ok(text.startsWith(APP_ICON_STYLE) && text.endsWith(APP_ICON_PROMPT));
+    assert.deepEqual(gen[0].body?.generationConfig?.imageConfig, { aspectRatio: "1:1" });
+    // 512 — o'sha asl rasmdan, qayta chizilmaydi
+    mockGemini();
+    const big = await appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=512"));
+    assert.deepEqual([decodePng(new Uint8Array(await big.arrayBuffer()))!.width], [512]);
+    assert.equal(calls.length, 0);
+  });
+
+  test("kalit bo'lmasa — zaxira «한» ikonkasi (qisqa kesh)", async () => {
+    const appRoute = await import("../src/app/api/app-icon/route");
+    process.env.GEMINI_API_KEY = "";
+    // Oldingi testda chizilgan ikonka diskda turibdi — bo'sh papkada sinaymiz
+    process.env.IMAGE_DIR = mkdtempSync(path.join(tmpdir(), "hq-img-empty-"));
+    mockGemini();
+    const res = await appRoute.GET(new Request("https://hanustoz.tech/api/app-icon?size=180"));
+    process.env.IMAGE_DIR = DIR;
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("x-icon-fallback"), "1");
+    assert.match(res.headers.get("cache-control") ?? "", /max-age=300/);
+    const img = decodePng(new Uint8Array(await res.arrayBuffer()))!;
+    assert.deepEqual([img.width, img.height, img.channels], [180, 180, 3]);
+    // Markazda oq harf, burchakda binafsha fon
+    const px = (x: number, y: number) => Array.from(img.data.subarray((y * 180 + x) * 3, (y * 180 + x) * 3 + 3));
+    assert.ok(px(124, 80).every((c) => c > 240), "ㅏ tik chizig'i oq");
+    assert.ok(px(175, 175)[2] > px(175, 175)[0], "pastki o'ng burchak ko'k");
+    assert.equal(calls.length, 0);
+  });
+
+  test("manifest: 192/512 PNG, maskable, tezkor menyular; service worker fayli bor", async () => {
+    const { default: manifest } = await import("../src/app/manifest");
+    const m = manifest();
+    assert.equal(m.display, "standalone");
+    const icons = m.icons ?? [];
+    assert.ok(icons.some((i) => i.sizes === "192x192" && i.type === "image/png"));
+    assert.ok(icons.some((i) => i.sizes === "512x512" && i.purpose === "maskable"));
+    assert.equal(m.shortcuts?.length, 4);
+    for (const s of m.shortcuts ?? []) assert.match(String(s.icons?.[0]?.src), /^\/api\/image\?p=.+&s=icon&w=128$/);
+    const { readFileSync } = await import("node:fs");
+    const sw = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+    assert.match(sw, /addEventListener\("fetch"/);
+    assert.match(sw, /Internet yo'q/);
+  });
+});

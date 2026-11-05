@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { Visual } from "@/components/Visual";
+import { InstallApp } from "@/components/Pwa";
 import type { VisualId } from "@/data/visuals";
 import { daysUntil, DEFAULT_PROFILE, KEYS, type Profile, useStored } from "@/lib/store";
 import { TRIAL_DAYS } from "@/lib/access";
@@ -223,6 +224,8 @@ export default function Home() {
             <div className="small muted">Har kuni kamida bitta mashq qiling 🔥</div>
           </div>
         </div>
+
+        <InstallApp />
 
         {/* ---------- Tezkor harakatlar ---------- */}
         <div className="card" style={{ marginTop: 18 }}>

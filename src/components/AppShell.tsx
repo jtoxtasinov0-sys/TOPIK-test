@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Avatar, useAuth } from "@/lib/auth";
 import { Icon } from "./Icon";
+import { PwaRegister } from "./Pwa";
 
 export function Logo() {
   return (
@@ -90,6 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
+      <PwaRegister />
       {children}
 
       <nav className="pillnav" aria-label="Mobil menyu">

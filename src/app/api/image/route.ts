@@ -13,7 +13,9 @@ export const maxDuration = 60;
 
 // Tayyor variant rasmlari va sayt ikonkalari — hammaga ochiq (soni cheklangan, bir marta chizilib keshda turadi).
 // AI variantlardagi rasmlar — faqat kirgan va sinovi tugamagan foydalanuvchilarga, kunlik limit bilan.
-const BUILTIN: Record<ImageStyle, Set<string>> = {
+// Ilova ikonkasi ("app" uslubi) bu yerda berilmaydi — u /api/app-icon orqali
+type PublicStyle = Exclude<ImageStyle, "app">;
+const BUILTIN: Record<PublicStyle, Set<string>> = {
   test: new Set(imagePromptsOf([TOPIK1, TOPIK2, EPS])),
   icon: new Set(visualPrompts()),
 };
@@ -23,7 +25,7 @@ export async function GET(req: Request) {
   try {
     const params = new URL(req.url).searchParams;
     const prompt = (params.get("p") ?? "").trim();
-    const style: ImageStyle = params.get("s") === "icon" ? "icon" : "test";
+    const style: PublicStyle = params.get("s") === "icon" ? "icon" : "test";
     const wn = Number(params.get("w"));
     const w = (IMAGE_WIDTHS as readonly number[]).includes(wn) ? wn : undefined;
     if (!prompt || prompt.length > MAX_IMAGE_PROMPT) return Response.json({ error: "Rasm tavsifi noto'g'ri" }, { status: 400 });

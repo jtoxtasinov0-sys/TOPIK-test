@@ -267,6 +267,17 @@ export function AdminView() {
         </a>
       </div>
 
+      <div className="card row" style={{ marginTop: 12, gap: 14 }}>
+        <span style={{ fontSize: "2rem" }}>🎨</span>
+        <div className="grow">
+          <b>Logo studiyasi (Gemini)</b>
+          <div className="small muted">Yoqqan logolar rasmini yuklang — Gemini bizning ranglarda yangi variantlar chizadi.</div>
+        </div>
+        <a href="/admin/logo" className="btn btn-primary btn-sm">
+          Ochish →
+        </a>
+      </div>
+
       <div className="card" style={{ marginTop: 18 }}>
         <h2 className="h3" style={{ marginBottom: 12 }}>Foydalanuvchini qidirish</h2>
         <form

@@ -344,3 +344,26 @@ describe("rasm xatolari ko'rinadi", () => {
     assert.equal((await adminImages.GET(new Request("https://hanustoz.tech/api/admin/images"))).status, 401);
   });
 });
+
+describe("Logo studiyasi", () => {
+  test("Gemini'ga namuna rasmlar yuboriladi, har bir variant boshqa g'oya bilan", async () => {
+    const { generateImage } = await import("../src/lib/gemini");
+    const { logoPrompt, LOGO_BRIEF } = await import("../src/lib/logo");
+    mockGemini();
+    const img = await generateImage(logoPrompt(LOGO_BRIEF, 1, 4), { aspectRatio: "1:1", images: [{ data: "QUJD", mime: "image/jpeg" }] });
+    assert.equal(img.mime, "image/png");
+    const gen = calls.find((c) => c.url.includes(":generateContent"))!;
+    const parts = (gen.body?.contents?.[0]?.parts ?? []) as { text?: string; inline_data?: { mime_type: string; data: string } }[];
+    assert.match(parts[0].text ?? "", /variant 2 of 4/);
+    assert.deepEqual(parts[1].inline_data, { mime_type: "image/jpeg", data: "QUJD" });
+    const prompts = [0, 1, 2, 3].map((i) => logoPrompt(LOGO_BRIEF, i, 4));
+    assert.equal(new Set(prompts).size, 4, "har bir variant o'z g'oyasi bilan");
+    assert.ok(prompts.every((p) => p.includes("#6A11FF") && /Do NOT copy/.test(p)));
+  });
+
+  test("/api/admin/logo faqat admin uchun", async () => {
+    const route = await import("../src/app/api/admin/logo/route");
+    const res = await route.POST(new Request("https://hanustoz.tech/api/admin/logo", { method: "POST", body: "{}" }));
+    assert.equal(res.status, 401);
+  });
+});

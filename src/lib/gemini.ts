@@ -388,8 +388,11 @@ export function resetImageModel() {
 
 type Part = { text?: string; inlineData?: { mimeType?: string; data?: string }; inline_data?: { mime_type?: string; data?: string } };
 
-/** Gemini rasm modeli: matnli tavsifdan rasm (PNG/JPEG) yaratadi */
-export async function generateImage(prompt: string, opts: { aspectRatio?: string; timeoutMs?: number } = {}): Promise<{ data: Buffer; mime: string }> {
+/** Gemini rasm modeli: matnli tavsifdan (va ixtiyoriy namuna rasmlardan) rasm (PNG/JPEG) yaratadi */
+export async function generateImage(
+  prompt: string,
+  opts: { aspectRatio?: string; timeoutMs?: number; images?: { data: string; mime: string }[] } = {}
+): Promise<{ data: Buffer; mime: string }> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new AiError("GEMINI_API_KEY sozlanmagan", 503);
   const model = await imageModelName(key);
@@ -401,7 +404,7 @@ export async function generateImage(prompt: string, opts: { aspectRatio?: string
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          contents: [{ role: "user", parts: [{ text: prompt }, ...(opts.images ?? []).map((im) => ({ inline_data: { mime_type: im.mime, data: im.data } }))] }],
           generationConfig: {
             responseModalities: ["TEXT", "IMAGE"],
             ...(withConfig ? { imageConfig: { aspectRatio: opts.aspectRatio ?? "4:3" } } : {}),

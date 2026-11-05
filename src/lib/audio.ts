@@ -278,7 +278,7 @@ export async function playKorean(
   return "browser";
 }
 
-function playUrl(url: string, onStart?: () => void): Promise<void> {
+function playUrl(url: string, onStart?: () => void, rate = 1): Promise<void> {
   return new Promise<void>((resolve) => {
     const a = audioEl();
     let done = false;
@@ -305,6 +305,9 @@ function playUrl(url: string, onStart?: () => void): Promise<void> {
     a.onerror = finish;
     a.onplay = () => onStart?.();
     a.src = url;
+    // src o'zgarganda tezlik 1 ga qaytadi — har safar qayta o'rnatamiz (ovoz balandligi/ohangi saqlanadi)
+    a.defaultPlaybackRate = rate;
+    a.playbackRate = rate;
     a.play().catch(finish);
   });
 }
@@ -361,24 +364,35 @@ function browserSpeakSegments(segs: Segment[], onStart?: () => void, pitch = 0.8
 /** Ustoz ovozi: Gemini "Puck" (yigit ovozi) */
 const TUTOR_TTS: TtsOpts = { tutor: true, voice: "m" };
 
-/**
- * Tezroq boshlash uchun javobni ikki bo'lakka ajratadi: birinchi gap tez tayyorlanib o'ynaydi,
- * qolgani shu vaqtda parallel tayyorlanadi.
- */
-export function splitForSpeech(text: string): string[] {
-  const t = text.trim();
-  if (t.length < 90) return [t];
+/** Gap oxiri (min..max oralig'ida, keyin kamida 20 belgi qoladigan) — topilmasa 0 */
+function sentenceCut(t: string, min: number, max: number) {
   const re = /[.!?…]+["”']?\s+/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(t))) {
     const cut = m.index + m[0].length;
-    if (cut >= 30 && t.length - cut >= 25) return [t.slice(0, cut).trim(), t.slice(cut).trim()];
-    if (cut > 160) break;
+    if (cut >= min && t.length - cut >= 20) return cut;
+    if (cut > max) break;
   }
-  return [t];
+  return 0;
 }
 
-type PlayHooks = { onLoading?: (b: boolean) => void; onStart?: () => void };
+/**
+ * Tezroq boshlash uchun javobni bo'laklarga ajratadi: birinchi (qisqa) gap tez tayyorlanib darhol o'ynaydi,
+ * qolganlari shu vaqtda parallel tayyorlanadi. Uzun javob — uch bo'lakka.
+ */
+export function splitForSpeech(text: string): string[] {
+  const t = text.trim();
+  if (t.length < 60) return [t];
+  const cut = sentenceCut(t, 14, 160);
+  if (!cut) return [t];
+  const head = t.slice(0, cut).trim();
+  const rest = t.slice(cut).trim();
+  if (rest.length < 150) return [head, rest];
+  const cut2 = sentenceCut(rest, 50, 220);
+  return cut2 ? [head, rest.slice(0, cut2).trim(), rest.slice(cut2).trim()] : [head, rest];
+}
+
+type PlayHooks = { onLoading?: (b: boolean) => void; onStart?: () => void; rate?: number };
 export type SpeechChunk = { text: string; opts: TtsOpts };
 
 /**
@@ -396,14 +410,17 @@ async function playChunks(chunks: SpeechChunk[], fallback: Segment[], hooks: Pla
   hooks.onLoading?.(false);
   if (token !== playToken) return;
   if (!first) return browserSpeakSegments(fallback, hooks.onStart, hooks.pitch);
-  await playUrl(first, hooks.onStart);
+  await playUrl(first, hooks.onStart, hooks.rate);
   for (let k = 1; k < jobs.length; k++) {
     if (token !== playToken) return;
     const url = await jobs[k];
     if (!url || token !== playToken) return;
-    await playUrl(url);
+    await playUrl(url, undefined, hooks.rate);
   }
 }
+
+/** Ustoz ovozi biroz tezroq o'ynaydi — suhbat jonliroq bo'ladi (ohang o'zgarmaydi) */
+export const TUTOR_RATE = 1.1;
 
 /** Ustoz javobini ovoz chiqarib o'qiydi: avval Gemini (bitta tabiiy yigit ovozi), bo'lmasa brauzer ovozi */
 export function playTutor(segs: Segment[], opts: PlayHooks = {}) {
@@ -411,7 +428,7 @@ export function playTutor(segs: Segment[], opts: PlayHooks = {}) {
   return playChunks(
     splitForSpeech(text).map((p) => ({ text: p, opts: TUTOR_TTS })),
     segs,
-    opts
+    { rate: TUTOR_RATE, ...opts }
   );
 }
 

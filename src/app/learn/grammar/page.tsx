@@ -26,7 +26,7 @@ const AREA: Record<string, string> = {
   afzallik: "👍 Afzallik",
   talaffuz: "🗣️ Talaffuz",
   grammatika: "📐 Grammatika",
-  odob: "🙇 Odob",
+  odob: "🤝 Odob",
   imlo: "✏️ Imlo",
 };
 

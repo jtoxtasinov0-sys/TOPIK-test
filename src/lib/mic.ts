@@ -74,7 +74,7 @@ export class MicError extends Error {}
 export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: number) => void } = {}): Promise<Recording> {
   let stream: MediaStream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
   } catch {
     throw new MicError(
       typeof window !== "undefined" && !window.isSecureContext
@@ -85,7 +85,8 @@ export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: numb
   const mime = pickRecorderMime();
   const rig = (() => {
     try {
-      const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      // Nutq uchun 32 kbit/s yetarli — fayl kichik bo'ladi va mobil internetda tez yuboriladi
+      const mr = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: 32000 });
       const ctx = new AudioContext();
       const an = ctx.createAnalyser();
       an.fftSize = 512;

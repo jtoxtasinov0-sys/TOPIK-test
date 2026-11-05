@@ -20,77 +20,98 @@ const LEVELS = [
 
 function PhoneMock() {
   return (
-    <div className="phones" aria-hidden>
-      <div className="phone p2">
-        <div className="notch" />
-        <div className="screen" style={{ padding: "40px 14px 14px" }}>
-          <div className="tiny muted" style={{ fontWeight: 700 }}>TOPIK II · 읽기</div>
-          <div className="kr" style={{ fontWeight: 700, fontSize: ".78rem", margin: "8px 0", lineHeight: 1.5 }}>※ 다음 글의 주제로 가장 알맞은 것을 고르십시오.</div>
-          <div className="kr" style={{ fontSize: ".66rem", background: "#fff", borderRadius: 10, padding: 8, lineHeight: 1.6, border: "1px solid #e9e5fb" }}>
-            많은 사람들이 운동을 시작할 때 처음부터 무리한 목표를 세운다…
-          </div>
-          {["①", "②", "③", "④"].map((c, i) => (
-            <div key={c} className="kr" style={{ fontSize: ".66rem", marginTop: 6, padding: "7px 8px", borderRadius: 9, background: i === 1 ? "rgba(139,61,255,.12)" : "#fff", border: `1.5px solid ${i === 1 ? "#8b3dff" : "#ebe7fb"}` }}>
-              {c} {["매일 두 시간 운동", "작은 목표부터 시작", "식사량 줄이기", "걷기가 가장 쉽다"][i]}
+    <div className="phones-wrap" aria-hidden>
+      <div className="phones">
+        <div className="phone p2">
+          <div className="notch" />
+          <div className="screen" style={{ padding: "40px 14px 14px" }}>
+            <div className="tiny muted" style={{ fontWeight: 700 }}>TOPIK II · 읽기</div>
+            <div className="kr" style={{ fontWeight: 700, fontSize: ".78rem", margin: "8px 0", lineHeight: 1.5 }}>※ 다음 글의 주제로 가장 알맞은 것을 고르십시오.</div>
+            <div className="kr" style={{ fontSize: ".66rem", background: "#fff", borderRadius: 10, padding: 8, lineHeight: 1.6, border: "1px solid #e9e5fb" }}>
+              많은 사람들이 운동을 시작할 때 처음부터 무리한 목표를 세운다…
             </div>
-          ))}
-          <div style={{ marginTop: 10, height: 6, borderRadius: 9, background: "rgba(139,61,255,.12)" }}>
-            <div style={{ width: "62%", height: "100%", borderRadius: 9, background: "var(--grad-btn)" }} />
+            {["①", "②", "③", "④"].map((c, i) => (
+              <div key={c} className="kr" style={{ fontSize: ".66rem", marginTop: 6, padding: "7px 8px", borderRadius: 9, background: i === 1 ? "rgba(139,61,255,.12)" : "#fff", border: `1.5px solid ${i === 1 ? "#8b3dff" : "#ebe7fb"}` }}>
+                {c} {["매일 두 시간 운동", "작은 목표부터 시작", "식사량 줄이기", "걷기가 가장 쉽다"][i]}
+              </div>
+            ))}
+            <div style={{ marginTop: 10, height: 6, borderRadius: 9, background: "rgba(139,61,255,.12)" }}>
+              <div style={{ width: "62%", height: "100%", borderRadius: 9, background: "var(--grad-btn)" }} />
+            </div>
           </div>
         </div>
-      </div>
-      <div className="phone p1">
-        <div className="notch" />
-        <div className="screen" style={{ background: "linear-gradient(180deg,#efe7ff,#fff 60%)", padding: "38px 14px 14px" }}>
-          <div className="row between">
-            <div>
-              <div className="tiny muted">Xush kelibsiz 👋</div>
-              <div style={{ fontWeight: 800, fontSize: ".95rem" }}>Salom, Aziz</div>
+        <div className="phone p1">
+          <div className="notch" />
+          <div className="screen" style={{ background: "linear-gradient(180deg,#efe7ff,#fff 60%)", padding: "38px 14px 14px" }}>
+            <div className="row between">
+              <div>
+                <div className="tiny muted">Xush kelibsiz 👋</div>
+                <div style={{ fontWeight: 800, fontSize: ".95rem" }}>Salom, Aziz</div>
+              </div>
+              <div style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--grad-pink)" }} />
             </div>
-            <div style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--grad-pink)" }} />
-          </div>
-          <div className="level-card violet" style={{ marginTop: 12, padding: 14, borderRadius: 18 }}>
-            <div className="tiny" style={{ opacity: 0.85 }}>Taxminiy daraja</div>
-            <div className="row between" style={{ alignItems: "flex-end" }}>
-              <div className="kr" style={{ fontSize: "1.9rem", fontWeight: 800, lineHeight: 1.1 }}>4급</div>
-              <div className="tiny" style={{ fontWeight: 800 }}>168 / 300</div>
+            <div className="level-card violet" style={{ marginTop: 12, padding: 14, borderRadius: 18 }}>
+              <div className="tiny" style={{ opacity: 0.85 }}>Taxminiy daraja</div>
+              <div className="row between" style={{ alignItems: "flex-end" }}>
+                <div className="kr" style={{ fontSize: "1.9rem", fontWeight: 800, lineHeight: 1.1 }}>4급</div>
+                <div className="tiny" style={{ fontWeight: 800 }}>168 / 300</div>
+              </div>
+              <div style={{ marginTop: 8, height: 5, borderRadius: 9, background: "rgba(255,255,255,.25)" }}>
+                <div style={{ width: "56%", height: "100%", borderRadius: 9, background: "#fff" }} />
+              </div>
+              <div className="tiny" style={{ marginTop: 6, opacity: 0.9 }}>Imtihongacha 74 kun ⏳</div>
             </div>
-            <div style={{ marginTop: 8, height: 5, borderRadius: 9, background: "rgba(255,255,255,.25)" }}>
-              <div style={{ width: "56%", height: "100%", borderRadius: 9, background: "#fff" }} />
+            <div className="row between" style={{ marginTop: 14 }}>
+              {["📝", "✍️", "🗣️", "한"].map((e) => (
+                <div key={e} className="kr" style={{ width: 42, height: 42, borderRadius: "50%", display: "grid", placeItems: "center", border: "1.5px solid #ddd6fb", background: "#fff", fontWeight: 800 }}>
+                  {e}
+                </div>
+              ))}
             </div>
-            <div className="tiny" style={{ marginTop: 6, opacity: 0.9 }}>Imtihongacha 74 kun ⏳</div>
-          </div>
-          <div className="row between" style={{ marginTop: 14 }}>
-            {["📝", "✍️", "🗣️", "한"].map((e) => (
-              <div key={e} className="kr" style={{ width: 42, height: 42, borderRadius: "50%", display: "grid", placeItems: "center", border: "1.5px solid #ddd6fb", background: "#fff", fontWeight: 800 }}>
-                {e}
+            <div style={{ fontWeight: 800, fontSize: ".8rem", marginTop: 14 }}>So‘nggi natijalar</div>
+            {[
+              ["듣기", 72, "#8b3dff"],
+              ["읽기", 61, "#3a86ff"],
+              ["쓰기", 35, "#ff5c9a"],
+            ].map(([k, v, c]) => (
+              <div key={k as string} className="row" style={{ marginTop: 8, gap: 8 }}>
+                <span className="kr tiny" style={{ width: 28, fontWeight: 700 }}>{k}</span>
+                <div style={{ flex: 1, height: 7, borderRadius: 9, background: "#efe9ff" }}>
+                  <div style={{ width: `${v}%`, height: "100%", borderRadius: 9, background: c as string }} />
+                </div>
+                <span className="tiny" style={{ fontWeight: 800 }}>{v}</span>
               </div>
             ))}
           </div>
-          <div style={{ fontWeight: 800, fontSize: ".8rem", marginTop: 14 }}>So‘nggi natijalar</div>
-          {[
-            ["듣기", 72, "#8b3dff"],
-            ["읽기", 61, "#3a86ff"],
-            ["쓰기", 35, "#ff5c9a"],
-          ].map(([k, v, c]) => (
-            <div key={k as string} className="row" style={{ marginTop: 8, gap: 8 }}>
-              <span className="kr tiny" style={{ width: 28, fontWeight: 700 }}>{k}</span>
-              <div style={{ flex: 1, height: 7, borderRadius: 9, background: "#efe9ff" }}>
-                <div style={{ width: `${v}%`, height: "100%", borderRadius: 9, background: c as string }} />
-              </div>
-              <span className="tiny" style={{ fontWeight: 800 }}>{v}</span>
-            </div>
-          ))}
         </div>
       </div>
-      <div className="hero-chip glass" style={{ top: 30, right: 6 }}>
-        <span className="ic">🎧</span> 듣기 · AI audio
+      {/* Telefonlar ustidagi belgilar: 3D sahnadan tashqarida — matn tiniq, har doim telefonlar ustida */}
+      <div className="hero-chip" style={{ top: 22, right: 0 }}>
+        <span className="ic mint">
+          <Icon name="volume" size={16} />
+        </span>
+        <span className="t">
+          <b className="kr">듣기</b>
+          <small>AI audio</small>
+        </span>
       </div>
-      <div className="hero-chip glass" style={{ bottom: 40, left: 0, animationDelay: "-2s" }}>
-        <span className="ic">📸</span> Daftardan AI tekshiruv
+      <div className="hero-chip" style={{ bottom: 118, right: 0, animationDelay: "-4s" }}>
+        <span className="ic violet">
+          <Icon name="mic" size={16} />
+        </span>
+        <span className="t">
+          <b className="kr">말하기</b>
+          <small>Gemini suhbat</small>
+        </span>
       </div>
-      <div className="hero-chip glass" style={{ bottom: 120, right: -6, animationDelay: "-4s" }}>
-        <span className="ic">🗣️</span> 말하기 · Gemini
+      <div className="hero-chip" style={{ bottom: 30, left: 0, animationDelay: "-2s" }}>
+        <span className="ic pink">
+          <Icon name="camera" size={16} />
+        </span>
+        <span className="t">
+          <b>Daftardan</b>
+          <small>AI tekshiruv</small>
+        </span>
       </div>
     </div>
   );

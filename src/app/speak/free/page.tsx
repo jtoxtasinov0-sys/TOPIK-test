@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
+import { micToLevel, RecMeter } from "@/components/MicWave";
 import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { LEVELS, PARTNERS, STYLES, TOPICS, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
@@ -110,6 +111,8 @@ export default function FreeTalkPage() {
 
   // Shar uchun ovoz balandligi: yozayotganda — mikrofon, gapirayotganda — do'st ovozi
   const getLevel = useCallback(() => (recState.current === "rec" ? Math.min(1, micLevel.current * 7) : outputLevel()), []);
+  // Yozuv grafigi uchun: faqat mikrofon
+  const getMicLevel = useCallback(() => micToLevel(micLevel.current), []);
 
   const commit = (list: Msg[]) => {
     msgsRef.current = list;
@@ -387,8 +390,11 @@ export default function FreeTalkPage() {
   const voice = partner.voice;
 
   return (
-    <main className="container" style={{ maxWidth: 820, paddingTop: 16 }}>
+    <main className="container voice-focus" style={{ maxWidth: 820, paddingTop: 16 }}>
       <div className="card row tk-head" style={{ padding: 12, marginBottom: 16, position: "sticky", top: 74, zIndex: 20 }}>
+        <button className="icon-btn sm" onClick={backToSetup} aria-label="Chiqish" title="Chiqish — boshqa suhbatdosh yoki mavzu">
+          <Icon name="left" size={18} />
+        </button>
         <span className={`tk-avatar lg ${voice}`}>{partner.name[0]}</span>
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="tk-sub">
@@ -410,9 +416,6 @@ export default function FreeTalkPage() {
         </button>
         <button className={`chip ${s.handsFree ? "active" : ""}`} onClick={() => patch({ handsFree: !s.handsFree })} aria-pressed={s.handsFree} title="Uzluksiz suhbat">
           🔁<span className="hide-mobile"> Uzluksiz</span>
-        </button>
-        <button className="icon-btn sm" onClick={backToSetup} aria-label="Boshqa suhbatdosh yoki mavzu" title="Boshqa suhbatdosh yoki mavzu">
-          <Icon name="rotate" size={16} />
         </button>
       </div>
 
@@ -531,7 +534,7 @@ export default function FreeTalkPage() {
           </div>
         )}
         {err && <div className="callout">{err}</div>}
-        <div ref={endRef} style={{ height: 4 }} />
+        <div ref={endRef} className="chat-end" style={{ height: 4 }} />
       </div>
 
       <div className="composer">
@@ -557,11 +560,17 @@ export default function FreeTalkPage() {
             {busy ? <span className="spinner white" style={{ width: 20, height: 20 }} /> : <Icon name={rec ? "send" : "mic"} size={22} />}
           </button>
           <div className="vbar-mid" aria-live="polite">
-            <VoiceOrb mode={mode} getLevel={getLevel} size={40} label="" />
-            <div className="vbar-status">
-              <b>{status}</b>
-              <span>{sub}</span>
-            </div>
+            {rec ? (
+              <RecMeter getLevel={getMicLevel} />
+            ) : (
+              <>
+                <VoiceOrb mode={mode} getLevel={getLevel} size={40} label="" />
+                <div className="vbar-status">
+                  <b>{status}</b>
+                  <span>{sub}</span>
+                </div>
+              </>
+            )}
           </div>
           <button className={`icon-btn sm ${typing ? "on" : ""}`} onClick={() => setTyping((v) => !v)} aria-pressed={typing} aria-label="Yozib yuborish" title="Yozib yuborish">
             <Icon name="pen" size={16} />
@@ -570,9 +579,13 @@ export default function FreeTalkPage() {
             <Icon name="phone" size={16} /> <span className="hide-mobile">To‘xtatish</span>
           </button>
         </div>
-        <div className="tiny muted" style={{ textAlign: "center", marginTop: 8 }}>
-          Bilmagan so‘zingizni o‘zbekcha ayting · quloqchin bilan yaxshiroq ishlaydi
-        </div>
+        {rec ? (
+          <div className="rec-hint">Ovozingiz yozilmoqda — koreyscha gapiring, jim tursangiz o‘zi yuboriladi</div>
+        ) : (
+          <div className="tiny muted" style={{ textAlign: "center", marginTop: 8 }}>
+            Bilmagan so‘zingizni o‘zbekcha ayting · quloqchin bilan yaxshiroq ishlaydi
+          </div>
+        )}
       </div>
     </main>
   );

@@ -16,6 +16,7 @@ export const ICON_STYLE =
   "A friendly 3D clay-style app icon for a Korean language learning app. One simple, instantly recognisable subject in the centre, " +
   "soft rounded shapes, pastel colours with violet, lavender and sky-blue accents, soft studio lighting, " +
   "plain very light lavender background filling the whole square, no border, no frame. " +
+  "If a person or character appears, the face is smooth and blank: no eyes, no eyebrows, no nose and no mouth. " +
   "Do not draw any text, letters, numbers, flags or logos.";
 
 /** Ilova (PWA) ikonkasi — vektor logodan (scripts/brand.mjs → public/brand). Logo o'zgarsa BRAND_VERSION ni oshiring */

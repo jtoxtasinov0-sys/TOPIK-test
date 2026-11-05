@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
@@ -98,6 +97,7 @@ export default function VoiceTutorPage() {
   const [level, setLevel] = useState<Level>("beginner");
   const [showRom, setShowRom] = useState(true);
   const [handsFree, setHandsFree] = useState(true);
+  const [typing, setTyping] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
   const [rec, setRec] = useState(false);
@@ -110,16 +110,23 @@ export default function VoiceTutorPage() {
   const msgsRef = useRef<Msg[]>([]);
   const cfg = useRef({ level, handsFree });
   const alive = useRef(true);
+  const session = useRef(false); // "Tugatish" bosilsa — avtomatik tinglash to'xtaydi
+  const discard = useRef(false); // yozuvni yubormasdan bekor qilish
   const busyRef = useRef(false);
   const recState = useRef<"idle" | "starting" | "rec">("idle");
   const micLevel = useRef(0);
   const mediaRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const monitor = useRef<(() => void) | null>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     cfg.current = { level, handsFree };
   }, [level, handsFree]);
+  useEffect(() => {
+    // Yangi brauzerlarda scrollIntoView Promise qaytaradi — effektdan qaytarilmasligi kerak
+    void endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs, busy]);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -179,12 +186,13 @@ export default function VoiceTutorPage() {
     if (!reply || !alive.current) return;
     await speak(reply.index, reply.segments);
     // Uzluksiz suhbat: ustoz gapirib bo'lgach, mikrofon o'zi yoqiladi
-    if (alive.current && cfg.current.handsFree) void startRec();
+    if (alive.current && session.current && cfg.current.handsFree) void startRec();
   };
 
   const startRec = async () => {
     if (recState.current !== "idle" || busyRef.current) return;
     recState.current = "starting";
+    discard.current = false;
     setErr("");
     stopAudio();
     let stream: MediaStream;
@@ -195,7 +203,7 @@ export default function VoiceTutorPage() {
       setErr(
         typeof window !== "undefined" && !window.isSecureContext
           ? "Mikrofon faqat https:// manzilda ishlaydi."
-          : "Mikrofonga ruxsat berilmadi. Brauzer sozlamalaridan ruxsat bering yoki pastda yozing."
+          : "Mikrofonga ruxsat berilmadi. Brauzer sozlamalaridan ruxsat bering yoki yozib so‘rang."
       );
       return;
     }
@@ -227,8 +235,9 @@ export default function VoiceTutorPage() {
       mediaRef.current = null;
       if (!alive.current) return;
       setRec(false);
+      if (discard.current) return;
       if (noSpeech) {
-        setErr("Ovoz eshitilmadi — gapirish uchun sharni yoki mikrofonni bosing.");
+        setErr("Ovoz eshitilmadi — gapirish uchun mikrofonni bosing.");
         return;
       }
       const blob = new Blob(chunks, { type: mr.mimeType || mime || "audio/webm" });
@@ -255,6 +264,7 @@ export default function VoiceTutorPage() {
 
   const onMic = () => {
     unlockAudio();
+    session.current = true;
     if (rec) {
       if (mediaRef.current?.state === "recording") mediaRef.current.stop();
       return;
@@ -264,10 +274,28 @@ export default function VoiceTutorPage() {
     void startRec();
   };
 
+  /** Suhbatni to'xtatish: ovoz va yozuv to'xtaydi, avtomatik tinglash o'chadi (tarix qoladi) */
+  const endSession = () => {
+    session.current = false;
+    stopAudio();
+    setPlaying(null);
+    if (mediaRef.current?.state === "recording") {
+      discard.current = true;
+      mediaRef.current.stop();
+    }
+  };
+
+  const newChat = () => {
+    endSession();
+    commit([]);
+    setErr("");
+  };
+
   const sendText = async (q: string) => {
     const t = q.trim();
     if (!t || busyRef.current || rec) return;
     unlockAudio();
+    session.current = true;
     stopAudio();
     setText("");
     await send({ text: t });
@@ -287,104 +315,63 @@ export default function VoiceTutorPage() {
   // ---------- Holat ----------
   const speaking = playing !== null && !loadingAudio;
   const mode: OrbMode = rec ? "listen" : busy || (playing !== null && loadingAudio) ? "think" : speaking ? "speak" : "idle";
-  const lastAiIdx = msgs.findLastIndex((m) => m.role === "ai");
-  const lastAi = lastAiIdx >= 0 ? msgs[lastAiIdx] : null;
-  const lastMe = lastAiIdx > 0 && msgs[lastAiIdx - 1].role === "me" ? msgs[lastAiIdx - 1] : null;
-  const older = lastMe ? msgs.slice(0, lastAiIdx - 1) : msgs.slice(0, Math.max(0, lastAiIdx));
-
-  const status =
+  const [status, sub] =
     mode === "listen"
-      ? "Tinglayapman…"
+      ? ["Tinglayapman", "Gapirib bo‘lgach jim turing — o‘zi yuboriladi"]
       : busy
-        ? "O‘ylayapman…"
+        ? ["Ustoz o‘ylayapti…", "Bir-ikki soniya"]
         : mode === "think"
-          ? "Javob tayyorlanmoqda…"
+          ? ["Ustoz javob bermoqda…", "Ovoz tayyorlanmoqda"]
           : mode === "speak"
-            ? "Ustoz gapiryapti"
+            ? ["Ustoz gapiryapti", "Bo‘lib gapirish uchun mikrofonni bosing"]
             : msgs.length
-              ? "Navbat sizda — gapiring"
-              : "Sharni bosing va o‘zbekcha gapiring";
-  const hint =
-    mode === "listen"
-      ? "Gapirib bo‘lgach jim turing — o‘zi yuboriladi"
-      : mode === "speak"
-        ? "Bo‘lib gapirish uchun mikrofonni bosing"
-        : handsFree
-          ? "🔁 Uzluksiz suhbat: ustozdan keyin mikrofon o‘zi yoqiladi"
-          : "Mikrofonni bosing va gapiring";
+              ? ["Navbat sizda", "Mikrofonni bosing va gapiring"]
+              : ["Gapirishga tayyor", "Mikrofonni bosing va o‘zbekcha so‘rang"];
+  const levelName = LEVELS.find(([k]) => k === level)?.[1];
 
   return (
-    <main className="container page" style={{ maxWidth: 760, paddingTop: 12 }}>
-      <section className="vs-stage">
-        <div className="vs-top">
-          <Link href="/speak" className="vs-icon" aria-label="Orqaga" onClick={() => stopAudio()}>
-            <Icon name="left" size={18} />
-          </Link>
-          <div className="vs-title">
-            <b>Ovozli ustoz</b>
-            <span>O‘zbekcha so‘rang · koreyscha o‘rganing</span>
-          </div>
-          <button className={`vs-toggle ${handsFree ? "on" : ""}`} onClick={() => setHandsFree((v) => !v)} aria-pressed={handsFree} title="Uzluksiz suhbat">
-            🔁 <span className="hide-mobile">Uzluksiz</span>
-          </button>
+    <main className="container" style={{ maxWidth: 820, paddingTop: 16 }}>
+      <div className="card row" style={{ padding: 12, marginBottom: 16, position: "sticky", top: 74, zIndex: 20, gap: 10 }}>
+        <span className="icon-tile" style={{ width: 42, height: 42 }}>
+          <Icon name="mic" size={20} />
+        </span>
+        <div className="grow" style={{ minWidth: 0 }}>
+          <b>Ovozli ustoz</b>
+          <div className="tiny muted">{levelName} daraja</div>
         </div>
-
-        <div className="vs-seg" role="group" aria-label="Daraja">
-          {LEVELS.map(([k, t]) => (
-            <button key={k} className={level === k ? "on" : ""} onClick={() => setLevel(k)}>
-              {t}
-            </button>
-          ))}
-        </div>
-
-        <VoiceOrb mode={mode} getLevel={getLevel} size={236} onClick={onMic} disabled={busy} label={rec ? "Yozishni to‘xtatish" : "Gapirish"} />
-
-        <div className="vs-status" aria-live="polite">
-          {status}
-        </div>
-
-        <div className="vs-controls">
-          <button className="vs-side" onClick={() => lastAiIdx >= 0 && replay(lastAiIdx)} disabled={lastAiIdx < 0 || rec || busy} aria-label="Qayta tinglash">
-            <Icon name={playing === lastAiIdx && lastAiIdx >= 0 ? "stop" : "replay"} size={20} />
+        <button className={`chip ${showRom ? "active" : ""}`} onClick={() => setShowRom((v) => !v)} aria-pressed={showRom} title="Lotincha o‘qilishi">
+          Aa
+        </button>
+        <button className={`chip ${handsFree ? "active" : ""}`} onClick={() => setHandsFree((v) => !v)} aria-pressed={handsFree} title="Uzluksiz suhbat">
+          🔁<span className="hide-mobile"> Uzluksiz</span>
+        </button>
+        {msgs.length > 0 && (
+          <button className="icon-btn sm" onClick={newChat} aria-label="Yangi suhbat" title="Yangi suhbat">
+            <Icon name="rotate" size={16} />
           </button>
-          <button className={`vs-mic ${rec ? "rec" : ""}`} onClick={onMic} disabled={busy} aria-label={rec ? "To‘xtatish" : "Gapirish"}>
-            {busy ? <span className="spinner white" style={{ width: 26, height: 26 }} /> : <Icon name={rec ? "stop" : "mic"} size={30} />}
-          </button>
-          <button className={`vs-side ${showRom ? "on" : ""}`} onClick={() => setShowRom((v) => !v)} aria-pressed={showRom} title="Lotincha o‘qilishi">
-            Aa
-          </button>
-        </div>
-        <div className="vs-hint">{hint}</div>
-
-        {err && <div className="vs-err">{err}</div>}
-        {lastMe && (
-          <div className="vs-heard">
-            <span>Siz:</span> {lastMe.text}
-          </div>
         )}
-        {lastAi?.segments && (
-          <div className="vs-reply vs-fade" key={lastAiIdx}>
-            <Reply segments={lastAi.segments} />
-          </div>
-        )}
-        {lastAi?.practice?.ko && (
-          <div className="vs-practice vs-fade" key={`p${lastAiIdx}`}>
-            <div className="grow">
-              <div className="ko">{lastAi.practice.ko}</div>
-              {showRom && lastAi.practice.rom && <div className="rom">{lastAi.practice.rom}</div>}
-              {lastAi.practice.uz && <div className="uz">{lastAi.practice.uz}</div>}
-            </div>
-            <SpeakBtn text={lastAi.practice.ko} opts={{ slow: true, voice: "m" }} light />
-          </div>
-        )}
-      </section>
+      </div>
 
       {msgs.length === 0 && (
-        <div className="stack" style={{ gap: 10, marginTop: 18 }}>
-          <b className="small muted">Masalan, shunday deb so‘rang:</b>
-          <div className="row-wrap" style={{ gap: 8 }}>
+        <div className="vs-hero">
+          <VoiceOrb mode={mode} getLevel={getLevel} size={92} label="" />
+          <h1 className="h2">
+            Ustoz bilan <span className="gradient-text">ovozli dars</span>
+          </h1>
+          <p className="lead">
+            O‘zbekcha so‘rang: “Rahmat koreyschada qanday?” yoki “Menga dars o‘tib ber”. Ustoz o‘zbekcha tushuntiradi, koreyscha so‘zlarni ovoz bilan aytadi va
+            takrorlaganingizda talaffuzingizni tekshiradi.
+          </p>
+          <div className="seg" role="group" aria-label="Daraja">
+            {LEVELS.map(([k, t]) => (
+              <button key={k} className={level === k ? "on" : ""} onClick={() => setLevel(k)}>
+                {t}
+              </button>
+            ))}
+          </div>
+          <div className="row-wrap" style={{ gap: 8, justifyContent: "center" }}>
             {CHIPS.map((c) => (
-              <button key={c} className="chip" style={{ whiteSpace: "normal", textAlign: "left" }} disabled={busy || rec} onClick={() => sendText(c)}>
+              <button key={c} className="chip" style={{ whiteSpace: "normal" }} disabled={busy || rec} onClick={() => sendText(c)}>
                 {c}
               </button>
             ))}
@@ -392,44 +379,109 @@ export default function VoiceTutorPage() {
         </div>
       )}
 
-      <div className="card row" style={{ padding: 8, gap: 8, marginTop: 16 }}>
-        <input
-          className="input grow"
-          style={{ border: 0, boxShadow: "none" }}
-          placeholder="Yoki yozing: “Kechirasiz” koreyschada qanday?"
-          value={text}
-          disabled={busy || rec}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendText(text)}
-        />
-        <button className="icon-btn primary" onClick={() => sendText(text)} disabled={busy || rec || !text.trim()} aria-label="Yuborish">
-          <Icon name="send" size={18} />
-        </button>
+      <div className="chat">
+        {msgs.map((m, i) =>
+          m.role === "ai" ? (
+            <div key={i} className="msg ai">
+              <div className="vs-who">
+                <span className="vs-avatar">U</span> Ustoz
+                {playing === i && !loadingAudio && (
+                  <span className="vs-eq" aria-label="gapiryapti">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                )}
+              </div>
+              <div className="bubble">
+                <div className="row" style={{ alignItems: "flex-start", gap: 8 }}>
+                  <div className="grow vs-text">{m.segments ? <Reply segments={m.segments} /> : m.text}</div>
+                  <button className="icon-btn sm" onClick={() => replay(i)} disabled={rec || busy} aria-label="Qayta tinglash">
+                    {playing === i && loadingAudio ? (
+                      <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                    ) : (
+                      <Icon name={playing === i ? "stop" : "volume"} size={16} />
+                    )}
+                  </button>
+                </div>
+                {m.practice?.ko && (
+                  <div className="vs-pr">
+                    <div className="grow">
+                      <div className="ko">{m.practice.ko}</div>
+                      {showRom && m.practice.rom && <div className="rom">{m.practice.rom}</div>}
+                      {m.practice.uz && <div className="uz">{m.practice.uz}</div>}
+                    </div>
+                    <SpeakBtn text={m.practice.ko} opts={{ slow: true, voice: "m" }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div key={i} className="msg me">
+              <div className="bubble">{m.text}</div>
+            </div>
+          )
+        )}
+        {busy && (
+          <div className="msg ai">
+            <div className="vs-who">
+              <span className="vs-avatar">U</span> Ustoz
+            </div>
+            <div className="bubble">
+              <span className="vs-dots" aria-label="o‘ylayapti">
+                <i />
+                <i />
+                <i />
+              </span>
+            </div>
+          </div>
+        )}
+        {err && <div className="callout">{err}</div>}
+        <div ref={endRef} style={{ height: 4 }} />
       </div>
 
-      {older.length > 0 && (
-        <details className="card" style={{ marginTop: 16 }}>
-          <summary style={{ cursor: "pointer", fontWeight: 600 }}>Suhbat tarixi ({Math.ceil(older.length / 2)})</summary>
-          <div className="chat" style={{ marginTop: 14 }}>
-            {older.map((m, i) =>
-              m.role === "ai" ? (
-                <div key={i} className="msg ai">
-                  <div className="bubble row" style={{ alignItems: "flex-start" }}>
-                    <div className="grow vs-history">{m.segments ? <Reply segments={m.segments} /> : m.text}</div>
-                    <button className="icon-btn sm" onClick={() => replay(i)} disabled={rec || busy} aria-label="Tinglash">
-                      <Icon name={playing === i ? "stop" : "volume"} size={16} />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div key={i} className="msg me">
-                  <div className="bubble">{m.text}</div>
-                </div>
-              )
-            )}
+      <div className="composer">
+        {typing && (
+          <div className="card row" style={{ padding: 8, gap: 8, marginBottom: 10 }}>
+            <input
+              className="input grow"
+              style={{ border: 0, boxShadow: "none" }}
+              placeholder="Yozing: “Kechirasiz” koreyschada qanday?"
+              value={text}
+              autoFocus
+              disabled={busy || rec}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendText(text)}
+            />
+            <button className="icon-btn primary sm" onClick={() => sendText(text)} disabled={busy || rec || !text.trim()} aria-label="Yuborish">
+              <Icon name="send" size={16} />
+            </button>
           </div>
-        </details>
-      )}
+        )}
+        <div className="card vbar">
+          <button className={`vbar-mic ${rec ? "rec" : ""}`} onClick={onMic} disabled={busy} aria-label={rec ? "Yuborish" : "Gapirish"}>
+            {busy ? <span className="spinner white" style={{ width: 20, height: 20 }} /> : <Icon name={rec ? "send" : "mic"} size={22} />}
+          </button>
+          <div className="vbar-mid" aria-live="polite">
+            <VoiceOrb mode={mode} getLevel={getLevel} size={40} label="" />
+            <div className="vbar-status">
+              <b>{status}</b>
+              <span>{sub}</span>
+            </div>
+          </div>
+          <button className={`icon-btn sm ${typing ? "on" : ""}`} onClick={() => setTyping((v) => !v)} aria-pressed={typing} aria-label="Yozib so‘rash" title="Yozib so‘rash">
+            <Icon name="pen" size={16} />
+          </button>
+          {(msgs.length > 0 || rec) && (
+            <button className="vbar-end" onClick={endSession} aria-label="Suhbatni tugatish">
+              <Icon name="phone" size={16} /> <span className="hide-mobile">Tugatish</span>
+            </button>
+          )}
+        </div>
+        <div className="tiny muted" style={{ textAlign: "center", marginTop: 8 }}>
+          Maslahat: shovqinsiz joyda gapiring; quloqchin bilan ustoz o‘z ovozini eshitmaydi.
+        </div>
+      </div>
     </main>
   );
 }

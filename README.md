@@ -13,8 +13,10 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | **🧠 AI tushuntirish** | Har bir savolga o‘zbek tilida tarjima, nega to‘g‘ri, kerakli so‘zlar va grammatika |
 | **🗣️ Gaplashish** | 11 ta hayotiy vaziyat: restoran, kasalxona, bank, migratsiya xizmati, zavod, uy ijarasi, ish suhbati, TOPIK Speaking va boshqalar. Nutq **Gemini 3.5 Transcribe** orqali matnga aylanadi, AI xatolarni tuzatadi va talaffuz bo‘yicha maslahat beradi |
 | **🌱 0 dan o‘rganish** | Hangul (40 harf ovozi bilan), bo‘g‘in yasash, 받침, viktorina, 12 ta hayotiy dars va mini testlar |
-| **🃏 So‘zlar** | 80 ta so‘z (TOPIK I, ish joyi/EPS, TOPIK II), Leitner usulida takrorlash |
-| **🤖 AI Ustoz** | Grammatika, TOPIK strategiyasi va gaplarni tekshirish bo‘yicha chat (javob oqim bilan chiqadi) |
+| **🃏 So‘zlar** | ~2 000 so‘z: 80 ta mavzuli + 국립국어원 darajali lug‘ati (TOPIK I — A, TOPIK II — B, chastota tartibida, o‘zbekcha tarjima), qidiruv, Leitner usulida takrorlash |
+| **📐 Grammatika** | 1급–6급 dagi 100+ qolip, o‘zbekcha izoh, misol va ovoz bilan |
+| **🗂️ Rasmiy o‘tgan testlar** | topik.go.kr dagi 12 ta ochiq sessiyaga (35–102) havolalar va har bir savol raqami bo‘yicha savol turlari xaritasi |
+| **🤖 AI Ustoz** | Grammatika, TOPIK strategiyasi va gaplarni tekshirish bo‘yicha chat. Rasmiy TOPIK faktlari (2026 jadvali, tuzilma, baholash) va savolga mos grammatika/so‘zlar bazadan avtomatik qo‘shiladi |
 | **🇰🇷 Koreyada hayot** | Favqulodda raqamlar (112, 119, 1345, 1350, 1330), foydali ilovalar, birinchi qadamlar, ovozli iboralar |
 | **📈 Natijalarim** | Natijalar tarixi, ball grafigi, imtihongacha qolgan kunlar, kunlik seriya (streak) |
 
@@ -51,8 +53,9 @@ Kalit faqat serverda saqlanadi va brauzerga yuborilmaydi. AI yo‘llarida IP bo�
 src/
   app/            sahifalar va API (api/tts, api/explain, api/writing, api/speak, api/tutor, api/generate)
   components/     AppShell, ChartView, exam/ (ExamRunner, GroupView, Writing, Results, Explain)
-  data/           topik1.ts, topik2.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts
-  lib/            gemini.ts (server), audio.ts, exam.ts, store.ts
+  data/           topik1.ts, topik1v2.ts, topik2.ts, hangul.ts, lessons.ts, words.ts, guide.ts, scenarios.ts,
+                  vocabA.ts / vocabB.ts / vocab.ts (국립국어원 lug‘ati), grammar.ts, pastExams.ts
+  lib/            gemini.ts (server), knowledge.ts (AI Ustoz bilim bazasi), romanize.ts, audio.ts, exam.ts, store.ts
 ```
 
 ## Eslatma

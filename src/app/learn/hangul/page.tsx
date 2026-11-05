@@ -175,7 +175,7 @@ export default function HangulPage() {
       <div className="section-head">
         <span className="eyebrow">한글 · Hangul</span>
         <h1 className="h1">
-          Koreys 
+          Koreys{" "}
           <span className="gradient-text">alifbosi</span>
         </h1>
         <p className="lead">

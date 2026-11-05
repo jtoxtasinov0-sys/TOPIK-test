@@ -7,6 +7,7 @@ import { allQuestions, EXAM_INFO, formatTime, qKey, SECTION_LABEL } from "@/lib/
 import { prefetchAudio, stopAudio } from "@/lib/audio";
 import { addHistory, KEYS, load, remove, save, saveAiTest, uid, useStored } from "@/lib/store";
 import { TOPIK1 } from "@/data/topik1";
+import { TOPIK1_V2 } from "@/data/topik1v2";
 import { TOPIK2 } from "@/data/topik2";
 import { Icon } from "../Icon";
 import { ApiError, postJson, useAiErrorText } from "../ui";
@@ -31,13 +32,14 @@ type Saved = {
   at: number;
 };
 
-const BUILTIN: Record<ExamId, Test> = { topik1: TOPIK1, topik2: TOPIK2 };
+// Tayyor (internet AI’siz ishlaydigan) original variantlar
+const BUILTIN: Record<ExamId, Test[]> = { topik1: [TOPIK1, TOPIK1_V2], topik2: [TOPIK2] };
 const GRACE_SECONDS = 180;
 
 export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId }) {
   const errText = useAiErrorText();
   const [aiTests, , aiReady] = useStored<Test[]>(KEYS.aiTests, []);
-  const [test, setTest] = useState<Test>(BUILTIN[exam]);
+  const [test, setTest] = useState<Test>(BUILTIN[exam][0]);
   const [phase, setPhase] = useState<Phase>("intro");
   const [mode, setMode] = useState<Mode>("exam");
   const [scope, setScope] = useState<Scope>(preset ?? "all");
@@ -156,7 +158,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
 
   const resume = () => {
     if (!saved) return;
-    const t = saved.testId === BUILTIN[exam].id ? BUILTIN[exam] : ourAi.find((x) => x.id === saved.testId);
+    const t = BUILTIN[exam].find((x) => x.id === saved.testId) ?? ourAi.find((x) => x.id === saved.testId);
     if (!t) {
       remove(KEYS.attempt(exam));
       setSaved(null);
@@ -230,7 +232,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
   // ---------- AI yangi variant yaratish ----------
   const generate = async () => {
     setGenError("");
-    const base = BUILTIN[exam];
+    const base = BUILTIN[exam][0];
     const jobs: { kind: "g" | "w"; si: number; gi: number }[] = [];
     base.sections.forEach((s, si) => {
       s.groups?.forEach((_, gi) => jobs.push({ kind: "g", si, gi }));
@@ -394,12 +396,14 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
           <div className="card stack">
             <h3 className="h3">1. Variant</h3>
             <div className="stack" style={{ gap: 8 }}>
-              <button className={`scenario ${test.id === BUILTIN[exam].id ? "on" : ""}`} onClick={() => setTest(BUILTIN[exam])}>
-                <b>📘 {BUILTIN[exam].title}</b>
-                <span className="small" style={{ opacity: 0.8 }}>
-                  Tayyor original variant — internet AI’siz ham ishlaydi
-                </span>
-              </button>
+              {BUILTIN[exam].map((b) => (
+                <button key={b.id} className={`scenario ${test.id === b.id ? "on" : ""}`} onClick={() => setTest(b)}>
+                  <b>📘 {b.title}</b>
+                  <span className="small" style={{ opacity: 0.8 }}>
+                    Tayyor original variant — internet AI’siz ham ishlaydi
+                  </span>
+                </button>
+              ))}
               {aiReady &&
                 ourAi.map((t) => (
                   <button key={t.id} className={`scenario ${test.id === t.id ? "on" : ""}`} onClick={() => setTest(t)}>

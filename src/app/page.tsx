@@ -239,7 +239,7 @@ export default function Home() {
           <div className="section-head">
             <span className="eyebrow">📝 Mock test</span>
             <h2 className="h2">
-              Xuddi haqiqiy 
+              Xuddi haqiqiy{" "}
               <span className="gradient-text">TOPIK</span>
                kabi
             </h2>
@@ -291,7 +291,7 @@ export default function Home() {
           <div className="stack" style={{ gap: 16 }}>
             <span className="eyebrow">✍️ 쓰기 · Writing</span>
             <h2 className="h2">
-              Daftarga yozing — 
+              Daftarga yozing —{" "}
               <span className="gradient-text">AI tekshiradi</span>
             </h2>
             <p className="lead">
@@ -344,7 +344,7 @@ export default function Home() {
           <div className="stack" style={{ gap: 16 }}>
             <span className="eyebrow">🗣️ 말하기 · Gemini</span>
             <h2 className="h2">
-              AI bilan 
+              AI bilan{" "}
               <span className="gradient-text">jonli gaplashing</span>
             </h2>
             <p className="lead">

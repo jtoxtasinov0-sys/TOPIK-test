@@ -160,7 +160,7 @@ export default function SpeakPage() {
         <div className="section-head">
           <span className="eyebrow">🗣️ 말하기 · Gemini 3.5 Transcribe</span>
           <h1 className="h1">
-            AI bilan 
+            AI bilan{" "}
             <span className="gradient-text">gaplashing</span>
           </h1>
           <p className="lead">

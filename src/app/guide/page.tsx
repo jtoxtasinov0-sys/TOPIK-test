@@ -14,7 +14,7 @@ export default function GuidePage() {
       <div className="section-head">
         <span className="eyebrow">🇰🇷 Koreyada hayot</span>
         <h1 className="h1">
-          Koreyaga 
+          Koreyaga{" "}
           <span className="gradient-text">endi keldingizmi?</span>
         </h1>
         <p className="lead">

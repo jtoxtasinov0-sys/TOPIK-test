@@ -9,16 +9,18 @@ export default function LearnHub() {
     { n: 1, href: "/learn/hangul", t: "Hangul alifbosi", d: "40 ta harf, tovushi bilan — 1–2 kunda o‘qishni o‘rganasiz", g: "var(--grad-mint)" },
     { n: 2, href: "/learn/hangul#builder", t: "Bo‘g‘in yasash", d: "Harflarni bo‘g‘inga yig‘ing va eshiting", g: "var(--grad-btn)" },
     { n: 3, href: "/learn/lessons", t: "Hayotiy darslar", d: "12 ta dars: salomlashish, restoran, ish, kasalxona…", g: "var(--grad)" },
-    { n: 4, href: "/words", t: "So‘z kartochkalari", d: "80 ta asosiy so‘z, takrorlash tizimi bilan", g: "var(--grad-pink)" },
-    { n: 5, href: "/speak", t: "AI bilan gaplashish", d: "O‘rganganlaringizni jonli suhbatda qo‘llang", g: "var(--grad-sun)" },
-    { n: 6, href: "/test/topik1", t: "TOPIK I mock test", d: "Darajangizni tekshiring", g: "var(--grad-night)" },
+    { n: 4, href: "/words", t: "So‘z kartochkalari", d: "2 000 ga yaqin so‘z: TOPIK I va TOPIK II lug‘ati, takrorlash tizimi bilan", g: "var(--grad-pink)" },
+    { n: 5, href: "/learn/grammar", t: "Grammatika", d: "1급–6급 qoliplari, o‘zbekcha izoh va misollar", g: "var(--grad-mint)" },
+    { n: 6, href: "/speak", t: "AI bilan gaplashish", d: "O‘rganganlaringizni jonli suhbatda qo‘llang", g: "var(--grad-sun)" },
+    { n: 7, href: "/test/topik1", t: "TOPIK I mock test", d: "Darajangizni tekshiring", g: "var(--grad-night)" },
+    { n: 8, href: "/test/past", t: "Rasmiy o‘tgan testlar", d: "12 ta ochiq TOPIK sessiyasi (기출문제)", g: "var(--grad)" },
   ];
   return (
     <main className="container page">
       <div className="section-head">
         <span className="eyebrow">🌱 0 dan boshlash</span>
         <h1 className="h1">
-          Koreys tili — 
+          Koreys tili —{" "}
           <span className="gradient-text">qadam-baqadam</span>
         </h1>
         <p className="lead">

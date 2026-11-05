@@ -51,7 +51,7 @@ export default function ProgressPage() {
       <div className="section-head">
         <span className="eyebrow">📈 Natijalarim</span>
         <h1 className="h1">
-          Sizning 
+          Sizning{" "}
           <span className="gradient-text">progressingiz</span>
         </h1>
         <p className="lead small">Ma’lumotlar faqat shu qurilmada saqlanadi.</p>

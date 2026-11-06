@@ -156,15 +156,15 @@ export default function SpeakPage() {
   if (!started)
     return (
       <main className="container page">
+        <Link href="/" className="back-link">
+          <Icon name="left" size={16} /> Bosh sahifa
+        </Link>
         <div className="section-head">
-          <span className="eyebrow">🗣️ 말하기 · Gemini 3.5 Transcribe</span>
+          <span className="eyebrow">🤖 AI Ustoz · Gemini</span>
           <h1 className="h1">
-            AI bilan{" "}
-            <span className="gradient-text">gaplashing</span>
+            AI <span className="gradient-text">Ustoz</span>
           </h1>
-          <p className="lead">
-            Vaziyatni tanlang va koreyscha gapiring. AI sizni tushunadi, xatolarni o‘zbekcha tushuntiradi, talaffuz bo‘yicha maslahat beradi va suhbatni davom ettiradi.
-          </p>
+          <p className="lead">Hammasi bitta joyda. Qanday o‘rganmoqchisiz — tanlang:</p>
         </div>
 
         <Link href="/speak/free" className="card row-wrap between" style={{ gap: 16, marginBottom: 12, background: "var(--grad-pink)", color: "#fff", border: 0 }}>
@@ -182,7 +182,7 @@ export default function SpeakPage() {
           </span>
         </Link>
 
-        <Link href="/speak/ustoz" className="card row-wrap between" style={{ gap: 16, marginBottom: 20, background: "var(--grad-btn)", color: "#fff", border: 0 }}>
+        <Link href="/speak/ustoz" className="card row-wrap between" style={{ gap: 16, marginBottom: 12, background: "var(--grad-btn)", color: "#fff", border: 0 }}>
           <div className="row" style={{ gap: 14 }}>
             <span className="icon-tile" style={{ width: 52, height: 52, fontSize: "1.6rem", background: "rgba(255,255,255,.18)" }}>🎙️</span>
             <div className="stack" style={{ gap: 4 }}>
@@ -197,7 +197,25 @@ export default function SpeakPage() {
           </span>
         </Link>
 
-        <h2 className="h3" style={{ margin: "4px 0 12px" }}>Vaziyatli suhbat (koreyscha)</h2>
+        <Link href="/tutor" className="card row-wrap between" style={{ gap: 16, marginBottom: 20, background: "var(--grad-night)", color: "#fff", border: 0 }}>
+          <div className="row" style={{ gap: 14 }}>
+            <span className="icon-tile" style={{ width: 52, height: 52, fontSize: "1.6rem", background: "rgba(255,255,255,.14)" }}>✍️</span>
+            <div className="stack" style={{ gap: 4 }}>
+              <b>Yozma savol — AI Ustoz chati</b>
+              <span className="small" style={{ opacity: 0.9 }}>
+                Grammatika, tarjima, gapni tekshirish, TOPIK strategiyasi — yozib so‘rang, ustoz batafsil yozib tushuntiradi.
+              </span>
+            </div>
+          </div>
+          <span className="btn btn-sm" style={{ background: "#fff", color: "var(--ink)" }}>
+            <Icon name="pen" size={16} /> Yozish
+          </span>
+        </Link>
+
+        <h2 className="h3" style={{ margin: "4px 0 6px" }}>Vaziyatli suhbat (koreyscha)</h2>
+        <p className="small muted" style={{ margin: "0 0 12px" }}>
+          Restoran, kasalxona, bank… Vaziyatni tanlang va koreyscha gapiring — AI xatolaringizni o‘zbekcha tushuntiradi.
+        </p>
 
         <div className="grid-4">
           {SCENARIOS.filter((s) => s.id !== "free").map((s) => (

@@ -84,7 +84,9 @@ export default function VoiceTutorPage() {
   }, [msgs, busy]);
   useEffect(() => {
     alive.current = true;
+    document.body.classList.add("voice-mode"); // ovozli ekran: pastki menyu yashiriladi
     return () => {
+      document.body.classList.remove("voice-mode");
       alive.current = false;
       stopAudio();
       recRef.current?.cancel();
@@ -102,11 +104,18 @@ export default function VoiceTutorPage() {
     setMsgs(list);
   };
 
+  /**
+   * Ustoz gapiradi. Shu paytda mikrofon yopiq: avval ustoz to'liq tushuntiradi, keyin navbat o'quvchiga.
+   * true — oxirigacha o'qildi; false — to'xtatildi yoki ovoz chiqmadi (mikrofon o'zi yoqilmaydi).
+   */
   const speak = async (i: number, segs: Segment[]) => {
+    recRef.current?.cancel();
+    releaseMic();
     setPlaying(i);
-    await playTutor(segs, { onLoading: setLoadingAudio });
+    const played = await playTutor(segs, { onLoading: setLoadingAudio });
     setLoadingAudio(false);
     setPlaying((p) => (p === i ? null : p));
+    return played;
   };
 
   const send = async (payload: { audio?: { data: string; mime: string }; text?: string }) => {
@@ -140,9 +149,9 @@ export default function VoiceTutorPage() {
       setBusy(false);
     }
     if (!reply || !alive.current) return;
-    await speak(reply.index, reply.segments);
-    // Uzluksiz suhbat: ustoz gapirib bo'lgach, mikrofon o'zi yoqiladi
-    if (alive.current && session.current && cfg.current.handsFree) void startRec();
+    const played = await speak(reply.index, reply.segments);
+    // Uzluksiz suhbat: ustoz javobini OXIRIGACHA o'qib bo'lgachgina mikrofon o'zi yoqiladi (navbat sizda)
+    if (played && alive.current && session.current && cfg.current.handsFree) void startRec();
   };
 
   const startRec = async () => {
@@ -204,7 +213,7 @@ export default function VoiceTutorPage() {
   const exit = () => {
     endSession();
     if (window.history.length > 1) router.back();
-    else router.push("/");
+    else router.push("/speak");
   };
 
   const newChat = () => {

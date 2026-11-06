@@ -127,11 +127,10 @@ export default function Home() {
   const actions: { href: string; v: VisualId; t: string }[] = [
     { href: "/test", v: "home:test", t: "Mock test" },
     { href: "/writing", v: "home:writing", t: "Yozish" },
-    { href: "/speak", v: "home:speak", t: "Gaplashish" },
-    { href: "/speak/ustoz", v: "home:ustoz", t: "Ovozli ustoz" },
+    // Gaplashish, ovozli ustoz va yozma AI ustoz — bitta joyda (/speak), adashib qolmaslik uchun
+    { href: "/speak", v: "home:tutor", t: "AI Ustoz" },
     { href: "/learn/hangul", v: "home:hangul", t: "Hangul" },
     { href: "/words", v: "home:words", t: "So‘zlar" },
-    { href: "/tutor", v: "home:tutor", t: "AI Ustoz" },
     { href: "/guide", v: "home:guide", t: "Koreya" },
   ];
 

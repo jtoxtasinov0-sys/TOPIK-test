@@ -7,7 +7,8 @@ import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { LEVELS, PARTNERS, STYLES, TOPICS, greeting, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
 import { outputLevel, playTalk, prefetchTalk, stopAudio, unlockAudio, type Segment } from "@/lib/audio";
-import { MicError, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
+import Link from "next/link";
+import { MicError, releaseMic, startRecording, type Recording } from "@/lib/mic";
 import { romanize } from "@/lib/romanize";
 import { touchStreak, useStored } from "@/lib/store";
 
@@ -117,6 +118,12 @@ export default function FreeTalkPage() {
     };
   }, []);
 
+  // Suhbat ekranida pastki menyu yashiriladi
+  useEffect(() => {
+    document.body.classList.toggle("voice-mode", started);
+    return () => document.body.classList.remove("voice-mode");
+  }, [started]);
+
   // Tanlash ekranida: server uyg'otiladi va birinchi salom ovozi oldindan tayyorlanadi —
   // «Suhbatni boshlash» bosilishi bilan do'st kutmasdan gapiradi
   useEffect(() => {
@@ -141,16 +148,21 @@ export default function FreeTalkPage() {
     setMsgs(list);
   };
 
-  /** true — shu ovoz oxirigacha (yoki to'xtatilguncha) o'ynadi; false — uni boshqa ovoz almashtirdi */
+  /**
+   * Do'st gapiradi. Shu paytda mikrofon yopiq: navbat — do'stda (iPhone ham ovozni pasaytirmaydi).
+   * true — oxirigacha o'qildi, endi navbat o'quvchiga; false — to'xtatildi, ovoz chiqmadi yoki boshqa ovoz almashtirdi.
+   */
   const speak = async (i: number, m: AiMsg, slow?: boolean) => {
     const c = cfg.current;
     const id = ++playId.current;
+    pauseMic();
+    releaseMic();
     setPlaying(i);
-    await playTalk({ help: m.help, reply: m.ko, voice: partnerOf(c.partner).voice, slow: slow ?? c.level === "beginner" }, { onLoading: setLoadingAudio });
+    const played = await playTalk({ help: m.help, reply: m.ko, voice: partnerOf(c.partner).voice, slow: slow ?? c.level === "beginner" }, { onLoading: setLoadingAudio });
     if (id !== playId.current) return false;
     setLoadingAudio(false);
     setPlaying((p) => (p === i ? null : p));
-    return true;
+    return played;
   };
 
   /** Uzluksiz rejimda: do'st gapirib bo'lgach mikrofon o'zi yoqiladi */
@@ -298,10 +310,9 @@ export default function FreeTalkPage() {
     await send({ text: t });
   };
 
-  /** Suhbat boshlanishi: salom AI'siz, darhol (ovozi oldindan tayyor); mikrofonga ruxsat shu bosishda bir marta so'raladi */
+  /** Suhbat boshlanishi: salom AI'siz, darhol (ovozi oldindan tayyor). Do'st gapirib bo'lgach — mikrofon (navbat sizda) */
   const begin = async () => {
     unlockAudio();
-    const mic = warmMic();
     gen.current++;
     const g = gen.current;
     session.current = true;
@@ -310,10 +321,7 @@ export default function FreeTalkPage() {
     commit([ai]);
     setErr("");
     setStarted(true);
-    // Mikrofon ovoz o'ynayotganda ochilsa, iPhone ovozni bo'lib qo'yishi mumkin — avval mikrofon (ruxsat bo'lsa — bir zumda)
-    await mic;
-    if (!alive.current || g !== gen.current || !session.current) return;
-    if (await speak(0, ai)) listenAgain();
+    if ((await speak(0, ai)) && g === gen.current) listenAgain();
   };
 
   /** Suhbatni to'xtatish: ovoz va yozuv to'xtaydi, avtomatik tinglash o'chadi (suhbat qoladi) */
@@ -353,6 +361,9 @@ export default function FreeTalkPage() {
   if (!started)
     return (
       <main className="container page" style={{ maxWidth: 900 }}>
+        <Link href="/speak" className="back-link">
+          <Icon name="left" size={16} /> AI Ustoz
+        </Link>
         <div className="section-head">
           <span className="eyebrow">💬 말하기 · erkin suhbat</span>
           <h1 className="h1">

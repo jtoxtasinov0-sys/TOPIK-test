@@ -13,6 +13,7 @@ const talkRoute = await import("../src/app/api/talk/route");
 const ttsRoute = await import("../src/app/api/tts/route");
 const { talkChunks, splitTalk } = await import("../src/lib/audio");
 const { partialJson } = await import("../src/lib/gemini");
+const { greeting, TOPICS } = await import("../src/data/talk");
 
 type Call = { body: Record<string, unknown> };
 const realFetch = globalThis.fetch;
@@ -337,6 +338,35 @@ describe("/api/talk oqimi", () => {
     await (await talkRoute.POST(post("/api/talk", { stream: true, text: "네" }))).json();
     assert.equal(calls.length, 1);
     assert.equal(calls[0].body.stream, undefined);
+  });
+});
+
+describe("birinchi salom (AI'siz, darhol)", () => {
+  test("ism qo'shimchasi va uslub: 민준이에요 / 지수예요, 반말 — 민준이야 / 지수야", () => {
+    assert.match(greeting("minjun", "food", "polite").ko, /^안녕하세요! 저는 민준이에요\. 무슨 음식을 제일 좋아해요\?$/);
+    assert.match(greeting("jisu", "food", "polite").ko, /저는 지수예요\./);
+    assert.match(greeting("minjun", "day", "casual").ko, /^안녕! 나는 민준이야\. 오늘 뭐 했어\?$/);
+    assert.match(greeting("jisu", "day", "casual").ko, /나는 지수야\./);
+    assert.match(greeting("jisu", "day", "casual").uz, /^Salom! Men Jisuman\./);
+  });
+
+  test("har bir mavzu va uslub uchun salom, tarjima va 2 ta javob g'oyasi bor; noma'lum mavzu — erkin", () => {
+    for (const t of TOPICS)
+      for (const style of ["polite", "casual"] as const) {
+        const g = greeting("minjun", t.id, style);
+        assert.ok(g.ko.endsWith("?"), `${t.id}/${style}: savol bilan tugaydi`);
+        assert.ok(g.uz.length > 10);
+        assert.equal(g.hints.length, 2);
+        assert.ok(g.hints.every((h) => /[가-힣]/.test(h.ko) && h.uz));
+      }
+    assert.deepEqual(greeting("minjun", "yo'q", "polite"), greeting("minjun", "free", "polite"));
+  });
+
+  test("uyg'otish so'rovi (GET) — AI chaqirilmaydi", async () => {
+    mockGemini([]);
+    const res = talkRoute.GET();
+    assert.equal(res.status, 204);
+    assert.equal(calls.length, 0);
   });
 });
 

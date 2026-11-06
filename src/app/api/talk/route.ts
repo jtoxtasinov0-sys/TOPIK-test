@@ -62,6 +62,14 @@ const plain = (s: unknown) =>
     .trim();
 const same = (a: string, b: string) => a.replace(/[\s.,!?~…]/g, "") === b.replace(/[\s.,!?~…]/g, "");
 
+/**
+ * Uyg'otish: suhbat sahifasi ochilganda brauzer shu yerga so'rov yuboradi — server (va bilim bazasi)
+ * birinchi gapgacha tayyor turadi. AI chaqirilmaydi, hech narsa hisoblanmaydi.
+ */
+export function GET() {
+  return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+}
+
 export async function POST(req: Request) {
   try {
     rateLimit(req, "talk", 80, 5 * 60_000);

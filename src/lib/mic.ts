@@ -70,18 +70,99 @@ export type Recording = {
 
 export class MicError extends Error {}
 
-/** Mikrofonni ochib, yozishni boshlaydi. Ruxsat berilmasa — MicError (o'zbekcha matn bilan). */
-export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: number) => void } = {}): Promise<Recording> {
-  let stream: MediaStream;
+const AUDIO: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
+
+const isIos = () =>
+  typeof navigator !== "undefined" && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+/** Ruxsat berilmaganda: qurilmaga mos, doimiy ruxsat berish yo'li bilan */
+function deniedText() {
+  if (typeof window !== "undefined" && !window.isSecureContext) return "Mikrofon faqat https:// manzilda ishlaydi.";
+  if (isIos())
+    return "Mikrofonga ruxsat berilmadi. Har safar so‘ramasligi uchun: Safari’da manzil qatoridagi «aA» → «Veb-sayt sozlamalari» (Website Settings) → Mikrofon → «Ruxsat berish» (Allow). Hozircha yozib yuborishingiz mumkin.";
+  return "Mikrofonga ruxsat berilmadi. Manzil qatoridagi 🔒 belgisini bosing → Mikrofon → «Ruxsat berish». Hozircha yozib yuborishingiz mumkin.";
+}
+
+async function openMic(): Promise<MediaStream> {
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+    return await navigator.mediaDevices.getUserMedia({ audio: AUDIO });
   } catch {
-    throw new MicError(
-      typeof window !== "undefined" && !window.isSecureContext
-        ? "Mikrofon faqat https:// manzilda ishlaydi."
-        : "Mikrofonga ruxsat berilmadi. Brauzer sozlamalaridan ruxsat bering yoki yozib yuboring."
-    );
+    throw new MicError(deniedText());
   }
+}
+
+// ---------- Suhbat davomida bitta mikrofon ----------
+// iPhone (Safari) mikrofon yopilib, qayta ochilganda (ayniqsa bir daqiqadan keyin) yana ruxsat so'raydi.
+// Shuning uchun suhbat sahifasida mikrofon bir marta ochiladi va sahifadan chiqquncha (yoki uzoq
+// ishlatilmaguncha) ochiq turadi — ruxsat faqat bir marta so'raladi.
+let held: MediaStream | null = null;
+let opening: Promise<MediaStream> | null = null;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
+/** Shuncha vaqt yozilmasa — mikrofon yopiladi (telefon unutib qoldirilsa ham ochiq turmasin) */
+const IDLE_RELEASE_MS = 5 * 60_000;
+
+const usable = (s: MediaStream | null) => !!s && s.getAudioTracks().some((t) => t.readyState === "live" && !t.muted);
+
+/** Ishlatilmay qolsa — IDLE_RELEASE_MS dan keyin yopiladi */
+function armIdle(stream: MediaStream) {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if (held === stream) releaseMic();
+  }, IDLE_RELEASE_MS);
+}
+
+/** Ochiq mikrofonni qaytaradi; yo'q bo'lsa — bir marta ruxsat so'rab ochadi */
+async function sharedMic(): Promise<MediaStream> {
+  clearTimeout(idleTimer);
+  if (usable(held)) return held!;
+  if (held) releaseMic();
+  if (!opening) {
+    opening = openMic()
+      .then((s) => {
+        held = s;
+        s.getAudioTracks().forEach((t) =>
+          t.addEventListener("ended", () => {
+            if (held === s) held = null;
+          })
+        );
+        return s;
+      })
+      .finally(() => {
+        opening = null;
+      });
+  }
+  return opening;
+}
+
+/**
+ * Suhbat boshlanganda (tugma bosilgan paytda) chaqiring: ruxsat darhol, bir marta so'raladi.
+ * Hech qachon xato bermaydi: ruxsat berilmasa — mikrofon bosilganda xabar chiqadi.
+ */
+export async function warmMic(): Promise<void> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return;
+  await sharedMic().then(armIdle, () => {});
+}
+
+/** Suhbatdan chiqqanda: mikrofonni yopadi (telefondagi mikrofon belgisi o'chadi) */
+export function releaseMic() {
+  clearTimeout(idleTimer);
+  const s = held;
+  held = null;
+  s?.getTracks().forEach((t) => t.stop());
+}
+
+/**
+ * Mikrofonni ochib, yozishni boshlaydi. Ruxsat berilmasa — MicError (o'zbekcha matn bilan).
+ * keep — yozuvdan keyin mikrofon yopilmaydi (suhbat sahifalari; chiqishda releaseMic() chaqiring).
+ */
+export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: number) => void; keep?: boolean } = {}): Promise<Recording> {
+  const keep = !!opts.keep;
+  const stream = keep ? await sharedMic() : await openMic();
+  /** Yozuv tugagach: oddiy rejimda mikrofon yopiladi, suhbatda — ochiq qoladi */
+  const done = () => {
+    if (keep) armIdle(stream);
+    else stream.getTracks().forEach((t) => t.stop());
+  };
   const mime = pickRecorderMime();
   const rig = (() => {
     try {
@@ -97,10 +178,12 @@ export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: numb
     }
   })();
   if (!rig) {
-    stream.getTracks().forEach((t) => t.stop());
+    done();
     throw new MicError("Brauzeringiz ovoz yozishni qo‘llamaydi. Yozib yuboring.");
   }
   const { mr, ctx, an } = rig;
+  // Avtomatik (tugma bosilmagan) yoqilganda kontekst to'xtab turgan bo'lishi mumkin
+  void ctx.resume?.().catch(() => {});
 
   const chunks: Blob[] = [];
   let silent = false;
@@ -114,7 +197,7 @@ export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: numb
       unmonitor();
       opts.onLevel?.(0);
       void ctx.close().catch(() => {});
-      stream.getTracks().forEach((t) => t.stop());
+      done();
       if (cancelled) return resolve({ kind: "cancel" });
       if (silent) return resolve({ kind: "silent" });
       const blob = new Blob(chunks, { type: mr.mimeType || mime || "audio/webm" });

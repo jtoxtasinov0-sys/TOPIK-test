@@ -5,9 +5,10 @@ import { Icon } from "@/components/Icon";
 import { micToLevel, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
-import { LEVELS, PARTNERS, STYLES, TOPICS, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
-import { outputLevel, playTalk, stopAudio, unlockAudio, type Segment } from "@/lib/audio";
-import { MicError, startRecording, type Recording } from "@/lib/mic";
+import { LEVELS, PARTNERS, STYLES, TOPICS, greeting, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
+import { outputLevel, playTalk, prefetchTalk, stopAudio, unlockAudio, type Segment } from "@/lib/audio";
+import { MicError, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
+import { romanize } from "@/lib/romanize";
 import { touchStreak, useStored } from "@/lib/store";
 
 // Erkin suhbat: koreys do'st (민준 / 지수) bilan tez-tez, ovozli koreyscha suhbat.
@@ -112,8 +113,23 @@ export default function FreeTalkPage() {
       alive.current = false;
       stopAudio();
       recRef.current?.cancel();
+      releaseMic();
     };
   }, []);
+
+  // Tanlash ekranida: server uyg'otiladi va birinchi salom ovozi oldindan tayyorlanadi —
+  // «Suhbatni boshlash» bosilishi bilan do'st kutmasdan gapiradi
+  useEffect(() => {
+    void fetch("/api/talk", { method: "GET" }).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (started) return;
+    const t = setTimeout(() => {
+      const g = greeting(s.partner, s.topic, s.style);
+      prefetchTalk({ reply: g.ko, voice: partnerOf(s.partner).voice, slow: s.level === "beginner" });
+    }, 700);
+    return () => clearTimeout(t);
+  }, [started, s.partner, s.topic, s.style, s.level]);
 
   // Shar uchun ovoz balandligi: yozayotganda — mikrofon, gapirayotganda — do'st ovozi
   const getLevel = useCallback(() => (recState.current === "rec" ? Math.min(1, micLevel.current * 7) : outputLevel()), []);
@@ -227,6 +243,7 @@ export default function FreeTalkPage() {
     let r: Recording;
     try {
       r = await startRecording({
+        keep: true, // mikrofon suhbat davomida ochiq turadi — ruxsat faqat bir marta so'raladi
         silenceMs: SILENCE_MS[cfg.current.level] ?? SILENCE_MS.beginner,
         noSpeechMs: NO_SPEECH_MS,
         onLevel: (rms) => (micLevel.current = rms),
@@ -281,14 +298,22 @@ export default function FreeTalkPage() {
     await send({ text: t });
   };
 
+  /** Suhbat boshlanishi: salom AI'siz, darhol (ovozi oldindan tayyor); mikrofonga ruxsat shu bosishda bir marta so'raladi */
   const begin = async () => {
     unlockAudio();
+    const mic = warmMic();
     gen.current++;
+    const g = gen.current;
     session.current = true;
-    commit([]);
+    const hi = greeting(cfg.current.partner, cfg.current.topic, cfg.current.style);
+    const ai: AiMsg = { role: "ai", help: [], ko: hi.ko, rom: romanize(hi.ko), uz: hi.uz, hints: hi.hints };
+    commit([ai]);
     setErr("");
     setStarted(true);
-    await send({ start: true });
+    // Mikrofon ovoz o'ynayotganda ochilsa, iPhone ovozni bo'lib qo'yishi mumkin — avval mikrofon (ruxsat bo'lsa — bir zumda)
+    await mic;
+    if (!alive.current || g !== gen.current || !session.current) return;
+    if (await speak(0, ai)) listenAgain();
   };
 
   /** Suhbatni to'xtatish: ovoz va yozuv to'xtaydi, avtomatik tinglash o'chadi (suhbat qoladi) */
@@ -297,6 +322,7 @@ export default function FreeTalkPage() {
     stopAudio();
     setPlaying(null);
     pauseMic();
+    releaseMic();
   };
 
   const backToSetup = () => {
@@ -408,6 +434,9 @@ export default function FreeTalkPage() {
         </div>
         <div className="callout info" style={{ marginTop: 16 }}>
           🎧 Quloqchin bilan gaplashing — mikrofon do‘stingiz ovozini eshitmaydi. Shovqinsiz joyda yaxshiroq ishlaydi.
+          <br />
+          🎙️ Mikrofonga ruxsat suhbat boshida bir marta so‘raladi. iPhone’da har kirganda so‘ramasligi uchun: Safari’da «aA» → «Veb-sayt sozlamalari» →
+          Mikrofon → «Ruxsat berish».
         </div>
       </main>
     );

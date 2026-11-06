@@ -7,7 +7,7 @@ import { micToLevel, RecMeter } from "@/components/MicWave";
 import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { outputLevel, playTutor, stopAudio, unlockAudio, type Segment } from "@/lib/audio";
-import { MicError, startRecording, type Recording } from "@/lib/mic";
+import { MicError, releaseMic, startRecording, type Recording } from "@/lib/mic";
 import { touchStreak } from "@/lib/store";
 
 // Ovozli ustoz: o'quvchi o'zbekcha so'raydi ("Rahmat koreyschada qanday?"),
@@ -88,6 +88,7 @@ export default function VoiceTutorPage() {
       alive.current = false;
       stopAudio();
       recRef.current?.cancel();
+      releaseMic();
     };
   }, []);
 
@@ -152,7 +153,8 @@ export default function VoiceTutorPage() {
     let r: Recording;
     try {
       // O'zbekcha savol odatda uzluksiz aytiladi — 0.9 soniya jimlikdan keyin darhol yuboramiz
-      r = await startRecording({ silenceMs: 900, onLevel: (rms) => (micLevel.current = rms) });
+      // keep — mikrofon dars davomida ochiq turadi, ruxsat faqat bir marta so'raladi
+      r = await startRecording({ keep: true, silenceMs: 900, onLevel: (rms) => (micLevel.current = rms) });
     } catch (e) {
       recState.current = "idle";
       setErr(e instanceof MicError ? e.message : "Mikrofonni ochib bo‘lmadi.");
@@ -195,6 +197,7 @@ export default function VoiceTutorPage() {
     stopAudio();
     setPlaying(null);
     recRef.current?.cancel();
+    releaseMic();
   };
 
   /** Ovozli darsdan chiqish: oldingi sahifaga (bo'lmasa — bosh sahifaga) */

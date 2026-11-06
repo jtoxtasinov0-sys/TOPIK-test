@@ -452,6 +452,11 @@ export function talkChunks(t: { help?: Segment[]; reply: string; voice: "m" | "f
   ];
 }
 
+/** Erkin suhbat javobi ovozini oldindan tayyorlab qo'yadi (masalan, birinchi salom — bosilishi bilan gapiradi) */
+export function prefetchTalk(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }) {
+  for (const c of talkChunks(t)) prefetchAudio(c.text.trim(), c.opts);
+}
+
 /** Erkin suhbat: koreys do'st javobini ovoz chiqarib o'qiydi */
 export function playTalk(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }, opts: PlayHooks = {}) {
   const fallback: Segment[] = [...(t.help ?? []), ...(t.reply.trim() ? [{ lang: "ko" as const, text: t.reply.trim() }] : [])];

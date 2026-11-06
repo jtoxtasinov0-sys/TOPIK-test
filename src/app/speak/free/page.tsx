@@ -8,7 +8,7 @@ import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { LEVELS, PARTNERS, STYLES, TOPICS, greeting, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
 import { expectAudio, outputLevel, playTalk, prefetchTalk, stopAudio, unlockAudio, type AudioWait, type Segment, type TtsOpts } from "@/lib/audio";
 import Link from "next/link";
-import { MIC_DEAD_TEXT, MicError, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
+import { MIC_DEAD_TEXT, MicError, micCanAutoOpen, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
 import { romanize } from "@/lib/romanize";
 import { touchStreak, useStored } from "@/lib/store";
 
@@ -176,9 +176,12 @@ export default function FreeTalkPage() {
     return played;
   };
 
-  /** Uzluksiz rejimda: do'st gapirib bo'lgach mikrofon o'zi yoqiladi */
+  /**
+   * Uzluksiz rejimda: do'st gapirib bo'lgach mikrofon o'zi yoqiladi. iPhone ruxsatni qayta so'raydigan paytda
+   * (mikrofon uzoq yopiq turgan bo'lsa) — o'zi yoqilmaydi: «Navbat sizda», bosilganda ruxsat so'ralmaydi.
+   */
   const listenAgain = () => {
-    if (alive.current && session.current && cfg.current.handsFree) void startRec();
+    if (alive.current && session.current && cfg.current.handsFree && micCanAutoOpen()) void startRec();
   };
 
   const send = async (payload: { audio?: { data: string; mime: string }; text?: string; start?: boolean }) => {
@@ -476,9 +479,8 @@ export default function FreeTalkPage() {
         <div className="callout info" style={{ marginTop: 16 }}>
           🎧 Quloqchin bilan gaplashing — mikrofon do‘stingiz ovozini eshitmaydi. Shovqinsiz joyda yaxshiroq ishlaydi.
           <br />
-          🎙️ Ovozingiz faqat navbatingizda yoziladi. Quloqchinsiz mikrofon faqat yozuv paytida ochiladi — do‘stingiz ovozi baland karnaydan
-          eshitiladi; quloqchin bilan mikrofon suhbat davomida ochiq turadi. iPhone’da mikrofon ruxsatini qayta-qayta so‘ramasligi uchun: Safari’da
-          «aA» → «Veb-sayt sozlamalari» → Mikrofon → «Ruxsat berish».
+          🎙️ Mikrofonga ruxsat suhbat boshida bir marta so‘raladi. Ovozingiz faqat navbatingizda yoziladi: quloqchinsiz mikrofon faqat yozuv
+          paytida ochiladi — do‘stingiz ovozi baland karnaydan eshitiladi; quloqchin bilan mikrofon suhbat davomida ochiq turadi.
         </div>
       </main>
     );

@@ -84,25 +84,13 @@ function deniedText() {
 }
 
 // ---------- iPhone ovoz rejimi ----------
-// iPhone mikrofon ochiq paytda ovozni «qo'ng'iroq» rejimida (past, ba'zan umuman eshitilmaydigan) chiqaradi.
-// Shuning uchun: yozishdan oldin — «play-and-record», mikrofon yopilgach — «playback» (oddiy, baland ovoz).
-// navigator.audioSession — Safari 16.4+; boshqa brauzerlarda hech narsa qilmaydi.
-function setAudioSession(type: "playback" | "play-and-record") {
+// navigator.audioSession — Safari 16.4+ (boshqa brauzerlarda hech narsa qilmaydi). Suhbat davomida mikrofon
+// ochiq turadi — «play-and-record»; suhbatdan chiqqanda — «auto» (oddiy ovoz rejimi).
+function setAudioSession(type: "auto" | "play-and-record") {
   try {
     const s = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
     if (s && s.type !== type) s.type = type;
   } catch {}
-}
-
-let lastStop = 0;
-
-/**
- * Mikrofon yopilgach telefon ovoz rejimini almashtirishiga bir lahza kerak — shu vaqt o'tguncha kutadi.
- * Aks holda iPhone ovozni «o'ynayapti» deb ko'rsatib, jim qolishi mumkin.
- */
-export async function micQuiet(ms = 450) {
-  const left = lastStop + ms - performance.now();
-  if (left > 0) await new Promise((r) => setTimeout(r, left));
 }
 
 async function openMic(): Promise<MediaStream> {
@@ -110,25 +98,110 @@ async function openMic(): Promise<MediaStream> {
   try {
     return await navigator.mediaDevices.getUserMedia({ audio: AUDIO });
   } catch {
-    setAudioSession("playback");
+    setAudioSession("auto");
     throw new MicError(deniedText());
   }
 }
 
+// ---------- Suhbat davomida bitta mikrofon ----------
+// Mikrofon suhbat boshida BIR MARTA ochiladi va suhbat tugaguncha yopilmaydi:
+//  - ruxsat qayta-qayta so'ralmaydi (iPhone mikrofon yopilib qayta ochilganda yana so'rashi mumkin);
+//  - Bluetooth quloqchin (AirPods va b.) har navbatda «musiqa ↔ qo'ng'iroq» rejimiga o'tmaydi — aks holda
+//    har o'tishda 1-2 soniya ketadi va shu paytda boshlangan javob ovozi eshitilmay qoladi;
+//  - navbatingiz kelganda yozuv bir zumda boshlanadi.
+// Ovoz faqat sizning navbatingizda yoziladi (ekranda «Tinglayapman»). Mikrofon «To'xtatish», sahifadan
+// chiqish yoki uzoq vaqt ishlatilmaslikda yopiladi.
+let held: MediaStream | null = null;
+let opening: Promise<MediaStream> | null = null;
+let openedAt = 0;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
+/** Shuncha vaqt yozilmasa — mikrofon yopiladi (telefon unutib qoldirilsa ham ochiq turmasin) */
+const IDLE_RELEASE_MS = 3 * 60_000;
+/**
+ * Mikrofon ochilgach telefon ovoz rejimini almashtirib olishi uchun kutish: Bluetooth quloqchin
+ * «qo'ng'iroq» rejimiga ~1 soniyada o'tadi; telefonning o'z mikrofoni — deyarli darhol.
+ */
+let settleMs = 250;
+const HEADSET = /airpods|bluetooth|headset|hands-?free|buds|beats|bose|sony|jbl|wh-|wf-/i;
+
+const usable = (s: MediaStream | null) => !!s && s.getAudioTracks().some((t) => t.readyState === "live" && !t.muted);
+
+function armIdle(stream: MediaStream) {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if (held === stream) releaseMic();
+  }, IDLE_RELEASE_MS);
+}
+
+/** Ochiq mikrofonni qaytaradi; yo'q bo'lsa — (bir marta ruxsat so'rab) ochadi */
+async function sharedMic(): Promise<MediaStream> {
+  clearTimeout(idleTimer);
+  if (usable(held)) return held!;
+  if (held) releaseMic();
+  if (!opening) {
+    opening = openMic()
+      .then((s) => {
+        held = s;
+        openedAt = performance.now();
+        settleMs = HEADSET.test(s.getAudioTracks()[0]?.label ?? "") ? 900 : 250;
+        s.getAudioTracks().forEach((t) =>
+          t.addEventListener("ended", () => {
+            if (held === s) held = null;
+          })
+        );
+        return s;
+      })
+      .finally(() => {
+        opening = null;
+      });
+  }
+  return opening;
+}
+
+/**
+ * Tugma bosilgan paytda chaqiring: mikrofon (kerak bo'lsa ruxsat) suhbat boshida bir marta ochiladi.
+ * Hech qachon xato bermaydi: ruxsat berilmasa — mikrofon bosilganda xabar chiqadi.
+ */
+export async function warmMic(): Promise<void> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return;
+  await sharedMic().then(armIdle, () => {});
+}
+
+/**
+ * Javob ovozini o'ynatishdan oldin: mikrofon hozir ochilayotgan yoki endigina ochilgan bo'lsa — telefon ovoz
+ * rejimini almashtirib olguncha kutadi (aks holda quloqchinda javobning boshi yoki hammasi eshitilmay qoladi).
+ */
+export async function micSettled() {
+  if (opening) await opening.catch(() => {});
+  const left = openedAt + settleMs - performance.now();
+  if (left > 0) await new Promise((r) => setTimeout(r, left));
+}
+
+/** Suhbatdan chiqqanda / «To'xtatish»: mikrofon yopiladi (telefondagi mikrofon belgisi o'chadi) */
+export function releaseMic() {
+  clearTimeout(idleTimer);
+  const s = held;
+  held = null;
+  if (!s) return;
+  s.getTracks().forEach((t) => t.stop());
+  setAudioSession("auto");
+}
+
 /**
  * Mikrofonni ochib, yozishni boshlaydi. Ruxsat berilmasa — MicError (o'zbekcha matn bilan).
- * Yozuv tugashi bilan mikrofon darhol yopiladi: AI o'ylab turgan paytda telefon ovoz rejimiga qaytib oladi
- * va javob ovozi baland, o'z vaqtida eshitiladi.
+ * keep — suhbat rejimi: yozuvdan keyin mikrofon yopilmaydi (chiqishda releaseMic() chaqiring);
+ * aks holda yozuv tugashi bilan mikrofon yopiladi.
  */
-export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: number) => void } = {}): Promise<Recording> {
-  const stream = await openMic();
+export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: number) => void; keep?: boolean } = {}): Promise<Recording> {
+  const keep = !!opts.keep;
+  const stream = keep ? await sharedMic() : await openMic();
   let closed = false;
   const done = () => {
     if (closed) return;
     closed = true;
+    if (keep) return armIdle(stream);
     stream.getTracks().forEach((t) => t.stop());
-    lastStop = performance.now();
-    setAudioSession("playback");
+    setAudioSession("auto");
   };
   const mime = pickRecorderMime();
   const rig = (() => {

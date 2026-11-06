@@ -7,7 +7,7 @@ import { micToLevel, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { expectAudio, outputLevel, playTutor, stopAudio, unlockAudio, type AudioWait, type Segment, type TtsOpts } from "@/lib/audio";
-import { MicError, micQuiet, startRecording, type Recording } from "@/lib/mic";
+import { MicError, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
 import { touchStreak } from "@/lib/store";
 
 // Ovozli ustoz: o'quvchi o'zbekcha so'raydi ("Rahmat koreyschada qanday?"),
@@ -104,6 +104,7 @@ export default function VoiceTutorPage() {
       alive.current = false;
       stopAudio();
       recRef.current?.cancel();
+      releaseMic();
     };
   }, []);
 
@@ -125,7 +126,7 @@ export default function VoiceTutorPage() {
     recRef.current?.cancel();
     setPlaying(i);
     setLoadingAudio(true);
-    await micQuiet(); // mikrofon endigina yopilgan bo'lsa — telefon ovoz rejimiga qaytib olsin
+    await micSettled(); // mikrofon endigina ochilgan bo'lsa — telefon (quloqchin) ovoz rejimini almashtirib olsin
     const played = await playTutor(segs, { onLoading: setLoadingAudio });
     setLoadingAudio(false);
     setPlaying((p) => (p === i ? null : p));
@@ -210,8 +211,9 @@ export default function VoiceTutorPage() {
     stopAudio();
     let r: Recording;
     try {
-      // O'zbekcha savol odatda uzluksiz aytiladi — 0.9 soniya jimlikdan keyin darhol yuboramiz
-      r = await startRecording({ silenceMs: 900, onLevel: (rms) => (micLevel.current = rms) });
+      // O'zbekcha savol odatda uzluksiz aytiladi — 0.8 soniya jimlikdan keyin darhol yuboramiz
+      // keep — mikrofon dars davomida ochiq: ruxsat bir marta, quloqchin rejimi almashmaydi, yozuv bir zumda
+      r = await startRecording({ keep: true, silenceMs: 800, onLevel: (rms) => (micLevel.current = rms) });
     } catch (e) {
       recState.current = "idle";
       setErr(e instanceof MicError ? e.message : "Mikrofonni ochib bo‘lmadi.");
@@ -254,6 +256,7 @@ export default function VoiceTutorPage() {
     stopAudio();
     setPlaying(null);
     recRef.current?.cancel();
+    releaseMic();
   };
 
   /** Ovozli darsdan chiqish: oldingi sahifaga (bo'lmasa — bosh sahifaga) */
@@ -273,6 +276,7 @@ export default function VoiceTutorPage() {
     const t = q.trim();
     if (!t || busyRef.current || rec) return;
     unlockAudio();
+    void warmMic(); // ruxsat shu bosishda bir marta; ustoz javobidan keyin mikrofon bir zumda yoqiladi
     session.current = true;
     stopAudio();
     setText("");

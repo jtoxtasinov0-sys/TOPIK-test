@@ -147,6 +147,52 @@ export function allQuestions(section: Section): { q: Question; g: Group }[] {
   return out;
 }
 
+/** Tinglash soni: TOPIK I va EPS-TOPIK — 2 marta; TOPIK II — 1~20 bir marta, 21~50 ikki marta */
+export function maxPlays(exam: ExamId, n: number) {
+  if (exam !== "topik2") return 2;
+  return n <= 20 ? 1 : 2;
+}
+
+/** Imtihon rejimida audio tugagach har bir savolga javob belgilash uchun beriladigan vaqt (soniya) */
+export const ANSWER_SECONDS = 10;
+
+export type ListenItem = {
+  key: string; // plays (tinglash soni) kaliti
+  text: string;
+  max: number; // necha marta eshittiriladi
+  questions: number[]; // shu audio qaysi savollarga tegishli
+};
+
+/**
+ * Bir sahifadagi tinglash audiolari — haqiqiy imtihondagi tartibda: avval umumiy matn, keyin har bir savolniki.
+ * Imtihon rejimida shu ro'yxat ketma-ket, o'zi o'ynaydi.
+ */
+export function listenItems(exam: ExamId, section: SectionId, group: Group): ListenItem[] {
+  const out: ListenItem[] = [];
+  if (group.script?.trim())
+    out.push({
+      key: `${section}-g${group.from}`,
+      text: group.script,
+      max: maxPlays(exam, group.from),
+      questions: group.questions.filter((q) => !q.script?.trim()).map((q) => q.n),
+    });
+  for (const q of group.questions)
+    if (q.script?.trim()) out.push({ key: qKey(section, q.n), text: q.script, max: maxPlays(exam, q.n), questions: [q.n] });
+  return out;
+}
+
+/** Audio tugagach javob uchun vaqt: har bir savolga ANSWER_SECONDS */
+export const answerSeconds = (item: ListenItem) => ANSWER_SECONDS * Math.max(1, item.questions.length);
+
+/**
+ * Test oxirigacha ishlanmay «Tugatish» bosilganda natija nechta bo'lim bo'yicha chiqariladi.
+ * Hozirgi bo'lim — u tugatilgan yoki unda kamida bitta javob bo'lsa kiradi; boshlanmagan bo'limlar kirmaydi.
+ * Kamida bitta bo'lim doim bo'ladi.
+ */
+export function reachedSections(current: number, currentStarted: boolean) {
+  return Math.max(1, currentStarted ? current + 1 : current);
+}
+
 export function sectionMax(section: Section): number {
   if (section.writing) return section.writing.reduce((a, w) => a + w.pts, 0);
   return allQuestions(section).reduce((a, x) => a + x.q.pts, 0);

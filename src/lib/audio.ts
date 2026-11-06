@@ -325,6 +325,41 @@ export async function playKorean(
   return "browser";
 }
 
+/**
+ * Imtihon audiosi: bir marta, boshidan oxirigacha (haqiqiy imtihondagidek — to'xtatish tugmasi yo'q).
+ * "ended" — oxirigacha o'ynadi; "stopped" — stopAudio() chaqirildi (boshqa sahifaga o'tildi);
+ * "failed" — brauzer o'ynatmadi (masalan, avtomatik ovozga ruxsat bermadi) — foydalanuvchi bosib qayta boshlaydi.
+ */
+export async function playExamAudio(text: string, hooks: { onLoading?: (b: boolean) => void; onStart?: () => void } = {}): Promise<"ended" | "stopped" | "failed"> {
+  stopAudio();
+  const token = playToken;
+  hooks.onLoading?.(true);
+  const url = await fetchServerAudio(text, {});
+  hooks.onLoading?.(false);
+  if (token !== playToken) return "stopped";
+  if (url) {
+    const ok = await playUrl(url, hooks.onStart);
+    if (token !== playToken) return "stopped";
+    return ok ? "ended" : "failed";
+  }
+  if (!window.speechSynthesis) return "failed";
+  let started = false;
+  await browserSpeak(text, {}, () => {
+    started = true;
+    hooks.onStart?.();
+  });
+  if (token !== playToken) return "stopped";
+  return started ? "ended" : "failed";
+}
+
+/** iPhone: brauzer ovozi (speechSynthesis) ham birinchi marta faqat bosish paytida ochiladi — bo'sh gap bilan ochib qo'yamiz */
+export function unlockSpeech() {
+  try {
+    const s = window.speechSynthesis;
+    if (s && !s.speaking) s.speak(new SpeechSynthesisUtterance(""));
+  } catch {}
+}
+
 /** Ovoz shuncha vaqt oldinga siljimasa — «qotib qoldi» deb hisoblanadi */
 const STALL_MS = 2500;
 

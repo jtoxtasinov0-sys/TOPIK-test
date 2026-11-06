@@ -409,6 +409,16 @@ button.chip:hover { border-color: rgba(139, 61, 255, 0.45); }
 }
 .timer.warn { background: var(--red); animation: pulse 1s ease infinite; }
 .timer.calm { background: rgba(139, 61, 255, 0.1); color: var(--p1); }
+.exam-top-in > .grow { min-width: 0; }
+.exam-title { font-weight: 800; font-size: 0.95rem; min-width: 0; }
+.exam-title > .kr { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exam-finish { flex-shrink: 0; padding: 0 12px; }
+@media (max-width: 600px) {
+  .exam-top-in { gap: 8px; padding: 8px 10px; }
+  .exam-title { font-size: 0.88rem; }
+  .timer { padding: 8px 10px; font-size: 0.92rem; }
+  .exam-finish { padding: 0 10px; height: 36px; }
+}
 
 .exam-layout { display: grid; gap: 20px; padding-top: 18px; }
 @media (min-width: 1040px) { .exam-layout { grid-template-columns: 1fr 300px; align-items: start; } }
@@ -512,6 +522,10 @@ button.chip:hover { border-color: rgba(139, 61, 255, 0.45); }
 .eq i { display: block; width: 4px; border-radius: 4px; background: linear-gradient(180deg, #ff9bd2, #8bb8ff); height: 30%; }
 .eq.on i { animation: eq 0.9s ease-in-out infinite; }
 .eq i:nth-child(2n) { animation-delay: -0.3s; } .eq i:nth-child(3n) { animation-delay: -0.6s; } .eq i:nth-child(5n) { animation-delay: -0.15s; }
+/* Imtihon rejimi: audio o'zi o'ynaydi — tugma yo'q (faqat ovoz o'ynamay qolsa «boshlash») */
+.player.exam .play { cursor: default; }
+.player.exam button.play { cursor: pointer; animation: pulse 1.2s ease infinite; }
+.player.exam.over { opacity: 0.82; }
 .script-box { font-family: var(--font-kr); white-space: pre-line; background: #f7f5ff; border-radius: 12px; padding: 12px 14px; font-size: 0.93rem; color: var(--ink-2); margin-bottom: 14px; border-left: 3px solid var(--p2); }
 
 /* OMR sheet */

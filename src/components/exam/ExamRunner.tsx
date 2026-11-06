@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExamId, Group, Section, SectionId, Test, WritingTask } from "@/lib/exam";
-import { allQuestions, EXAM_INFO, formatTime, qKey, SECTION_LABEL } from "@/lib/exam";
-import { prefetchAudio, stopAudio } from "@/lib/audio";
+import { allQuestions, EXAM_INFO, formatTime, qKey, reachedSections, SECTION_LABEL } from "@/lib/exam";
+import { prefetchAudio, stopAudio, unlockAudio, unlockSpeech } from "@/lib/audio";
 import { imageUrl } from "@/lib/images";
 import { addHistory, KEYS, load, remove, save, saveAiTest, uid, useStored } from "@/lib/store";
 import { BUILTIN_TESTS as BUILTIN } from "@/data/tests";
@@ -46,6 +46,19 @@ const PLAYS_NOTE: Record<ExamId, string> = {
 };
 const GRACE_SECONDS = 180;
 
+const scoped = (t: Test, sc: Scope) => (sc === "all" ? t.sections : t.sections.filter((s) => s.id === sc));
+
+/** Bo'limda nechta savolga javob berilgan */
+function answeredIn(s: Section, answers: Record<string, number>, writing: Record<number, WritingAnswer>) {
+  return s.writing ? s.writing.filter((w) => hasWritingAnswer(writing[w.n])).length : allQuestions(s).filter(({ q }) => answers[qKey(s.id, q.n)]).length;
+}
+
+/** Imtihonda audio o'zi o'ynashi uchun: bosish paytida ovozni «ochib» qo'yamiz (iPhone) */
+function unlockExamAudio() {
+  unlockAudio();
+  unlockSpeech();
+}
+
 export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId }) {
   const errText = useAiErrorText();
   const [aiTests, , aiReady] = useStored<Test[]>(KEYS.aiTests, []);
@@ -66,11 +79,16 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
   const [gen, setGen] = useState({ done: 0, total: 0, failed: 0 });
   const [genError, setGenError] = useState("");
   const [saved, setSaved] = useState<Saved | null>(null);
+  // «Tugatish» bilan muddatidan oldin yakunlansa — natija shuncha bo'lim bo'yicha (null — hammasi)
+  const [reached, setReached] = useState<number | null>(null);
+  // Tinglash (imtihon rejimi): sahifada hali eshittirilmagan audio bormi / oxirgi audio ham tugadimi
+  const [audioBusy, setAudioBusy] = useState(false);
+  const [listenOver, setListenOver] = useState(false);
   const [wGrade, setWGrade] = useState<Record<number, { loading?: boolean; result?: WritingResult; error?: string }>>({});
   const topRef = useRef<HTMLDivElement>(null);
 
   const ourAi = useMemo(() => aiTests.filter((t) => t.exam === exam), [aiTests, exam]);
-  const sections: Section[] = useMemo(() => (scope === "all" ? test.sections : test.sections.filter((s) => s.id === scope)), [test, scope]);
+  const sections: Section[] = useMemo(() => scoped(test, scope), [test, scope]);
   const section = sections[secIdx];
   const practice = mode === "practice";
   const groups = useMemo(() => section?.groups ?? [], [section]);
@@ -137,9 +155,11 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
   const startSection = useCallback(
     (idx: number, keepTime?: number) => {
       stopAudio();
+      unlockExamAudio();
       setSecIdx(idx);
       setGroupIdx(0);
       setGrace(null);
+      setListenOver(false);
       setTimeLeft(keepTime ?? sections[idx].minutes * 60);
       setPhase("run");
       window.scrollTo({ top: 0 });
@@ -157,47 +177,60 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
     remove(KEYS.attempt(exam));
     setSaved(null);
     stopAudio();
+    unlockExamAudio();
     setSecIdx(0);
     setGroupIdx(0);
     setGrace(null);
-    const secs = scope === "all" ? t.sections : t.sections.filter((s) => s.id === scope);
-    setTimeLeft(secs[0].minutes * 60);
+    setReached(null);
+    setListenOver(false);
+    setTimeLeft(scoped(t, scope)[0].minutes * 60);
     setPhase("run");
     window.scrollTo({ top: 0 });
   };
 
-  const resume = () => {
-    if (!saved) return;
-    const t = BUILTIN[exam].find((x) => x.id === saved.testId) ?? ourAi.find((x) => x.id === saved.testId);
+  /** Saqlangan urinishni holatga qaytaradi; test topilmasa — urinish o'chiriladi */
+  const restore = (s: Saved) => {
+    const t = BUILTIN[exam].find((x) => x.id === s.testId) ?? ourAi.find((x) => x.id === s.testId);
     if (!t) {
       remove(KEYS.attempt(exam));
       setSaved(null);
-      return;
+      return null;
     }
+    const w: Record<number, WritingAnswer> = Object.fromEntries(Object.entries(s.writing).map(([k, v]) => [k, { ...v, images: [] }]));
     setTest(t);
-    setMode(saved.mode);
-    setScope(saved.scope);
-    setAnswers(saved.answers);
-    setWriting(Object.fromEntries(Object.entries(saved.writing).map(([k, v]) => [k, { ...v, images: [] }])));
-    setPlays(saved.plays);
-    setSecIdx(saved.secIdx);
-    setGroupIdx(saved.groupIdx);
-    setTimeLeft(saved.timeLeft);
+    setMode(s.mode);
+    setScope(s.scope);
+    setAnswers(s.answers);
+    setWriting(w);
+    setPlays(s.plays);
+    setSecIdx(s.secIdx);
+    setGroupIdx(s.groupIdx);
+    setTimeLeft(s.timeLeft);
     setGrace(null);
+    setListenOver(false);
+    return { t, w };
+  };
+
+  const resume = () => {
+    if (!saved || !restore(saved)) return;
+    unlockExamAudio();
+    setReached(null);
     setPhase("run");
   };
 
-  const finish = useCallback(() => {
+  /** n — muddatidan oldin «Tugatish» bosilganda natijaga kiradigan bo'limlar soni (null — test oxirigacha ishlandi) */
+  const finish = useCallback((n: number | null = null, t: Test = test, m: Mode = mode) => {
     stopAudio();
+    setReached(n);
     const id = uid();
     setHistoryId(id);
     addHistory({
       id,
-      testId: test.id,
+      testId: t.id,
       exam,
-      title: test.title,
+      title: t.title,
       date: Date.now(),
-      mode,
+      mode: m,
       sections: {},
       total: 0,
       max: EXAM_INFO[exam].max,
@@ -215,6 +248,27 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
     setPhase("results");
     window.scrollTo({ top: 0 });
   }, [test, exam, mode]);
+
+  /** «Tugatish»: test oxirigacha ishlanmasa ham — shu paytgacha berilgan javoblar bo'yicha natija */
+  const finishEarly = () => {
+    const cur = sections[secIdx];
+    const n = reachedSections(secIdx, phase === "break" || (!!cur && answeredIn(cur, answers, writing) > 0));
+    const any = sections.slice(0, n).some((s) => answeredIn(s, answers, writing) > 0);
+    const msg = any
+      ? "Testni hozir tugatasizmi?\n\nShu paytgacha belgilagan javoblaringiz bo‘yicha natija chiqariladi. Boshlanmagan bo‘limlar hisobga kirmaydi."
+      : "Hali birorta savolga javob bermadingiz. Baribir testni tugatasizmi?";
+    if (window.confirm(msg)) finish(n);
+  };
+
+  /** Tugallanmagan (saqlangan) urinish — davom ettirmasdan natijasini ko'rish */
+  const finishSaved = () => {
+    if (!saved || !window.confirm("Bu urinishni shu holatida yakunlab, natijasini ko‘rasizmi?")) return;
+    const r = restore(saved);
+    if (!r) return;
+    const cur = scoped(r.t, saved.scope)[saved.secIdx];
+    setSaved(null);
+    finish(reachedSections(saved.secIdx, !!cur && answeredIn(cur, saved.answers, r.w) > 0), r.t, saved.mode);
+  };
 
   const nextSection = useCallback(() => {
     stopAudio();
@@ -311,13 +365,36 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
     setPhase("intro");
   };
 
-  const answeredCount = (s: Section) =>
-    s.writing ? s.writing.filter((w) => hasWritingAnswer(writing[w.n])).length : allQuestions(s).filter(({ q }) => answers[qKey(s.id, q.n)]).length;
+  const answeredCount = (s: Section) => answeredIn(s, answers, writing);
   const totalCount = (s: Section) => (s.writing ? s.writing.length : allQuestions(s).length);
+
+  /** Imtihon rejimida tinglash: sahifa audiosi hali tugamagan bo'lsa — boshqa sahifaga o'tishdan oldin so'raymiz */
+  const canLeavePage = () =>
+    !audioBusy || window.confirm("Bu sahifadagi audio hali tugamadi. Boshqa sahifaga o‘tsangiz, uni qayta eshita olmaysiz. O‘tasizmi?");
+
+  const goPage = (gi: number) => {
+    stopAudio();
+    setAudioBusy(false);
+    setGroupIdx(gi);
+    scrollTop();
+  };
+
+  /** Imtihon rejimida sahifa audiosi va javob vaqti tugadi — haqiqiy imtihondagidek keyingi savolga o'tamiz */
+  const onAudioDone = () => {
+    if (groupIdx + 1 < pageCount) goPage(groupIdx + 1);
+    else setListenOver(true);
+  };
 
   const gotoQuestion = (n: number) => {
     const gi = groups.findIndex((g) => g.questions.some((q) => q.n === n));
-    if (gi >= 0) {
+    if (gi === groupIdx) {
+      setOmrOpen(false);
+      document.getElementById(`q-${qKey(section.id, n)}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (gi >= 0 && canLeavePage()) {
+      stopAudio();
+      setAudioBusy(false);
       setGroupIdx(gi);
       setOmrOpen(false);
       setTimeout(() => document.getElementById(`q-${qKey(section.id, n)}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
@@ -344,6 +421,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
         writing={writing}
         mode={mode}
         historyId={historyId}
+        reached={reached}
         onRetry={() => setPhase("intro")}
         onNewAi={() => {
           setPhase("intro");
@@ -410,6 +488,9 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
             <button className="btn btn-sm btn-primary" onClick={resume}>
               Davom ettirish
             </button>
+            <button className="btn btn-sm" onClick={finishSaved}>
+              <Icon name="flag" size={16} /> Natijani ko‘rish
+            </button>
             <button
               className="btn btn-sm btn-ghost"
               onClick={() => {
@@ -457,7 +538,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                 <span className="em">⏱️</span>
                 <b>Imtihon</b>
                 <span className="tiny" style={{ opacity: 0.85 }}>
-                  Vaqt cheklangan, audio cheklangan, natija oxirida
+                  Vaqt cheklangan, audio o‘zi o‘ynaydi (pauza yo‘q), natija oxirida
                 </span>
               </button>
               <button className={`scenario ${mode === "practice" ? "on" : ""}`} onClick={() => setMode("practice")}>
@@ -510,7 +591,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
           <div className="row between" style={{ marginTop: 18, flexWrap: "wrap", gap: 12 }}>
             <div className="small muted">
               ⏱️ {mode === "exam" ? `${totalMin} daqiqa` : "Vaqt cheklovi yo‘q"} · 🎧{" "}
-              {PLAYS_NOTE[exam]}
+              {mode === "exam" ? `audio o‘zi o‘ynaydi, to‘xtatib bo‘lmaydi · ${PLAYS_NOTE[exam]}` : "o‘zingiz boshlaysiz va to‘xtatasiz"}
             </div>
             <button className="btn btn-primary btn-lg" onClick={() => begin()}>
               Boshlash <Icon name="right" size={20} />
@@ -548,6 +629,9 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
           </div>
           <button className="btn btn-primary btn-lg" onClick={() => startSection(secIdx + 1)}>
             Davom etish <Icon name="right" size={20} />
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={finishEarly}>
+            <Icon name="flag" size={16} /> Testni shu yerda tugatish
           </button>
         </div>
       </div>
@@ -630,10 +714,11 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
             <Icon name="x" size={18} />
           </button>
           <div className="grow">
-            <div style={{ fontWeight: 800, fontSize: "0.95rem" }} className="row">
-              <span>{lab.icon}</span>
+            <div className="row exam-title">
+              <span className="hide-mobile">{lab.icon}</span>
               <span className="kr">
-                {examName} · {exam === "topik2" ? `${section.period}교시 ` : ""}
+                <span className="hide-mobile">{examName} · </span>
+                {exam === "topik2" ? `${section.period}교시 ` : ""}
                 {section.title}
               </span>
             </div>
@@ -642,9 +727,12 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
             </div>
           </div>
           <div className={`timer ${practice ? "calm" : warn ? "warn" : ""}`}>
-            <Icon name="clock" size={16} />
+            <Icon name="clock" size={16} className="hide-mobile" />
             {practice ? formatTime(elapsed) : grace !== null ? `📸 ${formatTime(grace)}` : formatTime(timeLeft)}
           </div>
+          <button className="btn btn-sm exam-finish" onClick={finishEarly} title="Testni tugatib, shu paytgacha bo‘lgan natijani ko‘rish">
+            Tugatish
+          </button>
           <button className="icon-btn sm hide-desktop" onClick={() => setOmrOpen(true)} aria-label="Javoblar varaqasi">
             <Icon name="grid" size={18} />
           </button>
@@ -704,20 +792,20 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                   plays={plays}
                   onPlay={(k) => setPlays((p) => ({ ...p, [k]: (p[k] ?? 0) + 1 }))}
                   practice={practice}
+                  onAudioDone={onAudioDone}
+                  onAudioBusy={setAudioBusy}
                 />
               )
             )}
 
+            {listenOver && section.id === "listening" && !practice && (
+              <div className="callout info">
+                🎧 Tinglash audiosi tugadi. Javoblaringizni tekshirib, «{secIdx + 1 < sections.length ? "Keyingi bo‘lim" : "Topshirish"}» tugmasini bosing.
+              </div>
+            )}
+
             <div className="row between" style={{ gap: 10 }}>
-              <button
-                className="btn"
-                disabled={groupIdx === 0}
-                onClick={() => {
-                  stopAudio();
-                  setGroupIdx((g) => g - 1);
-                  scrollTop();
-                }}
-              >
+              <button className="btn" disabled={groupIdx === 0} onClick={() => canLeavePage() && goPage(groupIdx - 1)}>
                 <Icon name="left" size={18} /> <span className="hide-mobile">Oldingi</span>
               </button>
               <span className="small muted">
@@ -728,14 +816,7 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
                   {secIdx + 1 < sections.length ? "Keyingi bo‘lim" : "Topshirish"} <Icon name="flag" size={18} />
                 </button>
               ) : (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    stopAudio();
-                    setGroupIdx((g) => g + 1);
-                    scrollTop();
-                  }}
-                >
+                <button className="btn btn-primary" onClick={() => canLeavePage() && goPage(groupIdx + 1)}>
                   Keyingi <Icon name="right" size={18} />
                 </button>
               )}

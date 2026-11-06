@@ -1,19 +1,169 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { ExamId, Group, Question, SectionId } from "@/lib/exam";
-import { CIRCLED, qKey } from "@/lib/exam";
-import { playKorean, prefetchAudio, stopAudio } from "@/lib/audio";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import type { ExamId, Group, ListenItem, Question, SectionId } from "@/lib/exam";
+import { answerSeconds, CIRCLED, listenItems, maxPlays, qKey } from "@/lib/exam";
+import { playExamAudio, playKorean, prefetchAudio, stopAudio, unlockAudio, unlockSpeech } from "@/lib/audio";
 import { ChartView } from "../ChartView";
 import { Icon } from "../Icon";
 import { Notice, RichKo } from "../ui";
 import { Explain } from "./Explain";
 import { GenImage, SafetySign } from "./GenImage";
 
-/** Tinglash soni: TOPIK I va EPS-TOPIK — 2 marta; TOPIK II — 1~20 bir marta, 21~50 ikki marta */
-export function maxPlays(exam: ExamId, n: number) {
-  if (exam !== "topik2") return 2;
-  return n <= 20 ? 1 : 2;
+export { maxPlays };
+
+/** Sahifa ochilgach audio boshlanguncha (savolni ko'z yugurtirib chiqish uchun) */
+const LEAD_MS = 1500;
+/** Ikki eshittirish orasidagi tanaffus */
+const REPEAT_MS = 2500;
+
+type Stage = "load" | "play" | "again" | "answer" | "blocked";
+type AutoNow = { key: string; stage: Stage; round: number; left: number };
+
+/**
+ * Imtihon rejimi: sahifadagi audiolar haqiqiy imtihondagidek o'zi, ketma-ket o'ynaydi —
+ * har biri belgilangan marta (1 yoki 2), orasida tanaffus, keyin javob uchun vaqt. To'xtatib bo'lmaydi.
+ * Shu sahifada audio eshittirilgan bo'lsa, oxirida onDone() — keyingi sahifaga o'tiladi.
+ * onBusy(true) — sahifada hali eshittirilmagan audio bor (boshqa sahifaga o'tsa, qayta eshita olmaydi).
+ */
+function useExamAudio(
+  enabled: boolean,
+  items: ListenItem[],
+  plays: Record<string, number>,
+  onPlay: (key: string) => void,
+  onDone: () => void,
+  onBusy: (busy: boolean) => void
+) {
+  const [now, setNow] = useState<AutoNow | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const used = useRef<Record<string, number> | null>(null);
+  const played = useRef(false);
+  const play = useEffectEvent(onPlay);
+  const done = useEffectEvent(onDone);
+  const busy = useEffectEvent(onBusy);
+  const startPlays = useEffectEvent(() => plays);
+
+  useEffect(() => {
+    if (!enabled || !items.length) return;
+    // Necha marta eshittirilgani — sahifa ochilgandagi holatdan (qayta kirsa, eshittirilgani qaytarilmaydi)
+    if (!used.current) used.current = Object.fromEntries(items.map((it) => [it.key, startPlays()[it.key] ?? 0]));
+    const u = used.current;
+    const remaining = () => items.some((it) => (u[it.key] ?? 0) < it.max);
+    let alive = true;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const sleep = (ms: number) => new Promise<void>((r) => timers.push(setTimeout(r, ms)));
+
+    const run = async () => {
+      if (!remaining()) return; // bu sahifa audiosi avval eshittirilgan
+      busy(true);
+      await sleep(attempt ? 300 : LEAD_MS);
+      if (!alive) return;
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if ((u[it.key] ?? 0) >= it.max) continue;
+        // Keyingi savol audiosi boshlanganda — o'sha savolni ko'rsatamiz
+        if (i > 0 && it.questions.length === 1)
+          document.getElementById(`q-${it.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        while ((u[it.key] ?? 0) < it.max) {
+          const round = (u[it.key] ?? 0) + 1;
+          setNow({ key: it.key, stage: "load", round, left: 0 });
+          let started = false;
+          const r = await playExamAudio(it.text, {
+            onStart: () => {
+              if (started) return;
+              started = true;
+              u[it.key] = round;
+              played.current = true;
+              play(it.key);
+              setNow({ key: it.key, stage: "play", round, left: 0 });
+            },
+          });
+          if (!alive || r === "stopped") return;
+          if (r === "failed") {
+            // Ovoz chiqmadi — bu eshittirish hisoblanmaydi, foydalanuvchi bosib qayta boshlaydi
+            if (started) u[it.key] = round - 1;
+            setNow({ key: it.key, stage: "blocked", round, left: 0 });
+            return;
+          }
+          if ((u[it.key] ?? 0) < it.max) {
+            setNow({ key: it.key, stage: "again", round, left: 0 });
+            await sleep(REPEAT_MS);
+            if (!alive) return;
+          }
+        }
+        if (!remaining()) busy(false);
+        for (let s = answerSeconds(it); s > 0; s--) {
+          setNow({ key: it.key, stage: "answer", round: it.max, left: s });
+          await sleep(1000);
+          if (!alive) return;
+        }
+      }
+      setNow(null);
+      if (played.current) done();
+    };
+    void run();
+    return () => {
+      alive = false;
+      timers.forEach(clearTimeout);
+      stopAudio();
+      busy(false);
+    };
+  }, [enabled, items, attempt]);
+
+  const retry = () => {
+    unlockAudio();
+    unlockSpeech();
+    setNow(null);
+    setAttempt((a) => a + 1);
+  };
+  return { now, retry };
+}
+
+/** Imtihon rejimidagi pleer: tugmasi yo'q — audio o'zi boshlanadi va oxirigacha o'ynaydi */
+function ExamListen({ item, used, now, onRetry }: { item: ListenItem; used: number; now: AutoNow | null; onRetry: () => void }) {
+  const mine = now?.key === item.key ? now : null;
+  const stage = mine?.stage;
+  const heard = Math.min(item.max, used);
+  const title =
+    stage === "load"
+      ? "Audio tayyorlanmoqda…"
+      : stage === "play"
+        ? item.max > 1
+          ? `Tinglang… (${mine!.round}-marta)`
+          : "Tinglang…"
+        : stage === "again"
+          ? "Yana bir marta eshittiriladi…"
+          : stage === "answer"
+            ? `Javobni belgilang · ${mine!.left} s`
+            : stage === "blocked"
+              ? "Ovoz o‘ynamadi — boshlash uchun bosing"
+              : heard >= item.max
+                ? "Audio eshittirildi"
+                : "Audio o‘zi boshlanadi…";
+  return (
+    <div className={`player exam ${stage === "answer" || (!mine && heard >= item.max) ? "over" : ""}`}>
+      {stage === "blocked" ? (
+        <button className="play" onClick={onRetry} aria-label="Tinglash">
+          <Icon name="play" size={22} fill />
+        </button>
+      ) : (
+        <span className="play" aria-hidden>
+          {stage === "load" ? <span className="spinner" /> : <Icon name={stage === "answer" ? "pen" : heard >= item.max && !mine ? "check" : "volume"} size={22} />}
+        </span>
+      )}
+      <div className="grow" aria-live="polite">
+        <div style={{ fontWeight: 800, fontSize: "0.92rem" }}>{title}</div>
+        <div className="tiny" style={{ opacity: 0.75 }}>
+          {`Imtihon rejimi: audio ${item.max} marta o‘zi eshittiriladi, to‘xtatib bo‘lmaydi · ${heard}/${item.max}`}
+        </div>
+      </div>
+      <div className={`eq ${stage === "play" ? "on" : ""}`} aria-hidden>
+        {Array.from({ length: 9 }).map((_, i) => (
+          <i key={i} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function ListenPlayer({ text, max, used, onUse, practice }: { text: string; max: number; used: number; onUse: () => void; practice: boolean }) {
@@ -125,6 +275,8 @@ export function GroupView({
   onPlay,
   practice,
   review,
+  onAudioDone,
+  onAudioBusy,
 }: {
   exam: ExamId;
   section: SectionId;
@@ -135,9 +287,17 @@ export function GroupView({
   onPlay: (key: string) => void;
   practice: boolean;
   review?: boolean;
+  /** Imtihon rejimi: sahifadagi audio va javob vaqti tugadi */
+  onAudioDone?: () => void;
+  /** Imtihon rejimi: sahifada hali eshittirilmagan audio bormi */
+  onAudioBusy?: (busy: boolean) => void;
 }) {
   const [showScript, setShowScript] = useState<Record<string, boolean>>({});
   const listening = section === "listening";
+  // Imtihon rejimida tinglash — haqiqiy imtihondagidek o'zi o'ynaydi, pauza yo'q
+  const auto = listening && !practice && !review;
+  const items = useMemo(() => (listening ? listenItems(exam, section, group) : []), [exam, section, group, listening]);
+  const examAudio = useExamAudio(auto, items, plays, onPlay, () => onAudioDone?.(), (b) => onAudioBusy?.(b));
 
   useEffect(() => {
     if (!listening) return;
@@ -147,7 +307,12 @@ export function GroupView({
 
   const scriptBlock = (key: string, text: string, n: number, answered: boolean) => (
     <>
-      {!review && <ListenPlayer text={text} max={maxPlays(exam, n)} used={plays[key] ?? 0} onUse={() => onPlay(key)} practice={practice} />}
+      {!review &&
+        (auto ? (
+          <ExamListen item={items.find((it) => it.key === key) ?? { key, text, max: maxPlays(exam, n), questions: [n] }} used={plays[key] ?? 0} now={examAudio.now} onRetry={examAudio.retry} />
+        ) : (
+          <ListenPlayer text={text} max={maxPlays(exam, n)} used={plays[key] ?? 0} onUse={() => onPlay(key)} practice={practice} />
+        ))}
       {(review || (practice && answered)) && (
         <>
           <button className="btn btn-ghost btn-sm" style={{ marginBottom: 8, paddingLeft: 6 }} onClick={() => setShowScript((s) => ({ ...s, [key]: !s[key] }))}>

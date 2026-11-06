@@ -85,6 +85,12 @@ const isIos = () =>
 /** Ruxsat berilmaganda: qurilmaga mos, doimiy ruxsat berish yo'li bilan */
 function deniedText() {
   if (typeof window !== "undefined" && !window.isSecureContext) return "Mikrofon faqat https:// manzilda ishlaydi.";
+  // Bosh ekrandagi ilova (manzil qatori yo'q): iPhone ilova qayta ochilganda yana so'raydi
+  const app =
+    typeof window !== "undefined" &&
+    ((navigator as unknown as { standalone?: boolean }).standalone === true || window.matchMedia?.("(display-mode: standalone)").matches);
+  if (isIos() && app)
+    return "Mikrofonga ruxsat berilmadi. Ilovani butunlay yopib (pastdan yuqoriga surib), qayta oching va so‘ralganda «Ruxsat berish» (Allow) ni bosing. Hozircha yozib yuborishingiz mumkin.";
   if (isIos())
     return "Mikrofonga ruxsat berilmadi. Har safar so‘ramasligi uchun: Safari’da manzil qatoridagi «aA» → «Veb-sayt sozlamalari» (Website Settings) → Mikrofon → «Ruxsat berish» (Allow). Hozircha yozib yuborishingiz mumkin.";
   return "Mikrofonga ruxsat berilmadi. Manzil qatoridagi 🔒 belgisini bosing → Mikrofon → «Ruxsat berish». Hozircha yozib yuborishingiz mumkin.";
@@ -251,6 +257,21 @@ export async function micSettled() {
   const until = held?.headset ? held.at + HEADSET_SETTLE_MS : lastClose + QUIET_MS;
   const left = until - performance.now();
   if (left > 0) await new Promise((r) => setTimeout(r, left));
+}
+
+// ---------- Ruxsat qayta so'ralmasligi uchun ----------
+// iPhone (WebKit) bergan ruxsatni ilova ochiq turguncha eslab turadi, lekin mikrofon yopilgach:
+//  - tugma bosilmasdan (o'zi) qayta ochilsa va mikrofon 1 daqiqadan ko'p yopiq turgan bo'lsa — ruxsatni qayta so'raydi;
+//  - tugma bosib ochilsa — 10 daqiqagacha so'ramaydi.
+// Shuning uchun mikrofon o'zi faqat ruxsat so'ralmaydigan paytda yoqiladi; aks holda «Navbat sizda — mikrofonni
+// bosing» (bosilganda ruxsat qayta so'ralmaydi). Android va kompyuterda ruxsat saytga doimiy beriladi — cheklov yo'q.
+const AUTO_OPEN_MS = 50_000;
+
+/** Mikrofonni tugma bosilmasdan (o'zi) yoqsa bo'ladimi — ruxsat qayta so'ralmaydimi */
+export function micCanAutoOpen() {
+  if (live(held) || opening) return true;
+  if (!isIos()) return true;
+  return lastClose > 0 && performance.now() - lastClose < AUTO_OPEN_MS;
 }
 
 /** Suhbatdan chiqqanda / «To'xtatish»: mikrofon yopiladi va telefon oddiy ovoz rejimiga qaytadi */

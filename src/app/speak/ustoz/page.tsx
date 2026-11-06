@@ -7,7 +7,7 @@ import { micToLevel, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { expectAudio, outputLevel, playTutor, stopAudio, unlockAudio, type AudioWait, type Segment, type TtsOpts } from "@/lib/audio";
-import { MIC_DEAD_TEXT, MicError, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
+import { MIC_DEAD_TEXT, MicError, micCanAutoOpen, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
 import { touchStreak } from "@/lib/store";
 
 // Ovozli ustoz: o'quvchi o'zbekcha so'raydi ("Rahmat koreyschada qanday?"),
@@ -179,9 +179,10 @@ export default function VoiceTutorPage() {
         commit(next);
         idle();
         for (const ch of e.tts ?? []) waits.set(ch.text, expectAudio(ch.text, ch.opts));
-        // Uzluksiz suhbat: ustoz javobini OXIRIGACHA o'qib bo'lgachgina mikrofon o'zi yoqiladi (navbat sizda)
+        // Uzluksiz suhbat: ustoz javobini OXIRIGACHA o'qib bo'lgachgina mikrofon o'zi yoqiladi (navbat sizda).
+        // iPhone ruxsatni qayta so'raydigan paytda (uzoq javobdan keyin) — o'zi yoqilmaydi, mikrofonni bosasiz
         void speak(aiAt, segs).then((played) => {
-          if (played && alive.current && session.current && cfg.current.handsFree) void startRec();
+          if (played && alive.current && session.current && cfg.current.handsFree && micCanAutoOpen()) void startRec();
         });
       }
       // To'liq natija: takrorlash uchun ibora (practice) kartasi

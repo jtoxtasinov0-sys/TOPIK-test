@@ -174,24 +174,39 @@ function sse(chunks: string[], gate?: { at: number; open: Promise<void> }) {
   );
 }
 
+const WAV = Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(40)]).toString("base64");
+let ttsCalls: Call[] = [];
+let ttsFail = false;
+
+/** Gemini: matn so'rovlariga make(), ovoz (TTS) so'rovlariga — WAV (ttsFail bo'lsa — xato) */
 function mockStream(make: (body: Record<string, unknown>) => Response) {
   calls = [];
+  ttsCalls = [];
   globalThis.fetch = (async (_url: string | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    if (String(body.model).includes("tts")) {
+      ttsCalls.push({ body });
+      return ttsFail ? Response.json({ error: { message: "tts down" } }, { status: 500 }) : Response.json({ steps: [{ type: "model_output", content: [{ type: "audio", data: WAV }] }] });
+    }
     calls.push({ body });
     return make(body);
   }) as typeof fetch;
 }
 
-/** NDJSON hodisalarini birma-bir o'qiydi */
+/** NDJSON hodisalarini birma-bir o'qiydi; ovoz hodisalari (audio) alohida — next.audio ga yig'iladi */
 function events(res: Response) {
   const reader = res.body!.getReader();
   const dec = new TextDecoder();
   let buf = "";
   const queue: Record<string, unknown>[] = [];
-  return async function next(): Promise<Record<string, unknown> | null> {
+  const audio: Record<string, unknown>[] = [];
+  const next = async function (): Promise<Record<string, unknown> | null> {
     for (;;) {
-      if (queue.length) return queue.shift()!;
+      while (queue.length) {
+        const e = queue.shift()!;
+        if (e.t === "audio") audio.push(e);
+        else return e;
+      }
       const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("hodisa kelmadi")), 2000));
       const { done, value } = await Promise.race([reader.read(), timeout]);
       if (done) return null;
@@ -201,6 +216,7 @@ function events(res: Response) {
       for (const l of lines) if (l.trim()) queue.push(JSON.parse(l));
     }
   };
+  return Object.assign(next, { audio });
 }
 
 describe("/api/talk oqimi", () => {
@@ -262,6 +278,51 @@ describe("/api/talk oqimi", () => {
     assert.equal((body.response_format as { mime_type?: string }).mime_type, "application/json", "JSON sxemasi bilan oqim");
     assert.equal((body.generation_config as { thinking_level?: string }).thinking_level, "minimal");
     assert.ok((body.input as { type: string }[]).some((p) => p.type === "audio"));
+  });
+
+  test("javob ovozi shu oqimda keladi: brauzer kutgan bo'laklar, do'st ovozi; /api/tts bilan umumiy kesh", async () => {
+    const r = { ...full, heard: "네, 출근했어요", reply: "그렇군요! 내일도 출근해요?" };
+    mockStream(() => sse([delta(JSON.stringify(r))]));
+    const next = events(await talkRoute.POST(post("/api/talk", { stream: true, text: "네, 출근했어요", partner: "jisu", level: "beginner" })));
+    const reply = await next();
+    assert.deepEqual(reply?.tts, talkChunks({ help: [], reply: r.reply, voice: "f", slow: true }), "bo'laklar brauzerdagi talkChunks bilan aynan bir xil");
+    assert.deepEqual(
+      (reply?.tts as { text: string }[]).map((c) => c.text),
+      ["그렇군요!", "내일도 출근해요?"]
+    );
+    assert.equal((await next())?.t, "done");
+    assert.equal(await next(), null, "oqim ovozlar tayyor bo'lgach yopiladi");
+    assert.deepEqual(
+      next.audio.map((a) => [a.text, a.data]).sort(),
+      [
+        ["그렇군요!", WAV],
+        ["내일도 출근해요?", WAV],
+      ].sort()
+    );
+    assert.equal(ttsCalls.length, 2);
+    const cfg = ttsCalls[0].body.generation_config as { speech_config: unknown };
+    assert.deepEqual(cfg.speech_config, [{ voice: "Aoede" }], "지수 — qiz ovozi");
+    const style = (ttsCalls[0].body.input as { content: { annotations: { style: string }[] }[] }[])[0].content[0].annotations[0].style;
+    assert.match(style, /slower/, "boshlang'ich — sekinroq");
+
+    // Xuddi shu bo'lakni brauzer /api/tts dan so'rasa — Gemini qayta chaqirilmaydi
+    const res = await ttsRoute.POST(post("/api/tts", { text: "그렇군요!", talk: true, voice: "f", slow: true }));
+    assert.equal(res.status, 200);
+    assert.equal(ttsCalls.length, 2, "server keshidan");
+  });
+
+  test("ovoz tayyorlanmasa — audio failed (brauzer o'zi so'raydi), javob baribir keladi", async () => {
+    ttsFail = true;
+    try {
+      mockStream(() => sse([delta(JSON.stringify({ ...full, reply: "오늘 날씨 좋네요." }))]));
+      const next = events(await talkRoute.POST(post("/api/talk", { stream: true, text: "안녕하세요" })));
+      assert.equal((await next())?.reply, "오늘 날씨 좋네요.");
+      assert.equal((await next())?.t, "done");
+      assert.equal(await next(), null);
+      assert.deepEqual(next.audio, [{ t: "audio", text: "오늘 날씨 좋네요.", failed: true }]);
+    } finally {
+      ttsFail = false;
+    }
   });
 
   test("o'zbekcha yordam bo'lsa — reply hodisasida help ham bor (ovoz yordamdan boshlanadi)", async () => {

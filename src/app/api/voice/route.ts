@@ -1,15 +1,22 @@
-import { errorResponse, generateJson, LANG_NAME, normalizeMime, rateLimit, type ContentPart } from "@/lib/gemini";
+import { AiError, errorResponse, generateJson, hasKey, LANG_NAME, normalizeMime, rateLimit, streamText, type ContentPart } from "@/lib/gemini";
 import { voiceSchema } from "@/lib/schemas";
-import { aiAccess } from "@/lib/server/guard";
+import { jsonEvents, ndjson } from "@/lib/server/events";
+import { aiAccess, authEnabled } from "@/lib/server/guard";
+import { readSession } from "@/lib/server/session";
+import type { User } from "@/lib/server/users";
 import { teacherNotes } from "@/lib/knowledge";
+import { tutorChunks } from "@/lib/speech";
 
 export const maxDuration = 60;
 
 // Ovozli ustoz: o'quvchi o'zbekcha (yoki koreyscha) gapiradi, ustoz o'zbekcha tushuntirib, koreyscha so'zlarni o'rgatadi.
 // Tezlik uchun BITTA Gemini so'rovi: model audioni o'zi eshitadi ("heard") va shu zahoti javob yozadi.
 // Javob tillar bo'yicha bo'laklarga bo'lingan holda qaytadi — brauzer uni ovoz chiqarib o'qiydi.
+// stream: true — NDJSON oqimi: heard (o'quvchi gapi), reply (ustoz javobi; ovozi serverda shu zahoti tayyorlanadi),
+// audio (tayyor ovoz bo'laklari), done (to'liq natija: + practice) — erkin suhbatdagi kabi.
 
 type Body = {
+  stream?: boolean;
   audio?: { data: string; mime: string };
   text?: string;
   level?: "beginner" | "intermediate" | "advanced";
@@ -31,7 +38,8 @@ const LEVEL = {
 export async function POST(req: Request) {
   try {
     rateLimit(req, "voice", 60, 5 * 60_000);
-    await aiAccess(req, "speak");
+    // Kirmagan bo'lsa — bazaga ham, Gemini'ga ham murojaat qilmasdan rad etamiz
+    if (authEnabled() && !readSession(req)) await aiAccess(req, "speak");
     const b = (await req.json()) as Body;
     if (b.audio && b.audio.data.length > 8_000_000) return Response.json({ error: "Audio juda uzun" }, { status: 400 });
 
@@ -74,17 +82,70 @@ How to answer:
     ];
     if (audio) parts.push({ type: "audio", data: audio.data, mime_type: audio.mime });
 
-    const r = await generateJson<VoiceReply>({ system, input: parts, schema: voiceSchema, thinking: "minimal", timeoutMs: 45000 });
-    const transcript = typed || String(r.heard ?? "").trim();
-    if (!transcript) return Response.json({ transcript: "", empty: true });
+    const ask = { system, input: parts, schema: voiceSchema, thinking: "minimal" as const };
 
-    const segments = (r.segments ?? [])
-      .map((s) => ({ lang: s.lang === "ko" ? ("ko" as const) : ("uz" as const), text: String(s.text ?? "").trim() }))
-      .filter((s) => s.text);
-    if (!segments.length) return Response.json({ error: "AI javob bermadi, qayta urinib ko‘ring" }, { status: 502 });
-    const practice = r.practice?.ko?.trim() ? { ko: r.practice.ko.trim(), rom: r.practice.rom ?? "", uz: r.practice.uz ?? "" } : undefined;
-    return Response.json({ transcript, segments, practice });
+    if (b.stream && Date.now() > streamOffUntil) {
+      // Kirish tekshiruvi (baza) va Gemini oqimini ochish parallel
+      const opened = streamText(ask).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+      let user: User | null;
+      try {
+        user = await aiAccess(req, "speak");
+      } catch (e) {
+        void opened.then((x) => (x instanceof Error ? undefined : x.cancel().catch(() => {})));
+        throw e;
+      }
+      const src = await opened;
+      if (!(src instanceof Error)) return ndjson(voiceEvents(src, typed, hasKey() ? { user } : null));
+      if (src instanceof AiError && [429, 503, 504].includes(src.status)) throw src;
+      streamOffUntil = Date.now() + 10 * 60_000;
+    } else {
+      await aiAccess(req, "speak");
+    }
+
+    const out = finish(await generateJson<VoiceReply>({ ...ask, timeoutMs: 45000 }), typed);
+    return "error" in out ? Response.json(out, { status: 502 }) : Response.json(out);
   } catch (e) {
     return errorResponse(e);
   }
+}
+
+/** Oqim (JSON + sxema) ishlamay qolsa — shu vaqtgacha oddiy so'rov ishlatiladi */
+let streamOffUntil = 0;
+
+const segmentsOf = (r: Partial<VoiceReply>) =>
+  (r.segments ?? [])
+    .map((s) => ({ lang: s.lang === "ko" ? ("ko" as const) : ("uz" as const), text: String(s.text ?? "").trim() }))
+    .filter((s) => s.text);
+
+function finish(r: VoiceReply, typed: string) {
+  const transcript = typed || String(r.heard ?? "").trim();
+  if (!transcript) return { transcript: "", empty: true as const };
+  const segments = segmentsOf(r);
+  if (!segments.length) return { error: "AI javob bermadi, qayta urinib ko‘ring" };
+  const practice = r.practice?.ko?.trim() ? { ko: r.practice.ko.trim(), rom: r.practice.rom ?? "", uz: r.practice.uz ?? "" } : undefined;
+  return { transcript, segments, practice };
+}
+
+/** Ustoz javobi oqimi: gap eshitilishi bilan — heard, javob bo'laklari tayyor bo'lishi bilan — reply (+ ovozi) */
+function voiceEvents(src: ReadableStream<Uint8Array>, typed: string, tts: { user: User | null } | null) {
+  let heard = !!typed;
+  return jsonEvents<VoiceReply>(
+    src,
+    tts,
+    (f, api) => {
+      if (!heard && "heard" in f) {
+        const transcript = String(f.heard ?? "").trim();
+        if (!transcript) return "stop"; // nutq eshitilmadi — "done" da {empty}
+        api.emit({ t: "heard", transcript });
+        heard = true;
+      }
+      if (!heard || !("segments" in f)) return;
+      const segments = segmentsOf(f);
+      if (!segments.length) return;
+      const ttsList = tts ? api.voice(tutorChunks(segments)) : [];
+      api.emit({ t: "reply", transcript: typed || String(f.heard ?? "").trim(), segments, tts: ttsList });
+      return "enough";
+    },
+    (raw, api) => api.emit({ t: "done", ...finish(raw, typed) })
+  );
 }

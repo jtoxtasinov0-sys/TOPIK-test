@@ -1,6 +1,10 @@
 "use client";
 
 import { parseScript } from "./exam";
+import { talkChunks, tutorChunks, type Segment, type SpeechChunk, type TtsOpts } from "./speech";
+
+export { splitForSpeech, splitTalk, talkChunks, tutorChunks } from "./speech";
+export type { Segment, SpeechChunk, TtsOpts } from "./speech";
 
 // Koreyscha ovoz: avval Gemini TTS (/api/tts), bo'lmasa brauzer speechSynthesis.
 // Natijalar xotirada va Cache Storage'da saqlanadi — qayta tinglash bepul va tez.
@@ -20,58 +24,101 @@ export function hash(s: string) {
   return (h >>> 0).toString(16) + s.length.toString(16);
 }
 
-/** tutor — ustoz (o'zbekcha + koreyscha) uslubi; talk — erkin suhbatdagi do'stona koreyscha uslub */
-export type TtsOpts = { slow?: boolean; voice?: "f" | "m"; tutor?: boolean; talk?: boolean };
+
+const keyOf = (text: string, opts: TtsOpts) => hash(`${opts.slow ? "s" : "n"}|${opts.voice ?? ""}|${opts.tutor ? "t" : opts.talk ? "k" : ""}|${text}`);
+const cacheUrl = (key: string) => `/__tts/${key}.wav`;
+
+/** Tayyor ovozni xotira va Cache Storage'ga qo'yadi (qayta tinglash — bepul va darhol) */
+async function storeBlob(key: string, blob: Blob): Promise<string> {
+  try {
+    if ("caches" in window) {
+      const c = await caches.open(CACHE);
+      await c.put(cacheUrl(key), new Response(blob, { headers: { "Content-Type": "audio/wav" } }));
+    }
+  } catch {}
+  const url = URL.createObjectURL(blob);
+  memory.set(key, url);
+  return url;
+}
+
+/** Ovoz: avval Cache Storage, bo'lmasa — /api/tts */
+async function loadAudio(key: string, text: string, opts: TtsOpts): Promise<string | null> {
+  try {
+    if ("caches" in window) {
+      const c = await caches.open(CACHE);
+      const hit = await c.match(cacheUrl(key));
+      if (hit) {
+        const url = URL.createObjectURL(await hit.blob());
+        memory.set(key, url);
+        return url;
+      }
+    }
+  } catch {}
+  if (serverTtsOff) return null;
+  try {
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, slow: opts.slow, voice: opts.voice, tutor: opts.tutor, talk: opts.talk }),
+    });
+    // 503: AI ulanmagan; 401/402: kirilmagan yoki sinov tugagan — brauzer ovozi ishlatiladi
+    if (res.status === 503 || res.status === 401 || res.status === 402) {
+      serverTtsOff = true;
+      return null;
+    }
+    if (!res.ok) return null;
+    return await storeBlob(key, await res.blob());
+  } catch {
+    return null;
+  }
+}
 
 async function fetchServerAudio(text: string, opts: TtsOpts): Promise<string | null> {
   if (serverTtsOff) return null;
-  const key = hash(`${opts.slow ? "s" : "n"}|${opts.voice ?? ""}|${opts.tutor ? "t" : opts.talk ? "k" : ""}|${text}`);
+  const key = keyOf(text, opts);
   if (memory.has(key)) return memory.get(key)!;
   if (pending.has(key)) return pending.get(key)!;
-
-  const job = (async () => {
-    const cacheUrl = `/__tts/${key}.wav`;
-    try {
-      if ("caches" in window) {
-        const c = await caches.open(CACHE);
-        const hit = await c.match(cacheUrl);
-        if (hit) {
-          const url = URL.createObjectURL(await hit.blob());
-          memory.set(key, url);
-          return url;
-        }
-      }
-    } catch {}
-    try {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, slow: opts.slow, voice: opts.voice, tutor: opts.tutor, talk: opts.talk }),
-      });
-      // 503: AI ulanmagan; 401/402: kirilmagan yoki sinov tugagan — brauzer ovozi ishlatiladi
-      if (res.status === 503 || res.status === 401 || res.status === 402) {
-        serverTtsOff = true;
-        return null;
-      }
-      if (!res.ok) return null;
-      const blob = await res.blob();
-      try {
-        if ("caches" in window) {
-          const c = await caches.open(CACHE);
-          await c.put(cacheUrl, new Response(blob, { headers: { "Content-Type": "audio/wav" } }));
-        }
-      } catch {}
-      const url = URL.createObjectURL(blob);
-      memory.set(key, url);
-      return url;
-    } catch {
-      return null;
-    } finally {
-      pending.delete(key);
-    }
-  })();
+  const job = loadAudio(key, text, opts).finally(() => pending.delete(key));
   pending.set(key, job);
   return job;
+}
+
+function b64ToBlob(b64: string) {
+  const bin = atob(b64);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: "audio/wav" });
+}
+
+export type AudioWait = { resolve: (b64: string) => void; fail: () => void };
+
+/**
+ * Server bu matn ovozini javob bilan birga o'zi yuboradi — shu vaqtgacha kutib turamiz (ikkinchi marta so'ramaymiz).
+ * Ovoz kelmasa (fail yoki vaqt tugasa) — odatdagidek /api/tts dan olinadi.
+ */
+export function expectAudio(text: string, opts: TtsOpts, timeoutMs = 15000): AudioWait {
+  const key = keyOf(text, opts);
+  if (memory.has(key) || pending.has(key)) return { resolve: () => {}, fail: () => {} };
+  let settle!: (u: string | null) => void;
+  const p = new Promise<string | null>((r) => (settle = r));
+  pending.set(key, p);
+  let done = false;
+  const finish = (job: () => Promise<string | null>) => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    job()
+      .catch(() => null)
+      .then((u) => {
+        if (pending.get(key) === p) pending.delete(key);
+        settle(u);
+      });
+  };
+  const timer = setTimeout(() => finish(() => loadAudio(key, text, opts)), timeoutMs);
+  return {
+    resolve: (b64) => finish(() => storeBlob(key, b64ToBlob(b64))),
+    fail: () => finish(() => loadAudio(key, text, opts)),
+  };
 }
 
 /** Oldindan yuklab qo'yish (imtihonda keyingi audio kutmasligi uchun) */
@@ -278,25 +325,54 @@ export async function playKorean(
   return "browser";
 }
 
-/** true — oxirigacha o'ynadi; false — to'xtatildi, xato yoki brauzer o'ynatmadi */
+/** Ovoz shuncha vaqt oldinga siljimasa — «qotib qoldi» deb hisoblanadi */
+const STALL_MS = 2500;
+
+/**
+ * true — oxirigacha o'ynadi; false — to'xtatildi, xato yoki brauzer o'ynatmadi.
+ * iPhone ba'zan ovozni «o'ynayapti» deb ko'rsatib, aslida boshlamaydi yoki o'zi to'xtatib qo'yadi
+ * (masalan, mikrofon endigina yopilganda). Shunday bo'lsa — bir marta qayta urinamiz; bo'lmasa false
+ * (ekranda «gapiryapti» qotib qolmaydi, mikrofon o'zi yoqilmaydi).
+ */
 function playUrl(url: string, onStart?: () => void, rate = 1): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const a = audioEl();
     let done = false;
+    let started = false;
+    let retried = false;
+    let stall: ReturnType<typeof setTimeout> | undefined;
     let env: Float32Array | null = envelopes.get(url) ?? null;
     if (!envelopes.has(url)) void envelopeFor(url).then((e) => (env = e));
     const finish = (ended: boolean) => {
       if (done) return;
       done = true;
-      a.onended = a.onerror = a.onplay = null;
+      clearTimeout(stall);
+      a.onended = a.onerror = a.onplay = a.onpause = a.ontimeupdate = null;
       if (current === ctl) current = null;
       if (levelSource === level) levelSource = null;
       resolve(ended);
     };
+    const play = () => {
+      a.play().catch(() => (retried ? finish(false) : retry()));
+      watch();
+    };
+    const retry = () => {
+      if (done) return;
+      if (retried) return finish(false);
+      retried = true;
+      try {
+        a.currentTime = 0;
+      } catch {}
+      play();
+    };
+    const watch = () => {
+      clearTimeout(stall);
+      stall = setTimeout(retry, STALL_MS);
+    };
     const level = () => (env ? env[Math.floor(a.currentTime * ENV_FPS)] ?? 0 : a.paused ? 0 : syntheticLevel());
     const ctl = {
       stop: () => {
-        a.pause();
+        if (!done) a.pause();
         finish(false);
       },
     };
@@ -304,17 +380,27 @@ function playUrl(url: string, onStart?: () => void, rate = 1): Promise<boolean> 
     levelSource = level;
     a.onended = () => finish(true);
     a.onerror = () => finish(false);
-    a.onplay = () => onStart?.();
+    a.onplay = () => {
+      if (!started) onStart?.();
+      started = true;
+    };
+    // O'ynayotgan bo'lsa — vaqt oldinga siljiydi; siljimay qolsa watch() qayta urinadi
+    a.ontimeupdate = () => {
+      if (!a.paused) watch();
+    };
+    // Biz to'xtatmagan bo'lsak-u, ovoz to'xtab qolsa (telefon to'xtatdi) — qayta urinish. Oxirida ham «pause» keladi — u emas
+    a.onpause = () => {
+      if (!done && !a.ended) retry();
+    };
     a.src = url;
     // src o'zgarganda tezlik 1 ga qaytadi — har safar qayta o'rnatamiz (ovoz balandligi/ohangi saqlanadi)
     a.defaultPlaybackRate = rate;
     a.playbackRate = rate;
-    a.play().catch(() => finish(false));
+    play();
   });
 }
 
 // ---------- Ovozli ustoz: o'zbekcha + koreyscha aralash nutq ----------
-export type Segment = { lang: "uz" | "ko"; text: string };
 
 /**
  * Bo'laklarni brauzer ovozi bilan ketma-ket o'qiydi: koreyschasi koreyscha, qolgani o'zbekcha (yoki turkcha) ovoz bilan.
@@ -369,39 +455,7 @@ function browserSpeakSegments(segs: Segment[], onStart?: () => void, pitch = 0.8
   });
 }
 
-/** Ustoz ovozi: Gemini "Puck" (yigit ovozi) */
-const TUTOR_TTS: TtsOpts = { tutor: true, voice: "m" };
-
-/** Gap oxiri (min..max oralig'ida, keyin kamida 20 belgi qoladigan) — topilmasa 0 */
-function sentenceCut(t: string, min: number, max: number) {
-  const re = /[.!?…]+["”']?\s+/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(t))) {
-    const cut = m.index + m[0].length;
-    if (cut >= min && t.length - cut >= 20) return cut;
-    if (cut > max) break;
-  }
-  return 0;
-}
-
-/**
- * Tezroq boshlash uchun javobni bo'laklarga ajratadi: birinchi (qisqa) gap tez tayyorlanib darhol o'ynaydi,
- * qolganlari shu vaqtda parallel tayyorlanadi. Uzun javob — uch bo'lakka.
- */
-export function splitForSpeech(text: string): string[] {
-  const t = text.trim();
-  if (t.length < 60) return [t];
-  const cut = sentenceCut(t, 14, 160);
-  if (!cut) return [t];
-  const head = t.slice(0, cut).trim();
-  const rest = t.slice(cut).trim();
-  if (rest.length < 150) return [head, rest];
-  const cut2 = sentenceCut(rest, 50, 220);
-  return cut2 ? [head, rest.slice(0, cut2).trim(), rest.slice(cut2).trim()] : [head, rest];
-}
-
 type PlayHooks = { onLoading?: (b: boolean) => void; onStart?: () => void; rate?: number };
-export type SpeechChunk = { text: string; opts: TtsOpts };
 
 /**
  * Bo'laklarni ketma-ket o'qiydi: hammasi parallel tayyorlanadi, birinchisi tayyor bo'lishi bilan o'ynaydi.
@@ -438,32 +492,7 @@ export const TUTOR_RATE = 1.1;
 
 /** Ustoz javobini ovoz chiqarib o'qiydi: avval Gemini (bitta tabiiy yigit ovozi), bo'lmasa brauzer ovozi */
 export function playTutor(segs: Segment[], opts: PlayHooks = {}) {
-  const text = segs.map((s) => s.text).join(" ").trim();
-  return playChunks(
-    splitForSpeech(text).map((p) => ({ text: p, opts: TUTOR_TTS })),
-    segs,
-    { rate: TUTOR_RATE, ...opts }
-  );
-}
-
-/**
- * Koreyscha javob qisqa (40-60 belgi) bo'lsa ham birinchi gapni ajratamiz: u tezroq tayyorlanib darhol o'ynaydi,
- * qolgani shu vaqtda parallel tayyorlanadi. Juda qisqa bo'laklar (<4 belgi, masalan «네!») ajratilmaydi.
- */
-export function splitTalk(text: string): string[] {
-  const t = text.trim();
-  const m = /^(.{4,}?[.!?…]+["”']?)\s+(\S[\s\S]{5,})$/.exec(t);
-  return m ? [m[1].trim(), m[2].trim()] : t ? [t] : [];
-}
-
-/** Erkin suhbat uchun o'qiladigan bo'laklar: avval o'zbekcha yordam (ustoz uslubida), keyin koreyscha javob — bitta suhbatdosh ovozi */
-export function talkChunks(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }): SpeechChunk[] {
-  const help = (t.help ?? []).map((s) => s.text).join(" ").trim();
-  const reply = t.reply.trim();
-  return [
-    ...(help ? [{ text: help, opts: { tutor: true, voice: t.voice } }] : []),
-    ...splitTalk(reply).map((p) => ({ text: p, opts: { talk: true, voice: t.voice, slow: !!t.slow } })),
-  ];
+  return playChunks(tutorChunks(segs), segs, { rate: TUTOR_RATE, ...opts });
 }
 
 /** Erkin suhbat javobi ovozini oldindan tayyorlab qo'yadi (masalan, birinchi salom — bosilishi bilan gapiradi) */

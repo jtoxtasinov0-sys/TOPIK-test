@@ -35,12 +35,14 @@ function AccountButton() {
     me.admin || !a
       ? null
       : a.status === "expired"
-        ? { cls: "red", text: "Sinov tugadi" }
-        : { cls: a.daysLeft <= 5 ? "amber" : "", text: `🎁 ${a.daysLeft} kun` };
+        ? { cls: "red", text: "⭐ Obuna bo‘lish", href: "/pay" }
+        : a.status === "paid"
+          ? { cls: a.daysLeft <= 3 ? "amber" : "", text: `⭐ ${a.daysLeft} kun`, href: a.daysLeft <= 3 ? "/pay" : "/account" }
+          : { cls: a.daysLeft <= 2 ? "amber" : "", text: `🎁 ${a.daysLeft} kun`, href: "/account" };
   return (
     <>
       {pill && (
-        <Link href="/account" className={`badge ${pill.cls} hide-mobile`} style={{ padding: "7px 12px" }}>
+        <Link href={pill.href} className={`badge ${pill.cls} hide-mobile`} style={{ padding: "7px 12px" }}>
           {pill.text}
         </Link>
       )}

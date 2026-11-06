@@ -818,3 +818,15 @@ main.voice-focus .composer { padding-bottom: calc(12px + env(safe-area-inset-bot
 .tk-num {
   width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 0.85rem; background: var(--grad-btn);
 }
+
+/* ---------- Obuna (/pay) ---------- */
+.pay-steps { margin: 0; padding-left: 20px; display: grid; gap: 16px; }
+.pay-steps li { padding-left: 4px; }
+.pay-field { gap: 10px; margin: 6px 0 4px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2, rgba(139, 61, 255, 0.06)); border: 1px solid var(--line); }
+.pay-field b { overflow-wrap: anywhere; }
+.mono { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.plan-card.hot { border: 2px solid rgba(139, 61, 255, 0.45); }
+.pay-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); }
+.pay-receipt { flex-shrink: 0; width: 64px; height: 80px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); display: grid; place-items: center; background: rgba(139, 61, 255, 0.05); }
+.pay-receipt img { width: 100%; height: 100%; object-fit: cover; }
+.pay-receipt.empty { font-size: 0.68rem; color: var(--muted, #8a85a3); text-align: center; padding: 4px; }

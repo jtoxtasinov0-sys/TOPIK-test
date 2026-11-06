@@ -138,14 +138,14 @@ export function GoogleButton({ next, block, label }: { next?: string; block?: bo
 // ---------- Kirish / sinov tugadi oynasi ----------
 function PaywallSheet({ reason, onClose }: { reason: Reason; onClose: () => void }) {
   const { me } = useAuth();
-  const trialDays = me?.trialDays ?? 30;
+  const trialDays = me?.trialDays ?? 7;
   return (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
       <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
         <div className="sheet-handle" />
         <div className="row between" style={{ marginBottom: 6 }}>
-          <span className="badge">{reason === "AUTH" ? `🎁 ${trialDays} kun bepul` : "⏳ Sinov tugadi"}</span>
+          <span className="badge">{reason === "AUTH" ? `🎁 ${trialDays} kun bepul` : "⏳ Muddat tugadi"}</span>
           <button className="icon-btn sm" onClick={onClose} aria-label="Yopish">
             <Icon name="x" size={18} />
           </button>
@@ -167,13 +167,16 @@ function PaywallSheet({ reason, onClose }: { reason: Reason; onClose: () => void
         ) : (
           <div className="stack" style={{ gap: 14 }}>
             <h3 className="h2" id="paywall-title" style={{ fontSize: "1.5rem" }}>
-              Bepul sinov tugadi
+              Obuna bo‘ling
             </h3>
             <p className="muted" style={{ margin: 0 }}>
-              {`${trialDays} kunlik bepul sinov muddati tugadi, AI funksiyalari yopildi. Hangul, darslar, so‘zlar va mock testlar bepul ishlashda davom etadi.`}
+              {`${trialDays} kunlik bepul sinov (yoki obuna) muddati tugadi. Obuna bo‘lsangiz, AI Ustoz, ovozli suhbat va AI tekshiruv yana ochiladi. Hangul, darslar, so‘zlar va mock testlar bepul ishlashda davom etadi.`}
             </p>
-            <Link href="/account" className="btn btn-primary btn-lg btn-block" onClick={onClose}>
-              Profilni ko‘rish <Icon name="right" size={18} />
+            <Link href="/pay" className="btn btn-primary btn-lg btn-block" onClick={onClose}>
+              ⭐ Obuna bo‘lish <Icon name="right" size={18} />
+            </Link>
+            <Link href="/account" className="btn btn-block" onClick={onClose}>
+              Profilni ko‘rish
             </Link>
           </div>
         )}

@@ -278,56 +278,61 @@ export async function playKorean(
   return "browser";
 }
 
-function playUrl(url: string, onStart?: () => void, rate = 1): Promise<void> {
-  return new Promise<void>((resolve) => {
+/** true — oxirigacha o'ynadi; false — to'xtatildi, xato yoki brauzer o'ynatmadi */
+function playUrl(url: string, onStart?: () => void, rate = 1): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
     const a = audioEl();
     let done = false;
     let env: Float32Array | null = envelopes.get(url) ?? null;
     if (!envelopes.has(url)) void envelopeFor(url).then((e) => (env = e));
-    const finish = () => {
+    const finish = (ended: boolean) => {
       if (done) return;
       done = true;
       a.onended = a.onerror = a.onplay = null;
       if (current === ctl) current = null;
       if (levelSource === level) levelSource = null;
-      resolve();
+      resolve(ended);
     };
     const level = () => (env ? env[Math.floor(a.currentTime * ENV_FPS)] ?? 0 : a.paused ? 0 : syntheticLevel());
     const ctl = {
       stop: () => {
         a.pause();
-        finish();
+        finish(false);
       },
     };
     current = ctl;
     levelSource = level;
-    a.onended = finish;
-    a.onerror = finish;
+    a.onended = () => finish(true);
+    a.onerror = () => finish(false);
     a.onplay = () => onStart?.();
     a.src = url;
     // src o'zgarganda tezlik 1 ga qaytadi — har safar qayta o'rnatamiz (ovoz balandligi/ohangi saqlanadi)
     a.defaultPlaybackRate = rate;
     a.playbackRate = rate;
-    a.play().catch(finish);
+    a.play().catch(() => finish(false));
   });
 }
 
 // ---------- Ovozli ustoz: o'zbekcha + koreyscha aralash nutq ----------
 export type Segment = { lang: "uz" | "ko"; text: string };
 
-/** Bo'laklarni brauzer ovozi bilan ketma-ket o'qiydi: koreyschasi koreyscha, qolgani o'zbekcha (yoki turkcha) ovoz bilan */
-function browserSpeakSegments(segs: Segment[], onStart?: () => void, pitch = 0.8): Promise<void> {
+/**
+ * Bo'laklarni brauzer ovozi bilan ketma-ket o'qiydi: koreyschasi koreyscha, qolgani o'zbekcha (yoki turkcha) ovoz bilan.
+ * true — haqiqatan o'qildi (to'xtatilmadi); false — ovoz chiqmadi yoki to'xtatildi.
+ */
+function browserSpeakSegments(segs: Segment[], onStart?: () => void, pitch = 0.8): Promise<boolean> {
   return new Promise((resolve) => {
     const synth = window.speechSynthesis;
-    if (!synth || !segs.length) return resolve();
+    if (!synth || !segs.length) return resolve(false);
     synth.cancel();
     const ko = pickKoreanVoice();
     const uz = pickUzbekVoice();
     let i = 0;
     let stopped = false;
+    let spoke = false;
     const done = () => {
       levelSource = null;
-      resolve();
+      resolve(spoke && !stopped);
     };
     current = {
       stop: () => {
@@ -354,7 +359,10 @@ function browserSpeakSegments(segs: Segment[], onStart?: () => void, pitch = 0.8
       }
       u.onend = () => setTimeout(next, 120);
       u.onerror = () => setTimeout(next, 50);
-      if (i === 1) u.onstart = () => onStart?.();
+      u.onstart = () => {
+        if (!spoke) onStart?.();
+        spoke = true;
+      };
       synth.speak(u);
     };
     next();
@@ -398,25 +406,31 @@ export type SpeechChunk = { text: string; opts: TtsOpts };
 /**
  * Bo'laklarni ketma-ket o'qiydi: hammasi parallel tayyorlanadi, birinchisi tayyor bo'lishi bilan o'ynaydi.
  * Gemini ovozi bo'lmasa — brauzer ovozi (fallback bo'laklari, tillar bo'yicha).
+ * true — javob oxirigacha o'qildi (shundan keyingina navbat o'quvchiga, mikrofon yoqiladi);
+ * false — to'xtatildi yoki ovoz chiqmadi (mikrofon o'zi yoqilmaydi).
  */
-async function playChunks(chunks: SpeechChunk[], fallback: Segment[], hooks: PlayHooks & { pitch?: number } = {}) {
+async function playChunks(chunks: SpeechChunk[], fallback: Segment[], hooks: PlayHooks & { pitch?: number } = {}): Promise<boolean> {
   stopAudio();
   const token = playToken;
   const list = chunks.filter((c) => c.text.trim());
-  if (!list.length) return;
+  if (!list.length) return false;
   const jobs = list.map((c) => fetchServerAudio(c.text.trim(), c.opts)); // hammasi parallel so'raladi
   hooks.onLoading?.(true);
   const first = await jobs[0];
   hooks.onLoading?.(false);
-  if (token !== playToken) return;
+  if (token !== playToken) return false;
   if (!first) return browserSpeakSegments(fallback, hooks.onStart, hooks.pitch);
-  await playUrl(first, hooks.onStart, hooks.rate);
+  if (!(await playUrl(first, hooks.onStart, hooks.rate))) return false;
   for (let k = 1; k < jobs.length; k++) {
-    if (token !== playToken) return;
+    if (token !== playToken) return false;
+    hooks.onLoading?.(true);
     const url = await jobs[k];
-    if (!url || token !== playToken) return;
-    await playUrl(url, undefined, hooks.rate);
+    hooks.onLoading?.(false);
+    if (token !== playToken) return false;
+    if (!url) return true; // keyingi bo'lak tayyorlanmadi — matni ekranda bor, navbat o'quvchiga
+    if (!(await playUrl(url, undefined, hooks.rate))) return false;
   }
+  return true;
 }
 
 /** Ustoz ovozi biroz tezroq o'ynaydi — suhbat jonliroq bo'ladi (ohang o'zgarmaydi) */

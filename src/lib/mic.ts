@@ -91,10 +91,10 @@ async function openMic(): Promise<MediaStream> {
   }
 }
 
-// ---------- Suhbat davomida bitta mikrofon ----------
-// iPhone (Safari) mikrofon yopilib, qayta ochilganda (ayniqsa bir daqiqadan keyin) yana ruxsat so'raydi.
-// Shuning uchun suhbat sahifasida mikrofon bir marta ochiladi va sahifadan chiqquncha (yoki uzoq
-// ishlatilmaguncha) ochiq turadi — ruxsat faqat bir marta so'raladi.
+// ---------- Suhbatda mikrofon ----------
+// Navbat o'quvchida (yozuv) va AI o'ylayotganda mikrofon ochiq qoladi — qayta-qayta ochilib-yopilmaydi.
+// AI gapira boshlaganda sahifa releaseMic() chaqiradi: ustoz/do'st gapirayotganda mikrofon yopiq
+// (iPhone mikrofon ochiq paytda boshqa ovozlarni pasaytiradi va «mikrofon yoniq» belgisi chiqadi).
 let held: MediaStream | null = null;
 let opening: Promise<MediaStream> | null = null;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -132,15 +132,6 @@ async function sharedMic(): Promise<MediaStream> {
       });
   }
   return opening;
-}
-
-/**
- * Suhbat boshlanganda (tugma bosilgan paytda) chaqiring: ruxsat darhol, bir marta so'raladi.
- * Hech qachon xato bermaydi: ruxsat berilmasa — mikrofon bosilganda xabar chiqadi.
- */
-export async function warmMic(): Promise<void> {
-  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return;
-  await sharedMic().then(armIdle, () => {});
 }
 
 /** Suhbatdan chiqqanda: mikrofonni yopadi (telefondagi mikrofon belgisi o'chadi) */

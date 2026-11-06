@@ -37,8 +37,8 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       shortcut("Mock test", "/test", "home:test", "TOPIK I, TOPIK II va EPS-TOPIK"),
-      shortcut("AI Ustoz", "/tutor", "home:tutor", "Grammatika va TOPIK bo‘yicha savollar"),
-      shortcut("Ovozli ustoz", "/speak/ustoz", "home:ustoz", "O‘zbekcha so‘rang — ustoz ovoz bilan javob beradi"),
+      shortcut("AI Ustoz", "/speak", "home:tutor", "Koreyscha gaplashish, ovozli va yozma ustoz"),
+      shortcut("Erkin suhbat", "/speak/free", "home:speak", "Koreys do‘st bilan ovozli suhbat"),
       shortcut("So‘zlar", "/words", "home:words", "So‘z kartochkalari"),
     ],
   };

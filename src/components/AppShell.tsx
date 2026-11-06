@@ -55,10 +55,9 @@ export const NAV: { href: string; icon: string; label: string; v: VisualId }[] =
   { href: "/", icon: "home", label: "Bosh sahifa", v: "nav:home" },
   { href: "/test", icon: "test", label: "Testlar", v: "home:test" },
   { href: "/writing", icon: "pen", label: "Yozish", v: "home:writing" },
-  { href: "/speak", icon: "mic", label: "Gaplashish", v: "home:speak" },
+  { href: "/speak", icon: "spark", label: "AI Ustoz", v: "home:tutor" },
   { href: "/learn", icon: "book", label: "0 dan o‘rganish", v: "who:beginner" },
   { href: "/words", icon: "cards", label: "So‘zlar", v: "home:words" },
-  { href: "/tutor", icon: "spark", label: "AI Ustoz", v: "home:tutor" },
   { href: "/guide", icon: "map", label: "Koreyada hayot", v: "home:guide" },
   { href: "/progress", icon: "chart", label: "Natijalarim", v: "nav:progress" },
   { href: "/account", icon: "user", label: "Profil", v: "nav:profile" },
@@ -100,7 +99,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [more, setMore] = useState(false);
   useWarmIcons();
 
-  const isOn = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  // AI Ustoz bo'limi: gaplashish (/speak/...) va yozma ustoz (/tutor) — bitta menyu bandi
+  const isOn = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/speak" && pathname.startsWith("/tutor")));
   const desktop = nav.filter((n) => !["/", "/progress", "/account"].includes(n.href));
 
   return (

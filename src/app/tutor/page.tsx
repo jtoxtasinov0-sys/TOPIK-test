@@ -125,6 +125,9 @@ export default function TutorPage() {
 
   return (
     <main className="container chat-page" style={{ maxWidth: 860, paddingTop: 20 }}>
+      <Link href="/speak" className="back-link">
+        <Icon name="left" size={16} /> AI Ustoz
+      </Link>
       {msgs.length === 0 && (
         <div className="section-head center" style={{ alignItems: "center", paddingTop: 20 }}>
           <div className="syllable-box" style={{ width: 96, height: 96, fontSize: "2.8rem", borderRadius: 28 }}>

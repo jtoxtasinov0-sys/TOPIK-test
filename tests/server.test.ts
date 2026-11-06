@@ -39,8 +39,16 @@ describe("session", () => {
 });
 
 describe("bepul sinov", () => {
-  test("standart sinov muddati 30 kun", () => {
-    assert.equal(TRIAL_DAYS, 30);
+  test("standart sinov muddati 7 kun", () => {
+    assert.equal(TRIAL_DAYS, 7);
+  });
+
+  test("obuna: sinovdan keyin, tugagach — expired", () => {
+    const u = { trialEndsAt: T0 + 2 * DAY_MS, paidUntil: T0 + 32 * DAY_MS };
+    assert.deepEqual(computeAccess(u, T0), { status: "paid", until: u.paidUntil, daysLeft: 32 });
+    assert.equal(computeAccess(u, T0 + 31 * DAY_MS).status, "paid");
+    assert.equal(computeAccess(u, T0 + 33 * DAY_MS).status, "expired");
+    assert.equal(computeAccess({ trialEndsAt: T0 + DAY_MS, paidUntil: T0 - DAY_MS }, T0).status, "trial", "eski obuna sinovni yopmaydi");
   });
 
   test("sinov → tugash", () => {

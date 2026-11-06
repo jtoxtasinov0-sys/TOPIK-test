@@ -28,8 +28,8 @@ export async function requireAdmin(req: Request) {
 export const DAILY_LIMITS = {
   explain: 150,
   writing: 25,
-  speak: 200,
-  talk: 300, // erkin suhbat: qisqa va tez-tez xabarlar
+  speak: 120, // ovozli ustoz va vaziyatli suhbat (~30-40 daqiqa)
+  talk: 60, // erkin suhbat: ~20 daqiqa ovozli suhbat (eng qimmat funksiya — AI + ovoz)
   tutor: 120,
   generate: 400, // bitta to'liq AI variant ~40-60 so'rov
   tts: 800,

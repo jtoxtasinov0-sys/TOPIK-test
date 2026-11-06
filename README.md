@@ -1,6 +1,6 @@
 # 한 HanUstoz — TOPIK mock test va koreys tili 0 dan
 
-Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yashayotgan o‘zbek tilli foydalanuvchilar uchun veb-ilova. Gmail orqali kiriladi: **birinchi 30 kun barcha AI imkoniyatlari bepul**. Telefon va kompyuterda ishlaydi, uni telefonga ilova sifatida o‘rnatish ham mumkin.
+Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yashayotgan o‘zbek tilli foydalanuvchilar uchun veb-ilova. Gmail orqali kiriladi: **birinchi 7 kun barcha AI imkoniyatlari bepul**, keyin — oylik obuna (O‘zbekiston va Koreya uchun alohida narx). Telefon va kompyuterda ishlaydi, uni telefonga ilova sifatida o‘rnatish ham mumkin.
 
 ## Imkoniyatlar
 
@@ -27,18 +27,19 @@ Koreys tilini o‘rganayotgan, TOPIK imtihoniga tayyorlanayotgan va Koreyada yas
 | **🤖 AI Ustoz** | Grammatika, TOPIK / EPS-TOPIK strategiyasi va gaplarni tekshirish bo‘yicha chat (javob oqim bilan chiqadi). Professional o‘qitish uslubi, bilim bazasidan mos kartochkalar, rasmiy TOPIK faktlari (2026 jadvali, tuzilma, baholash), lug‘atdan mos so‘zlar va o‘quvchining maqsadi hamda oxirgi natijalarini hisobga oladi |
 | **🇰🇷 Koreyada hayot** | Favqulodda raqamlar (112, 119, 1345, 1350, 1330), foydali ilovalar, birinchi qadamlar, ovozli iboralar |
 | **📈 Natijalarim** | Natijalar tarixi, ball grafigi, imtihongacha qolgan kunlar, kunlik seriya (streak) |
-| **🔐 Gmail orqali kirish** | Google OAuth (PKCE), parolsiz. Birinchi kirishda 30 kunlik bepul sinov avtomatik boshlanadi, karta so‘ralmaydi |
+| **🔐 Gmail orqali kirish** | Google OAuth (PKCE), parolsiz. Birinchi kirishda 7 kunlik bepul sinov avtomatik boshlanadi, karta so‘ralmaydi |
+| **⭐ Obuna (to‘lov)** | `/pay`: hudud (🇺🇿 O‘zbekiston — so‘m, 🇰🇷 Koreya — von, biroz qimmatroq) va tarif (1 / 3 / 6 oy) tanlanadi. Ilk 100 obunachiga birinchi to‘lovida chegirma. Har bir so‘rovga shaxsiy kod beriladi: O‘zbekistonda summaning oxirgi 3 raqami (49 137 so‘m), Koreyada 입금자명 (HU137) — tushum bank ilovasida darhol topiladi. Foydalanuvchi kartaga (Humo/Uzcard) yoki koreys hisobiga o‘tkazib, **chek rasmini yuklaydi** va «To‘ladim» bosadi → admin Telegram’da xabar oladi (ixtiyoriy) → `/admin` da chekni ko‘rib **tasdiqlaydi** → obuna muddati uzayadi (sinov yoki oldingi obuna tugagandan keyin qo‘shiladi). Avtomatik yechib olinmaydi. Narxlar — `src/lib/plans.ts` |
 | **☁️ Bulutda saqlash** | Kirgan foydalanuvchining testlar tarixi, so‘zlari, profili va streak’i barcha qurilmalarda sinxron |
-| **🛠️ Admin panel** | `/admin` (faqat ko‘rish): foydalanuvchilar soni, faollik statistikasi (bugun / 7 / 30 kun: yakunlangan mock testlar, har bir AI funksiya, sinovi tugab AI so‘raganlar), so‘nggi ro‘yxatdan o‘tganlar, email bo‘yicha qidirish |
+| **🛠️ Admin panel** | `/admin`: 💳 to‘lovlar — tekshiriladigan so‘rovlar chek rasmi bilan, bir bosishda tasdiqlash / rad etish, qo‘lda obuna berish (sovg‘a), tushum va chegirma hisoblagichi, **PDF hisobot** (bu oy / o‘tgan oy / istalgan davr: tushum UZS va KRW, tariflar, har bir to‘lov); foydalanuvchilar soni, faollik statistikasi (bugun / 7 / 30 kun: yakunlangan mock testlar, har bir AI funksiya, sinovi tugab AI so‘raganlar), so‘nggi ro‘yxatdan o‘tganlar, email bo‘yicha qidirish |
 
-### Har doim bepul va 30 kunlik sinov
+### Har doim bepul, 7 kunlik sinov va obuna
 
-| Har doim bepul (kirmasdan ham) | AI imkoniyatlari (Gmail orqali kirib, 30 kun bepul) |
+| Har doim bepul (kirmasdan ham) | AI imkoniyatlari (Gmail orqali kirib, 7 kun bepul, keyin obuna) |
 |---|---|
 | Hangul, 12 ta dars, so‘z kartochkalari, Koreyada hayot | AI tushuntirish, yozma ishni AI baholash, Gemini bilan suhbat |
 | TOPIK I / II va EPS-TOPIK mock testlar (brauzer ovozi bilan) | AI Ustoz, cheksiz AI variantlar, tabiiy Gemini ovozi |
 
-AI yo‘llari (`/api/explain`, `writing`, `speak`, `talk`, `voice`, `tutor`, `generate`, `tts`, AI variant rasmlari uchun `image`) serverda tekshiriladi: kirilmagan bo‘lsa `401`, bepul sinov tugagan bo‘lsa `402`. Sinov muddati — `NEXT_PUBLIC_TRIAL_DAYS` (standart 30). To‘lov tizimi keyinroq qo‘shiladi. Har bir foydalanuvchi uchun kunlik adolatli limit bor (`src/lib/server/guard.ts`, masalan kuniga 25 ta yozma ish tekshiruvi) — bu AI xarajatini nazoratda ushlaydi.
+AI yo‘llari (`/api/explain`, `writing`, `speak`, `talk`, `voice`, `tutor`, `generate`, `tts`, AI variant rasmlari uchun `image`) serverda tekshiriladi: kirilmagan bo‘lsa `401`, bepul sinov tugagan bo‘lsa `402`. Sinov muddati — `NEXT_PUBLIC_TRIAL_DAYS` (standart 7); obuna — admin tasdiqlagan to‘lov bo‘yicha. Har bir foydalanuvchi uchun kunlik adolatli limit bor (`src/lib/server/guard.ts`: masalan kuniga 25 ta yozma ish tekshiruvi, erkin ovozli suhbat ~20 daqiqa — 60 xabar) — bu AI xarajatini nazoratda ushlaydi.
 
 ## Texnologiyalar
 
@@ -62,7 +63,7 @@ npm run dev                  # http://localhost:3000
 
 API kalitni [Google AI Studio](https://aistudio.google.com/apikey) dan olasiz. Kalitsiz ham testlar, Hangul, darslar va so‘zlar ishlaydi, ovozni esa brauzer o‘zi o‘qiydi. AI funksiyalar kalit qo‘shilgandan keyin yoqiladi.
 
-`GOOGLE_CLIENT_ID` bo‘sh bo‘lsa, login va 30 kunlik cheklov o‘chadi — ilova eski “hammaga ochiq” rejimda ishlaydi (lokal ishlab chiqish uchun qulay). Lokalda Redis shart emas: ma’lumotlar `.data/db.json` ga yoziladi.
+`GOOGLE_CLIENT_ID` bo‘sh bo‘lsa, login va sinov/obuna cheklovi o‘chadi — ilova eski “hammaga ochiq” rejimda ishlaydi (lokal ishlab chiqish uchun qulay). Lokalda Redis shart emas: ma’lumotlar `.data/db.json` ga yoziladi.
 
 ```bash
 npm test   # server mantiqi testlari: sessiya, bepul sinov, login oqimi (Node 22.18+)
@@ -75,7 +76,21 @@ npm test   # server mantiqi testlari: sessiya, bepul sinov, login oqimi (Node 22
 3. **OAuth consent screen**’da ilova nomi va logotipni kiriting, keyin **Publish app** (aks holda faqat test foydalanuvchilari kira oladi).
 4. `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET` (`openssl rand -base64 32`), `APP_URL` va `ADMIN_EMAILS` ni yozing.
 
-Sinov muddati: `NEXT_PUBLIC_TRIAL_DAYS` (standart 30, `src/lib/access.ts`). O‘zgartirilsa faqat yangi ro‘yxatdan o‘tganlarga ta’sir qiladi.
+Sinov muddati: `NEXT_PUBLIC_TRIAL_DAYS` (standart 7, `src/lib/access.ts`). O‘zgartirilsa faqat yangi ro‘yxatdan o‘tganlarga ta’sir qiladi.
+
+### Obuna to‘lovlarini sozlash
+
+Dokploy → Environment (yoki `.env.local`) ga qo‘shing:
+
+| O‘zgaruvchi | Nima |
+|---|---|
+| `PAY_UZ_CARD`, `PAY_UZ_NAME` | O‘zbekistondagilar uchun karta (Humo/Uzcard) va egasining ismi |
+| `PAY_KR_ACCOUNT`, `PAY_KR_NAME` | Koreyadagilar uchun bank va hisob raqami (masalan `KB국민 123456-01-123456`), 예금주 |
+| `PAY_CONTACT` | Savollar uchun Telegram, masalan `@hanustoz_admin` |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Ixtiyoriy: har bir «To‘ladim» haqida Telegram xabari (@BotFather’dan bot oching, unga /start yozing, chat ID’ni @userinfobot dan oling) |
+| `RECEIPT_DIR` | Ixtiyoriy: chek rasmlari papkasi (standart `/app/data/receipts` — Volume ichida) |
+
+Karta sozlanmagan hudud sahifada «Tez orada» bo‘lib turadi. Narx va chegirmani `src/lib/plans.ts` da o‘zgartirasiz.
 
 ## Internetga joylash (Vercel)
 

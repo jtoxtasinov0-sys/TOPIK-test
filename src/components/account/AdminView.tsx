@@ -7,6 +7,7 @@ import { visualPrompts } from "@/data/visuals";
 import { ApiError, useAiErrorText } from "@/components/ui";
 import { Avatar, useAuth } from "@/lib/auth";
 import type { Access } from "@/lib/access";
+import { AdminPayments } from "./AdminPayments";
 import { fmtDate } from "./shared";
 
 type AUser = { id: string; email: string; name: string; picture?: string; createdAt: number; lastLoginAt: number; access: Access };
@@ -193,7 +194,13 @@ export function AdminView() {
   ];
 
   const statusBadge = (a: Access) =>
-    a.status === "trial" ? <span className="badge">🎁 {a.daysLeft}</span> : <span className="badge red">tugagan</span>;
+    a.status === "paid" ? (
+      <span className="badge amber">⭐ {a.daysLeft}</span>
+    ) : a.status === "trial" ? (
+      <span className="badge">🎁 {a.daysLeft}</span>
+    ) : (
+      <span className="badge red">tugagan</span>
+    );
 
   if (loading) return <main className="container page"><span className="spinner" /></main>;
   if (!isAdmin) {
@@ -222,6 +229,8 @@ export function AdminView() {
           </div>
         ))}
       </div>
+
+      <AdminPayments />
 
       <div className="card" style={{ marginTop: 18 }}>
         <h2 className="h3" style={{ marginBottom: 10 }}>Faollik</h2>
@@ -297,7 +306,7 @@ export function AdminView() {
             <div className="grow">
               <b>{found.user.name}</b> {statusBadge(found.user.access)}
               <div className="small muted">
-                {found.user.email} · sinov {fmtDate(found.user.access.until)} gacha
+                {found.user.email} · {found.user.access.status === "paid" ? "obuna" : "sinov"} {fmtDate(found.user.access.until)} gacha
               </div>
               <div className="tiny muted">
                 Ro‘yxatdan: {fmtDate(found.user.createdAt)} · Oxirgi kirish: {fmtDate(found.user.lastLoginAt)}

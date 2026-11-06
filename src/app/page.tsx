@@ -460,6 +460,9 @@ export default function Home() {
                   <Link href="/login" className="btn btn-white btn-lg">
                     Bepul boshlash <Icon name="right" size={20} />
                   </Link>
+                  <Link href="/pay" className="btn btn-glass btn-lg">
+                    ⭐ Narxlar
+                  </Link>
                 </div>
               </div>
               <ul className="check-list" style={{ color: "#fff" }}>

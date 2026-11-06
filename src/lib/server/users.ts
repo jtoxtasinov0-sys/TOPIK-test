@@ -10,6 +10,10 @@ export type User = {
   createdAt: number;
   lastLoginAt: number;
   trialEndsAt: number;
+  /** To'langan obuna shu vaqtgacha (ms) */
+  paidUntil?: number;
+  /** Birinchi marta to'lov tasdiqlangan vaqt (chegirma faqat birinchi to'lovga) */
+  firstPaidAt?: number;
 };
 
 export type PublicUser = Pick<User, "id" | "email" | "name" | "picture" | "createdAt">;
@@ -35,13 +39,18 @@ export function accessOf(u: User, now = Date.now()): Access {
   return computeAccess(u, now);
 }
 
-/** Bepul sinov hali tugamaganmi (adminlar har doim kira oladi) */
+/** Bepul sinov yoki obuna hali tugamaganmi (adminlar har doim kira oladi) */
 export function canUseAi(u: User, now = Date.now()) {
   return isAdminEmail(u.email) || accessOf(u, now).status !== "expired";
 }
 
 export async function getUser(id: string) {
   return getStore().get<User>(userKey(id));
+}
+
+/** Foydalanuvchi yozuvini saqlash (masalan, obuna muddati uzaytirilganda) */
+export async function saveUser(u: User) {
+  await getStore().set(userKey(u.id), u);
 }
 
 export async function findUserByEmail(email: string) {
@@ -59,7 +68,7 @@ export async function upsertGoogleUser(p: { sub: string; email: string; name?: s
   const name = (p.name || email.split("@")[0]).slice(0, 80);
   const existing = await getUser(p.sub);
   if (existing) {
-    // Sinov muddati (trialEndsAt) o'zgarmaydi — faqat ism, rasm va oxirgi kirish yangilanadi
+    // Sinov va obuna muddati o'zgarmaydi — faqat ism, rasm va oxirgi kirish yangilanadi
     const user: User = { ...existing, email, name, picture: p.picture, lastLoginAt: now };
     await kv.set(userKey(user.id), user);
     if (existing.email !== email) await kv.set(emailKey(email), user.id);

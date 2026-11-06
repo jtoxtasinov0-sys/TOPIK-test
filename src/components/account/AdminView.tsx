@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ALL_BUILTIN_TESTS } from "@/data/tests";
+import { BRAND_VERSION, imagePromptsOf, imageUrl } from "@/lib/images";
+import { visualPrompts } from "@/data/visuals";
 import { ApiError, useAiErrorText } from "@/components/ui";
 import { Avatar, useAuth } from "@/lib/auth";
 import type { Access } from "@/lib/access";
+import { AdminPayments } from "./AdminPayments";
 import { fmtDate } from "./shared";
 
 type AUser = { id: string; email: string; name: string; picture?: string; createdAt: number; lastLoginAt: number; access: Access };
@@ -15,6 +19,127 @@ async function getJson<T>(url: string): Promise<T> {
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new ApiError(j?.error || `HTTP ${r.status}`, r.status, j?.code);
   return j as T;
+}
+
+type ImgDiag = {
+  hasKey: boolean;
+  model: { model: string | null; source: "env" | "auto" | "none"; models: string[]; error?: string };
+  log: { error?: { at: number; message?: string; style: string }; ok?: { at: number; style: string } };
+  dir: string;
+};
+
+/** Gemini xatosini tushunarli maslahatga aylantirish */
+function imageHint(msg: string): string {
+  const m = msg.toLowerCase();
+  if (/limit: ?0|free[_ ]tier|quota|resource_exhausted|billing/.test(m))
+    return "Bu kalit bepul tarifda ishlayapti: Gemini rasm modellari bepul tarifda ishlamaydi. Google AI Studio → Billing (to‘lov) ni yoqing — har bir rasm bir necha sent turadi, barcha rasmlar bir marta chiziladi.";
+  if (/api key not valid|api_key_invalid|permission|unauthenticated|401|403/.test(m)) return "Kalit noto‘g‘ri yoki ruxsati yo‘q: Dokploy → Environment’dagi GEMINI_API_KEY ni tekshiring.";
+  if (/not found|404|is not supported for generatecontent/.test(m)) return "Rasm modeli topilmadi: Dokploy’da GEMINI_IMAGE_MODEL ga quyidagi ro‘yxatdagi modellardan birini yozing.";
+  if (/location|region|country/.test(m)) return "Server joylashgan hududda Gemini rasm yaratishi ishlamaydi.";
+  if (/kechikdi|timeout|504/.test(m)) return "Gemini javobi kechikdi — yana bir marta urinib ko‘ring.";
+  return "";
+}
+
+/** Rasmlar holati va oldindan tayyorlash (birinchi o'quvchi kutib qolmasin) */
+function ImageWarmup() {
+  // Sayt ikonkalari 256 px, test rasmlari 512 px nusxasi bilan tayyorlanadi; ilova ikonkasi — alohida tugma bilan
+  const urls = useMemo(
+    () => [
+      ...visualPrompts().map((p) => imageUrl(p, { style: "icon", w: 256 })),
+      ...imagePromptsOf(ALL_BUILTIN_TESTS).map((p) => imageUrl(p, { w: 512 })),
+    ],
+    []
+  );
+  const icons = useMemo(() => visualPrompts().length, []);
+  const [st, setSt] = useState({ done: 0, failed: 0, running: false, error: "" });
+  const [diag, setDiag] = useState<ImgDiag | null>(null);
+  const [diagErr, setDiagErr] = useState("");
+
+  const refresh = async () => {
+    try {
+      setDiag(await getJson<ImgDiag>("/api/admin/images"));
+      setDiagErr("");
+    } catch (e) {
+      setDiagErr(e instanceof Error ? e.message : String(e));
+    }
+  };
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const run = async () => {
+    let done = 0;
+    let failed = 0;
+    let error = "";
+    let cursor = 0;
+    setSt({ done, failed, running: true, error });
+    const worker = async () => {
+      while (cursor < urls.length) {
+        const url = urls[cursor++];
+        try {
+          const r = await fetch(url);
+          if (!r.ok) {
+            failed++;
+            const j = await r.json().catch(() => ({}));
+            error = j?.error || `HTTP ${r.status}`;
+          } else await r.arrayBuffer();
+        } catch (e) {
+          failed++;
+          error = e instanceof Error ? e.message : String(e);
+        }
+        done++;
+        setSt({ done, failed, running: true, error });
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    setSt({ done, failed, running: false, error });
+    void refresh();
+  };
+
+  const lastError = diag?.log.error?.message || "";
+  const hint = !diag?.hasKey && diag ? "Dokploy → Environment’ga GEMINI_API_KEY qo‘yilmagan." : imageHint(lastError || diag?.model.error || "");
+
+  return (
+    <div className="card" style={{ marginTop: 18 }}>
+      <h2 className="h3" style={{ marginBottom: 8 }}>🖼️ Rasmlar va ikonkalar</h2>
+
+      {diagErr && <div className="callout small">{diagErr}</div>}
+      {diag && (
+        <div className="stack small" style={{ gap: 4, marginBottom: 12 }}>
+          <div>{diag.hasKey ? "✅" : "❌"} Gemini kaliti {diag.hasKey ? "bor" : "yo‘q"}</div>
+          <div>
+            {diag.model.model ? "✅" : "❌"} Rasm modeli: <b>{diag.model.model ?? "—"}</b>
+            {diag.model.source === "auto" ? " (avtomatik tanlandi)" : diag.model.source === "env" ? " (GEMINI_IMAGE_MODEL)" : ""}
+          </div>
+          {diag.model.models.length > 0 && <div className="tiny muted">Kalitga ochiq rasm modellari: {diag.model.models.join(", ")}</div>}
+          {diag.log.ok && <div className="tiny muted">Oxirgi chizilgan rasm: {new Date(diag.log.ok.at).toLocaleString("uz-UZ")}</div>}
+        </div>
+      )}
+
+      {lastError && (
+        <div className="callout small" style={{ marginTop: 10 }}>
+          <b>Gemini xatosi:</b> {lastError}
+          {hint && <div style={{ marginTop: 6 }}>💡 {hint}</div>}
+        </div>
+      )}
+      {!lastError && hint && <div className="callout small" style={{ marginTop: 10 }}>💡 {hint}</div>}
+      <p className="small muted" style={{ margin: "12px 0 12px" }}>
+        {`Saytda ${icons} ta ikonka va tayyor testlarda ${urls.length - icons} ta rasm bor. Gemini ularni bir marta chizadi va serverda saqlaydi (${diag?.dir ?? "/app/data/images"}).`}
+      </p>
+      <div className="row-wrap" style={{ alignItems: "center" }}>
+        <button className="btn btn-primary btn-sm" onClick={run} disabled={st.running}>
+          {st.running ? <span className="spinner white" /> : "🖌️"} Barcha rasmlarni tayyorlash
+        </button>
+        {(st.running || st.done > 0) && (
+          <span className="small">
+            {`${st.done} / ${urls.length}`}
+            {st.failed ? ` · xato: ${st.failed}` : ""}
+          </span>
+        )}
+      </div>
+      {st.error && st.error !== lastError && <div className="callout small" style={{ marginTop: 10 }}>{st.error}</div>}
+    </div>
+  );
 }
 
 export function AdminView() {
@@ -55,18 +180,27 @@ export function AdminView() {
   const usageRows: [string, string][] = [
     ["test_topik1", "TOPIK I mock test yakunlandi"],
     ["test_topik2", "TOPIK II mock test yakunlandi"],
+    ["test_eps", "EPS-TOPIK mock test yakunlandi"],
     ["explain", "AI tushuntirish"],
     ["writing", "Yozma ishni AI baholash"],
     ["speak", "Gemini bilan suhbat (xabarlar)"],
+    ["talk", "Erkin suhbat (xabarlar)"],
     ["tutor", "AI Ustoz (savollar)"],
     ["generate", "AI variant so‘rovlari (1 variant ≈ 40–60)"],
     ["tts", "AI ovoz (yangi audio)"],
+    ["image", "AI rasm (yangi test rasmi)"],
     ["need_login", "Kirmasdan AI funksiyasini bosgan"],
     ["trial_over", "Sinovi tugab, AI funksiyasini bosgan"],
   ];
 
   const statusBadge = (a: Access) =>
-    a.status === "trial" ? <span className="badge">🎁 {a.daysLeft}</span> : <span className="badge red">tugagan</span>;
+    a.status === "paid" ? (
+      <span className="badge amber">⭐ {a.daysLeft}</span>
+    ) : a.status === "trial" ? (
+      <span className="badge">🎁 {a.daysLeft}</span>
+    ) : (
+      <span className="badge red">tugagan</span>
+    );
 
   if (loading) return <main className="container page"><span className="spinner" /></main>;
   if (!isAdmin) {
@@ -95,6 +229,8 @@ export function AdminView() {
           </div>
         ))}
       </div>
+
+      <AdminPayments />
 
       <div className="card" style={{ marginTop: 18 }}>
         <h2 className="h3" style={{ marginBottom: 10 }}>Faollik</h2>
@@ -125,6 +261,31 @@ export function AdminView() {
         </p>
       </div>
 
+      <ImageWarmup />
+
+      <div className="card row" style={{ marginTop: 18, gap: 14 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- vektor logo */}
+        <img src={`/brand/logo-mark.svg?v=${BRAND_VERSION}`} alt="" width={48} height={48} />
+        <div className="grow">
+          <b>Logo va reklama fayllari</b>
+          <div className="small muted">SVG va PNG: ilova ikonkasi, gorizontal logo, oq variant, ranglar.</div>
+        </div>
+        <a href="/brand" className="btn btn-soft btn-sm">
+          Ochish →
+        </a>
+      </div>
+
+      <div className="card row" style={{ marginTop: 12, gap: 14 }}>
+        <span style={{ fontSize: "2rem" }}>🎨</span>
+        <div className="grow">
+          <b>Logo studiyasi (Gemini)</b>
+          <div className="small muted">Yoqqan logolar rasmini yuklang — Gemini bizning ranglarda yangi variantlar chizadi.</div>
+        </div>
+        <a href="/admin/logo" className="btn btn-primary btn-sm">
+          Ochish →
+        </a>
+      </div>
+
       <div className="card" style={{ marginTop: 18 }}>
         <h2 className="h3" style={{ marginBottom: 12 }}>Foydalanuvchini qidirish</h2>
         <form
@@ -145,7 +306,7 @@ export function AdminView() {
             <div className="grow">
               <b>{found.user.name}</b> {statusBadge(found.user.access)}
               <div className="small muted">
-                {found.user.email} · sinov {fmtDate(found.user.access.until)} gacha
+                {found.user.email} · {found.user.access.status === "paid" ? "obuna" : "sinov"} {fmtDate(found.user.access.until)} gacha
               </div>
               <div className="tiny muted">
                 Ro‘yxatdan: {fmtDate(found.user.createdAt)} · Oxirgi kirish: {fmtDate(found.user.lastLoginAt)}

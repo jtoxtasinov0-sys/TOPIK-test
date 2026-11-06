@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs><linearGradient id="hq-sym" gradientUnits="userSpaceOnUse" x1="128" y1="126" x2="384" y2="386">
+    <stop offset="0" stop-color="#9b1fff"/><stop offset=".5" stop-color="#6a11ff"/><stop offset="1" stop-color="#5004dc"/></linearGradient></defs>
+  <g transform="translate(-71.68 -71.68) scale(1.2800)" fill="url(#hq-sym)"><path d="M137.06 289.91 L234.64 228.05 A43 43 0 0 1 268.48 222.74 L302.11 231.49 A9.5 9.5 0 0 0 314 222.29 L314 161 A35 35 0 0 1 349 126 A35 35 0 0 1 384 161 L384 205.62 A19.5 19.5 0 0 1 374.94 222.09 L277.36 283.95 A43 43 0 0 1 243.52 289.26 L209.89 280.51 A9.5 9.5 0 0 0 198 289.71 L198 351 A35 35 0 0 1 163 386 A35 35 0 0 1 128 351 L128 306.38 A19.5 19.5 0 0 1 137.06 289.91 Z"/>
+    <path d="M198 126 L198 225.37 A18 18 0 0 1 189.64 240.57 L128 279.65 L128 193.35 A53 53 0 0 1 157.68 145.76 L198 126 Z"/>
+    <path d="M314 386 L314 286.63 A18 18 0 0 1 322.36 271.43 L384 232.35 L384 318.65 A53 53 0 0 1 354.32 366.24 L314 386 Z"/></g>
+</svg>

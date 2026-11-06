@@ -12,9 +12,19 @@ Rules:
 - Use natural, correct standard Korean. Listening scripts use lines like "남자: ..." / "여자: ..." (or a single narrator line without label when the template does).
 - Exactly one option is correct; "answer" is its 1-based index. Vary the correct answer position across questions.
 - For picture options ("optionStyle":"picture"), each option is a short emoji scene (3-5 emojis) that clearly depicts a different situation; only one matches the dialogue.
+- When the template has "optionImages" (or "pictureImage"), also write them: one short English scene description per picture for an illustrator (who, where, doing what; describe the same characters the same way in all four pictures, e.g. "a young Korean man with short black hair in a casual jacket"). The pictures must clearly differ and only the correct one may match the audio/text. Never ask for text, letters or numbers inside the picture.
+- When the template has "sign", choose a different industrial safety sign: kind prohibit (금지, red circle), warn (경고, yellow triangle), order (지시, blue circle) or guide (안내, green), and one emoji as its pictogram.
 - For chart options, fill optionCharts with 4 charts; only one matches the script.
 - Keep markers like ( ), ㉠ ㉡ ㉢ ㉣, (가)(나)(다)(라) and <u>underlined</u> text in the same way as the template.
 - Return only fields that the template uses.`;
+
+const EXAM_LABEL: Record<string, string> = {
+  topik1: "TOPIK I (levels 1-2, beginner)",
+  topik2: "TOPIK II (levels 3-6)",
+  eps: `EPS-TOPIK (고용허가제 한국어능력시험) for foreign workers coming to Korea on the E-9 visa. Difficulty about TOPIK level 1-2.
+Topics: daily life, the dormitory, the factory/farm/construction site, tools and equipment, industrial safety (safety signs: 금지·경고·지시·안내), work rules (근무 시간, 야근, 특근, 급여, 휴가), labor rights, Korean culture and manners.
+Use short, clear sentences and the polite -아요/어요 or -(스)ㅂ니다 style. For "picture" fields write a short emoji scene (1-4 emojis) that clearly shows the object, action or safety sign.`,
+};
 
 export async function POST(req: Request) {
   try {
@@ -39,7 +49,7 @@ export async function POST(req: Request) {
     }
     const out = await generateJson<Partial<Group>>({
       system: SYSTEM,
-      input: `Exam: ${body.exam === "topik1" ? "TOPIK I (levels 1-2, beginner)" : "TOPIK II (levels 3-6)"}.
+      input: `Exam: ${EXAM_LABEL[body.exam] ?? EXAM_LABEL.topik2}.
 Instruction for this block: ${g.instruction}
 Template block (JSON):
 ${JSON.stringify({ ...g, instruction: undefined })}
@@ -57,6 +67,10 @@ Create a NEW block with question numbers ${g.questions.map((q) => q.n).join(", "
       const q = qs[i];
       const options = (q.options ?? []).slice(0, 4);
       if (options.length !== 4 || !(q.answer >= 1 && q.answer <= 4)) throw new AiError("AI noto'g'ri savol yaratdi", 502);
+      if (tq.picture && !q.picture?.trim()) throw new AiError("AI rasmni yaratmadi", 502);
+      const sign = tq.sign ? q.sign : undefined;
+      if (tq.sign && !(sign && ["prohibit", "warn", "order", "guide"].includes(sign.kind) && sign.icon?.trim())) throw new AiError("AI belgini yaratmadi", 502);
+      const optionImages = tq.optionImages && q.optionImages?.length === 4 && q.optionImages.every((x) => x?.trim()) ? q.optionImages.map((x) => x.trim().slice(0, 500)) : undefined;
       return {
         ...q,
         n: tq.n,
@@ -64,6 +78,10 @@ Create a NEW block with question numbers ${g.questions.map((q) => q.n).join(", "
         options,
         optionStyle: tq.optionStyle,
         prompt: q.prompt ?? tq.prompt,
+        picture: tq.picture ? q.picture : undefined,
+        pictureImage: tq.pictureImage && q.pictureImage?.trim() ? q.pictureImage.trim().slice(0, 500) : undefined,
+        sign,
+        optionImages,
         optionCharts: tq.optionStyle === "chart" ? q.optionCharts?.slice(0, 4) : undefined,
       };
     });

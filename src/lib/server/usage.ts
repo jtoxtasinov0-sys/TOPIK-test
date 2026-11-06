@@ -8,19 +8,22 @@ import { getStore } from "./store";
 export const USAGE_EVENTS = [
   "test_topik1", // TOPIK I mock test yakunlandi
   "test_topik2", // TOPIK II mock test yakunlandi
+  "test_eps", // EPS-TOPIK mock test yakunlandi
   "explain",
   "writing",
   "speak",
+  "talk", // erkin suhbat (koreys do'st bilan) xabarlari
   "tutor",
   "generate",
   "tts",
+  "image", // Gemini chizgan yangi test rasmi
   "need_login", // kirmasdan AI funksiyasini bosgan
   "trial_over", // bepul sinovi tugagan, lekin AI funksiyasini bosgan
 ] as const;
 export type UsageEvent = (typeof USAGE_EVENTS)[number];
 
 /** Brauzer yuborishi mumkin bo'lgan hodisalar (qolganlari serverning o'zida hisoblanadi) */
-export const CLIENT_EVENTS: readonly UsageEvent[] = ["test_topik1", "test_topik2"];
+export const CLIENT_EVENTS: readonly UsageEvent[] = ["test_topik1", "test_topik2", "test_eps"];
 
 const KEEP_SEC = 120 * 86400;
 const dayKey = (ms: number) => `usage:${new Date(ms).toISOString().slice(0, 10)}`;

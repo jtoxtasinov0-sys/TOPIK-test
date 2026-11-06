@@ -1,33 +1,26 @@
-import { createHash } from "node:crypto";
-import { errorResponse, hasKey, rateLimit, synthesize } from "@/lib/gemini";
-import { parseScript } from "@/lib/exam";
-import { chargeQuota, requireAiAccess } from "@/lib/server/guard";
-import { trackUsage } from "@/lib/server/usage";
+import { errorResponse, hasKey, rateLimit } from "@/lib/gemini";
+import { requireAiAccess } from "@/lib/server/guard";
+import { hasSpeech, speech } from "@/lib/server/tts";
 
 export const maxDuration = 60;
 
-// Bir xil matn qayta-qayta so'ralganda Gemini'ga qayta murojaat qilmaslik uchun
-const cache = new Map<string, Buffer>();
+/** Uyg'otish: suhbat sahifasi ochilganda — birinchi ovozgacha server tayyor turadi. AI chaqirilmaydi */
+export function GET() {
+  return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+}
 
 export async function POST(req: Request) {
   try {
     if (!hasKey()) return Response.json({ error: "TTS o'chirilgan", code: "NO_KEY" }, { status: 503 });
     // Gemini ovozi — kirgan va sinovi tugamaganlar uchun; qolganlarga brauzer ovozi ishlaydi
     const user = await requireAiAccess(req);
-    const { text, slow, voice } = (await req.json()) as { text?: string; slow?: boolean; voice?: "f" | "m" };
+    const { text, slow, voice, tutor, talk } = (await req.json()) as { text?: string; slow?: boolean; voice?: "f" | "m"; tutor?: boolean; talk?: boolean };
     if (typeof text !== "string" || !text.trim() || text.length > 2500) {
       return Response.json({ error: "Matn noto'g'ri" }, { status: 400 });
     }
-    const key = createHash("sha1").update(`${slow ? 1 : 0}|${voice ?? ""}|${text}`).digest("hex");
-    let buf = cache.get(key);
-    if (!buf) {
-      rateLimit(req, "tts", 90, 5 * 60_000);
-      await chargeQuota(user, "tts");
-      await trackUsage("tts");
-      buf = await synthesize(parseScript(text), { slow: !!slow, voice });
-      cache.set(key, buf);
-      if (cache.size > 400) cache.delete(cache.keys().next().value as string);
-    }
+    const o = { slow: !!slow, voice, tutor: !!tutor, talk: !!talk };
+    if (!hasSpeech(text, o)) rateLimit(req, "tts", 90, 5 * 60_000);
+    const buf = await speech(text, o, user);
     return new Response(new Uint8Array(buf), {
       headers: { "Content-Type": "audio/wav", "Cache-Control": "private, max-age=604800" },
     });

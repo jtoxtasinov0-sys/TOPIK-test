@@ -16,14 +16,24 @@ export async function currentUser(req: Request): Promise<User | null> {
   return s ? getUser(s.uid) : null;
 }
 
+/** Faqat admin (ADMIN_EMAILS) uchun yo'llar */
+export async function requireAdmin(req: Request) {
+  const me = await currentUser(req);
+  if (!me) throw new AiError("Kirish talab qilinadi", 401, "AUTH");
+  if (!isAdminEmail(me.email)) throw new AiError("Faqat admin uchun", 403, "FORBIDDEN");
+  return me;
+}
+
 /** Bitta foydalanuvchi uchun kunlik "adolatli foydalanish" limitlari (AI xarajatini nazorat qilish uchun) */
 export const DAILY_LIMITS = {
   explain: 150,
   writing: 25,
-  speak: 200,
+  speak: 120, // ovozli ustoz va vaziyatli suhbat (~30-40 daqiqa)
+  talk: 60, // erkin suhbat: ~20 daqiqa ovozli suhbat (eng qimmat funksiya — AI + ovoz)
   tutor: 120,
   generate: 400, // bitta to'liq AI variant ~40-60 so'rov
   tts: 800,
+  image: 80, // AI variantlardagi rasmlar (tayyor variant rasmlari limitga kirmaydi)
 } as const;
 export type Bucket = keyof typeof DAILY_LIMITS;
 

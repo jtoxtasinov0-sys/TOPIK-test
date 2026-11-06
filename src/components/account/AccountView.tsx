@@ -52,9 +52,11 @@ export function AccountView() {
 
   const statusText = me.admin
     ? "Admin — cheksiz kirish"
-    : a?.status === "trial"
-      ? "Bepul sinov"
-      : "Bepul sinov tugagan";
+    : a?.status === "paid"
+      ? "Obuna faol"
+      : a?.status === "trial"
+        ? "Bepul sinov"
+        : "Sinov / obuna tugagan";
 
   return (
     <main className="container page" style={{ maxWidth: 860 }}>
@@ -92,7 +94,7 @@ export function AccountView() {
             <span className="small" style={{ fontWeight: 800, opacity: 0.95 }}>
               {statusText}
             </span>
-            <span>{me.admin ? "🛠️" : a?.status === "trial" ? "🎁" : "⏳"}</span>
+            <span>{me.admin ? "🛠️" : a?.status === "paid" ? "⭐" : a?.status === "trial" ? "🎁" : "⏳"}</span>
           </div>
           {me.admin ? (
             <div className="display" style={{ fontSize: "2.2rem", fontWeight: 700, margin: "8px 0" }}>∞</div>
@@ -104,14 +106,24 @@ export function AccountView() {
               <div className="small" style={{ opacity: 0.9 }}>
                 {fmtDate(a.until)} gacha
               </div>
-              <div style={{ marginTop: 10, height: 6, borderRadius: 9, background: "rgba(255,255,255,.25)" }}>
-                <div style={{ width: `${(trialUsed / TRIAL_DAYS) * 100}%`, height: "100%", borderRadius: 9, background: "#fff" }} />
-              </div>
+              {a.status === "trial" && (
+                <div style={{ marginTop: 10, height: 6, borderRadius: 9, background: "rgba(255,255,255,.25)" }}>
+                  <div style={{ width: `${(trialUsed / TRIAL_DAYS) * 100}%`, height: "100%", borderRadius: 9, background: "#fff" }} />
+                </div>
+              )}
+              <Link href="/pay" className="btn btn-white btn-sm" style={{ marginTop: 12, alignSelf: "flex-start" }}>
+                {a.status === "paid" ? "Uzaytirish" : "⭐ Obuna bo‘lish"}
+              </Link>
             </>
           ) : (
-            <p style={{ margin: "10px 0 0" }}>
-              AI funksiyalari yopildi. Hangul, darslar, so‘zlar va mock testlar bepul ishlashda davom etadi.
-            </p>
+            <>
+              <p style={{ margin: "10px 0 0" }}>
+                AI funksiyalari yopildi. Hangul, darslar, so‘zlar va mock testlar bepul ishlashda davom etadi.
+              </p>
+              <Link href="/pay" className="btn btn-white" style={{ marginTop: 12, alignSelf: "flex-start" }}>
+                ⭐ Obuna bo‘lish <Icon name="right" size={18} />
+              </Link>
+            </>
           )}
         </div>
       </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { Avatar, GoogleButton, useAuth } from "@/lib/auth";
 import { TRIAL_DAYS } from "@/lib/access";
+import { BRAND_VERSION } from "@/lib/images";
 import { safePath, useSearch } from "./shared";
 
 export function LoginView() {
@@ -63,9 +64,8 @@ export function LoginView() {
           ) : (
             <>
               <div className="stack" style={{ gap: 8 }}>
-                <span className="logo-mark" style={{ width: 52, height: 52, fontSize: "1.5rem", borderRadius: 16, alignSelf: "flex-start" }}>
-                  한
-                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element -- vektor logo (public/brand) */}
+                <img src={`/brand/logo-mark.svg?v=${BRAND_VERSION}`} alt="HanUstoz" width={52} height={52} className="login-mark" />
                 <h2 className="h2" style={{ fontSize: "1.6rem" }}>
                   HanUstoz’ga kirish
                 </h2>

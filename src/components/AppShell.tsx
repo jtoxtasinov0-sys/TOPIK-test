@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar, useAuth } from "@/lib/auth";
 import { Icon } from "./Icon";
+import { PwaRegister } from "./Pwa";
+import { BRAND_VERSION } from "@/lib/images";
+import type { VisualId } from "@/data/visuals";
+import { allVisualSrcs, fastConnection, preloadImages, Visual, visualSrc } from "./Visual";
 
 export function Logo() {
   return (
-    <Link href="/" className="logo" aria-label="HanUstoz">
-      <span className="logo-mark">한</span>
-      <span>
-        Han<span className="gradient-text">Ustoz</span>
-      </span>
+    <Link href="/" className="logo" aria-label="HanUstoz — bosh sahifa">
+      {/* eslint-disable-next-line @next/next/no-img-element -- vektor logo (public/brand), o'lchami CSS'da */}
+      <img src={`/brand/logo-horizontal.svg?v=${BRAND_VERSION}`} alt="HanUstoz" width={147} height={34} />
     </Link>
   );
 }
@@ -33,12 +35,14 @@ function AccountButton() {
     me.admin || !a
       ? null
       : a.status === "expired"
-        ? { cls: "red", text: "Sinov tugadi" }
-        : { cls: a.daysLeft <= 5 ? "amber" : "", text: `🎁 ${a.daysLeft} kun` };
+        ? { cls: "red", text: "⭐ Obuna bo‘lish", href: "/pay" }
+        : a.status === "paid"
+          ? { cls: a.daysLeft <= 3 ? "amber" : "", text: `⭐ ${a.daysLeft} kun`, href: a.daysLeft <= 3 ? "/pay" : "/account" }
+          : { cls: a.daysLeft <= 2 ? "amber" : "", text: `🎁 ${a.daysLeft} kun`, href: "/account" };
   return (
     <>
       {pill && (
-        <Link href="/account" className={`badge ${pill.cls} hide-mobile`} style={{ padding: "7px 12px" }}>
+        <Link href={pill.href} className={`badge ${pill.cls} hide-mobile`} style={{ padding: "7px 12px" }}>
           {pill.text}
         </Link>
       )}
@@ -49,25 +53,56 @@ function AccountButton() {
   );
 }
 
-export const NAV = [
-  { href: "/", icon: "home", label: "Bosh sahifa", emoji: "🏠" },
-  { href: "/test", icon: "test", label: "Testlar", emoji: "📝" },
-  { href: "/writing", icon: "pen", label: "Yozish", emoji: "✍️" },
-  { href: "/speak", icon: "mic", label: "Gaplashish", emoji: "🗣️" },
-  { href: "/learn", icon: "book", label: "0 dan o‘rganish", emoji: "🌱" },
-  { href: "/words", icon: "cards", label: "So‘zlar", emoji: "🃏" },
-  { href: "/tutor", icon: "spark", label: "AI Ustoz", emoji: "🤖" },
-  { href: "/guide", icon: "map", label: "Koreyada hayot", emoji: "🇰🇷" },
-  { href: "/progress", icon: "chart", label: "Natijalarim", emoji: "📈" },
-  { href: "/account", icon: "user", label: "Profil", emoji: "👤" },
+export const NAV: { href: string; icon: string; label: string; v: VisualId }[] = [
+  { href: "/", icon: "home", label: "Bosh sahifa", v: "nav:home" },
+  { href: "/test", icon: "test", label: "Testlar", v: "home:test" },
+  { href: "/writing", icon: "pen", label: "Yozish", v: "home:writing" },
+  { href: "/speak", icon: "spark", label: "AI Ustoz", v: "home:tutor" },
+  { href: "/learn", icon: "book", label: "0 dan o‘rganish", v: "who:beginner" },
+  { href: "/words", icon: "cards", label: "So‘zlar", v: "home:words" },
+  { href: "/guide", icon: "map", label: "Koreyada hayot", v: "home:guide" },
+  { href: "/progress", icon: "chart", label: "Natijalarim", v: "nav:progress" },
+  { href: "/account", icon: "user", label: "Profil", v: "nav:profile" },
 ];
+
+const SHEET_ICON = 44;
+
+/**
+ * Sahifa yuklanib bo'lgach, bo'sh vaqtda: menyu ikonkalari va (tez internetda) boshqa bo'limlar ikonkalari
+ * oldindan yuklanadi — «Barcha bo'limlar» va boshqa sahifalar ochilganda rasmlar darhol chiqadi.
+ */
+function useWarmIcons() {
+  useEffect(() => {
+    let idleId = 0;
+    let timer = 0;
+    // Safari'da requestIdleCallback yo'q — oddiy kechiktirish
+    const idle = typeof window.requestIdleCallback === "function";
+    const run = () => {
+      preloadImages(NAV.map((n) => visualSrc(n.v, SHEET_ICON)));
+      if (fastConnection()) preloadImages(allVisualSrcs(), 2);
+    };
+    const start = () => {
+      if (idle) idleId = window.requestIdleCallback(run, { timeout: 4000 });
+      else timer = window.setTimeout(run, 1200);
+    };
+    if (document.readyState === "complete") start();
+    else window.addEventListener("load", start, { once: true });
+    return () => {
+      window.removeEventListener("load", start);
+      if (idleId) window.cancelIdleCallback(idleId);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, []);
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const nav = NAV;
   const [more, setMore] = useState(false);
+  useWarmIcons();
 
-  const isOn = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  // AI Ustoz bo'limi: gaplashish (/speak/...) va yozma ustoz (/tutor) — bitta menyu bandi
+  const isOn = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/speak" && pathname.startsWith("/tutor")));
   const desktop = nav.filter((n) => !["/", "/progress", "/account"].includes(n.href));
 
   return (
@@ -90,6 +125,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
+      <PwaRegister />
       {children}
 
       <nav className="pillnav" aria-label="Mobil menyu">
@@ -130,8 +166,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   className="card flat center"
                   style={{ padding: "16px 8px", borderRadius: 20, background: isOn(n.href) ? "rgba(139,61,255,.08)" : undefined }}
                 >
-                  <div style={{ fontSize: "1.6rem" }}>{n.emoji}</div>
-                  <div className="small" style={{ fontWeight: 700, marginTop: 6, lineHeight: 1.25 }}>
+                  <Visual id={n.v} size={SHEET_ICON} shape="tile" eager />
+                  <div className="small" style={{ fontWeight: 700, marginTop: 8, lineHeight: 1.25 }}>
                     {n.label}
                   </div>
                 </Link>

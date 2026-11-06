@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { SpeakBtn } from "@/components/ui";
+import { VisualOr } from "@/components/Visual";
 import { LESSONS, type Lesson } from "@/data/lessons";
 import { playKorean } from "@/lib/audio";
 import { touchStreak } from "@/lib/store";
@@ -118,7 +119,9 @@ export default function LessonsPage() {
               history.replaceState(null, "", `#${l.id}`);
             }}
           >
-            <span className="em">{l.emoji}</span>
+            <span className="em">
+              <VisualOr id={`lesson:${l.id}`} emoji={l.emoji} size={56} />
+            </span>
             <b className="small">
               {i + 1}. {l.title}
             </b>
@@ -131,7 +134,7 @@ export default function LessonsPage() {
         <div className="card stack">
           <div className="row between">
             <h2 className="h2">
-              {sel.emoji} {sel.title}
+              <VisualOr id={`lesson:${sel.id}`} emoji={sel.emoji} size={40} /> {sel.title}
             </h2>
             <button className="btn btn-soft btn-sm" onClick={playAll}>
               <Icon name="play" size={14} fill /> Hammasini tinglash

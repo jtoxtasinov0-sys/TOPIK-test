@@ -35,6 +35,53 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
   return json as T;
 }
 
+/**
+ * NDJSON oqimli so'rov: server har bir qatorni yuborishi bilan onEvent chaqiriladi (butun javobni kutmasdan).
+ * Server oddiy JSON qaytarsa — u bitta hodisa sifatida beriladi.
+ */
+export async function postNdjson<T>(url: string, body: unknown, onEvent: (e: T) => void): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  } catch {
+    throw new ApiError("network", 0);
+  }
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    notifyAccess(res.status, json?.code);
+    throw new ApiError(json?.error || `HTTP ${res.status}`, res.status, json?.code);
+  }
+  if (!res.body || !(res.headers.get("content-type") ?? "").includes("ndjson")) {
+    onEvent((await res.json().catch(() => ({}))) as T);
+    return;
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    let r: ReadableStreamReadResult<Uint8Array>;
+    try {
+      r = await reader.read();
+    } catch {
+      throw new ApiError("network", 0);
+    }
+    buf += r.done ? dec.decode() : dec.decode(r.value, { stream: true });
+    const lines = buf.split("\n");
+    buf = r.done ? "" : (lines.pop() ?? "");
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let ev: T;
+      try {
+        ev = JSON.parse(line) as T;
+      } catch {
+        continue;
+      }
+      onEvent(ev);
+    }
+    if (r.done) return;
+  }
+}
+
 export function useAiErrorText() {
   return (e: unknown) => {
     if (e instanceof ApiError) {

@@ -1,6 +1,6 @@
 // TOPIK test tuzilmasi, ballash va daraja hisoblash
 
-export type ExamId = "topik1" | "topik2";
+export type ExamId = "topik1" | "topik2" | "eps";
 export type SectionId = "listening" | "reading" | "writing";
 
 export type ChartSpec = {
@@ -17,6 +17,9 @@ export type NoticeSpec = {
   lines: string[];
 };
 
+/** Xavfsizlik belgisi (EPS-TOPIK): 금지 — qizil doira, 경고 — sariq uchburchak, 지시 — ko'k doira, 안내 — yashil */
+export type SignSpec = { kind: "prohibit" | "warn" | "order" | "guide"; icon: string };
+
 export type Question = {
   n: number;
   pts: number;
@@ -24,10 +27,14 @@ export type Question = {
   given?: string; // joylashtiriladigan gap (39~41)
   script?: string; // tinglash matni (남자: ... / 여자: ...)
   passage?: string; // o'qish matni
+  picture?: string; // savoldagi rasm (emoji sahna) — rasm yuklanguncha yoki AI'siz ko'rsatiladi
+  pictureImage?: string; // savoldagi rasmning inglizcha tavsifi — Gemini shu bo'yicha rasm chizadi (/api/image)
+  sign?: SignSpec; // savoldagi xavfsizlik belgisi
   notice?: NoticeSpec;
   chart?: ChartSpec;
   options: string[];
   optionStyle?: "text" | "picture" | "chart";
+  optionImages?: string[]; // rasmli variantlar uchun 4 ta inglizcha sahna tavsifi (Gemini rasm chizadi)
   optionCharts?: ChartSpec[];
   answer: number; // 1..4
 };
@@ -77,7 +84,15 @@ export type Test = {
   sections: Section[];
 };
 
-export const EXAM_INFO: Record<ExamId, { name: string; max: number; levels: { min: number; level: string }[] }> = {
+export type ExamInfo = {
+  name: string;
+  max: number;
+  levels: { min: number; level: string }[];
+  /** Daraja o'rniga minimal ball tizimi (EPS-TOPIK): har bir chegara nimani anglatadi */
+  levelText?: Record<string, string>;
+};
+
+export const EXAM_INFO: Record<ExamId, ExamInfo> = {
   topik1: {
     name: "TOPIK I",
     max: 200,
@@ -95,6 +110,20 @@ export const EXAM_INFO: Record<ExamId, { name: string; max: number; levels: { mi
       { min: 150, level: "4급" },
       { min: 120, level: "3급" },
     ],
+  },
+  // EPS-TOPIK (고용허가제 한국어능력시험): 100 ball, daraja berilmaydi.
+  // Sohalar bo'yicha minimal ball: ishlab chiqarish (제조업) 60, boshqa sohalar 45; keyin reyting bo'yicha tanlanadi.
+  eps: {
+    name: "EPS-TOPIK",
+    max: 100,
+    levels: [
+      { min: 60, level: "60+" },
+      { min: 45, level: "45+" },
+    ],
+    levelText: {
+      "60+": "ishlab chiqarish (제조업) sohasi uchun minimal ball yig‘ildi",
+      "45+": "boshqa sohalar uchun minimal ball yig‘ildi, ishlab chiqarish uchun 60 ball kerak",
+    },
   },
 };
 
@@ -116,6 +145,52 @@ export function allQuestions(section: Section): { q: Question; g: Group }[] {
   const out: { q: Question; g: Group }[] = [];
   for (const g of section.groups ?? []) for (const q of g.questions) out.push({ q, g });
   return out;
+}
+
+/** Tinglash soni: TOPIK I va EPS-TOPIK — 2 marta; TOPIK II — 1~20 bir marta, 21~50 ikki marta */
+export function maxPlays(exam: ExamId, n: number) {
+  if (exam !== "topik2") return 2;
+  return n <= 20 ? 1 : 2;
+}
+
+/** Imtihon rejimida audio tugagach har bir savolga javob belgilash uchun beriladigan vaqt (soniya) */
+export const ANSWER_SECONDS = 10;
+
+export type ListenItem = {
+  key: string; // plays (tinglash soni) kaliti
+  text: string;
+  max: number; // necha marta eshittiriladi
+  questions: number[]; // shu audio qaysi savollarga tegishli
+};
+
+/**
+ * Bir sahifadagi tinglash audiolari — haqiqiy imtihondagi tartibda: avval umumiy matn, keyin har bir savolniki.
+ * Imtihon rejimida shu ro'yxat ketma-ket, o'zi o'ynaydi.
+ */
+export function listenItems(exam: ExamId, section: SectionId, group: Group): ListenItem[] {
+  const out: ListenItem[] = [];
+  if (group.script?.trim())
+    out.push({
+      key: `${section}-g${group.from}`,
+      text: group.script,
+      max: maxPlays(exam, group.from),
+      questions: group.questions.filter((q) => !q.script?.trim()).map((q) => q.n),
+    });
+  for (const q of group.questions)
+    if (q.script?.trim()) out.push({ key: qKey(section, q.n), text: q.script, max: maxPlays(exam, q.n), questions: [q.n] });
+  return out;
+}
+
+/** Audio tugagach javob uchun vaqt: har bir savolga ANSWER_SECONDS */
+export const answerSeconds = (item: ListenItem) => ANSWER_SECONDS * Math.max(1, item.questions.length);
+
+/**
+ * Test oxirigacha ishlanmay «Tugatish» bosilganda natija nechta bo'lim bo'yicha chiqariladi.
+ * Hozirgi bo'lim — u tugatilgan yoki unda kamida bitta javob bo'lsa kiradi; boshlanmagan bo'limlar kirmaydi.
+ * Kamida bitta bo'lim doim bo'ladi.
+ */
+export function reachedSections(current: number, currentStarted: boolean) {
+  return Math.max(1, currentStarted ? current + 1 : current);
 }
 
 export function sectionMax(section: Section): number {

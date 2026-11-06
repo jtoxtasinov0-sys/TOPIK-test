@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ExamId, Section, SectionId, Test } from "@/lib/exam";
-import { EXAM_INFO, levelFor, nextLevelGap, qKey, scoreSection, SECTION_LABEL } from "@/lib/exam";
+import { allQuestions, EXAM_INFO, levelFor, nextLevelGap, qKey, scoreSection, sectionMax, SECTION_LABEL } from "@/lib/exam";
 import { updateHistory } from "@/lib/store";
 import { Icon } from "../Icon";
 import { Confetti, ScoreRing, useAiErrorText } from "../ui";
@@ -38,11 +38,12 @@ export function computeTotals(exam: ExamId, test: Test, sections: Section[], ans
 
 export function Results({
   test,
-  sections,
+  sections: all,
   answers,
   writing,
   mode,
   historyId,
+  reached = null,
   onRetry,
   onNewAi,
 }: {
@@ -52,9 +53,14 @@ export function Results({
   writing: Record<number, WritingAnswer>;
   mode: "exam" | "practice";
   historyId: string;
+  /** «Tugatish» bilan oldinroq yakunlangan bo'lsa — natija shuncha bo'lim bo'yicha (qolganlari boshlanmagan) */
+  reached?: number | null;
   onRetry: () => void;
   onNewAi: () => void;
 }) {
+  const sections = useMemo(() => (reached === null ? all : all.slice(0, reached)), [all, reached]);
+  const skipped = reached === null ? [] : all.slice(reached);
+  const early = reached !== null;
   const errText = useAiErrorText();
   const writingSection = sections.find((s) => s.id === "writing");
   const [ws, setWs] = useState<Record<number, WState>>({});
@@ -98,7 +104,10 @@ export function Results({
     updateHistory(historyId, { sections: secs, total: totals.total, level: totals.level, estimated: totals.estimated });
   }, [totals, historyId, writingSection, writingDone, writingFailed]);
 
+  const answeredOf = (s: Section) => allQuestions(s).filter(({ q }) => answers[qKey(s.id, q.n)]).length;
   const gap = nextLevelGap(test.exam, totals.total);
+  const info = EXAM_INFO[test.exam];
+  const levelText = totals.level ? info.levelText?.[totals.level] : undefined;
   const objective = sections.filter((s) => s.id !== "writing");
   const [reviewSec, setReviewSec] = useState<SectionId>(objective[0]?.id ?? "listening");
   const [onlyWrong, setOnlyWrong] = useState(true);
@@ -124,18 +133,25 @@ export function Results({
             sub={<div className="small" style={{ opacity: 0.85, marginTop: 4 }}>/ {totals.max}</div>}
           />
           <div style={{ minWidth: 240, flex: 1 }}>
-            <div className="badge white">
-              {test.title} · {mode === "exam" ? "Imtihon rejimi" : "Mashq rejimi"}
+            <div className="row-wrap" style={{ gap: 8 }}>
+              <div className="badge white">
+                {test.title} · {mode === "exam" ? "Imtihon rejimi" : "Mashq rejimi"}
+              </div>
+              {early && <div className="badge white">⏹️ Muddatidan oldin tugatildi</div>}
             </div>
             <h1 className="h1" style={{ marginTop: 12, fontSize: "clamp(2rem,6vw,3.2rem)" }}>
-              {pending ? "Yozma ish tekshirilmoqda…" : totals.level ? <span className="kr">{totals.level}</span> : "Daraja yo‘q"}
+              {pending ? "Yozma ish tekshirilmoqda…" : totals.level ? <span className="kr">{totals.level}</span> : info.levelText ? "Minimal ball yetmadi" : "Daraja yo‘q"}
             </h1>
             <p className="lead" style={{ color: "rgba(255,255,255,.88)", marginTop: 8 }}>
               {pending
                 ? "AI daftaringizdagi javoblarni o‘qib, TOPIK mezonlari bo‘yicha baholamoqda."
-                : totals.level
-                  ? `Tabriklaymiz! Sizning taxminiy darajangiz — ${totals.level}.`
-                  : "Hozircha daraja uchun ball yetmadi — lekin bu boshlanish! Xatolarni tahlil qiling."}
+                : levelText
+                  ? `Tabriklaymiz! ${info.name}: ${levelText}. Haqiqiy tanlovda ball qancha yuqori bo‘lsa, imkoniyat shuncha katta.`
+                  : totals.level
+                    ? `Tabriklaymiz! Sizning taxminiy darajangiz — ${totals.level}.`
+                    : info.levelText
+                      ? `${info.name}: boshqa sohalar uchun kamida 45, ishlab chiqarish uchun 60 ball kerak. Xatolarni tahlil qilib, yana urinib ko‘ring!`
+                      : "Hozircha daraja uchun ball yetmadi — lekin bu boshlanish! Xatolarni tahlil qiling."}
             </p>
             {!pending && gap && (
               <div className="badge white" style={{ marginTop: 10 }}>
@@ -147,7 +163,9 @@ export function Results({
                 *{" "}
                 {writingFailed
                   ? "Yozma ish baholanmadi — umumiy ball 듣기+읽기 asosida taxminiy hisoblandi."
-                  : "Faqat ayrim bo‘limlar topshirildi — umumiy ball taxminiy."}
+                  : skipped.length
+                    ? "Test oxirigacha ishlanmadi — umumiy ball faqat ishlangan bo‘limlar asosida taxminiy hisoblandi."
+                    : "Faqat ayrim bo‘limlar topshirildi — umumiy ball taxminiy."}
               </div>
             )}
           </div>
@@ -181,8 +199,36 @@ export function Results({
               {r?.total !== undefined && (
                 <div className="small muted" style={{ marginTop: 8 }}>
                   {`${r.correct} / ${r.total} ta to‘g‘ri javob`}
+                  {early && answeredOf(s) < r.total && ` · ${r.total - answeredOf(s)} ta javobsiz`}
                 </div>
               )}
+            </div>
+          );
+        })}
+        {skipped.map((s) => {
+          const lab = SECTION_LABEL[s.id];
+          return (
+            <div className="card" key={s.id} style={{ opacity: 0.6 }}>
+              <div className="row between">
+                <div className="row">
+                  <span className="icon-tile" style={{ width: 44, height: 44, fontSize: "1.2rem" }}>
+                    {lab.icon}
+                  </span>
+                  <div>
+                    <div className="kr" style={{ fontWeight: 800 }}>{lab.ko}</div>
+                    <div className="tiny muted">{lab.uz}</div>
+                  </div>
+                </div>
+                <div className="display" style={{ fontSize: "1.3rem", fontWeight: 700 }}>
+                  —<span className="muted small"> / {sectionMax(s)}</span>
+                </div>
+              </div>
+              <div className="bar" style={{ marginTop: 14 }}>
+                <i style={{ width: 0 }} />
+              </div>
+              <div className="small muted" style={{ marginTop: 8 }}>
+                Boshlanmagan — natijaga kirmadi
+              </div>
             </div>
           );
         })}

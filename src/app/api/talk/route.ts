@@ -1,7 +1,10 @@
-import { AiError, errorResponse, generateJson, LANG_NAME, MODELS, normalizeMime, parseJson, partialJson, rateLimit, streamText, type ContentPart } from "@/lib/gemini";
+import { AiError, errorResponse, generateJson, hasKey, LANG_NAME, MODELS, normalizeMime, rateLimit, streamText, type ContentPart } from "@/lib/gemini";
 import { talkSchema } from "@/lib/schemas";
 import { aiAccess, authEnabled } from "@/lib/server/guard";
 import { readSession } from "@/lib/server/session";
+import { jsonEvents, ndjson } from "@/lib/server/events";
+import type { User } from "@/lib/server/users";
+import { talkChunks } from "@/lib/speech";
 import { teacherNotes } from "@/lib/knowledge";
 import { partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
 
@@ -12,8 +15,9 @@ export const maxDuration = 60;
 // Tezlik uchun BITTA Gemini so'rovi: model audioni o'zi eshitadi ("heard") va shu zahoti javob yozadi.
 // stream: true bo'lsa javob NDJSON oqimi bo'lib keladi — tarjima va maslahatlarni kutmasdan:
 //   {"t":"heard"} — o'quvchi gapi (darhol ko'rsatiladi)
-//   {"t":"reply"} — do'st javobi (brauzer shu zahoti ovozni tayyorlay boshlaydi)
+//   {"t":"reply"} — do'st javobi; server shu zahoti uning ovozini (TTS) o'zi tayyorlay boshlaydi
 //   {"t":"done"}  — to'liq natija (lotincha yozuv, tarjima, tuzatish, maslahatlar) yoki {empty}/{error}
+//   {"t":"audio"} — javob bo'lagining tayyor ovozi (base64 WAV): brauzer /api/tts ga alohida so'rov yubormaydi
 
 type Body = {
   stream?: boolean;
@@ -126,19 +130,21 @@ Keep it friendly and appropriate. If the student brings up something inappropria
     if (audio) parts.push({ type: "audio", data: audio.data, mime_type: audio.mime });
 
     const ask = { system, input: parts, schema: talkSchema, model: MODELS.talk, thinking: "minimal" as const };
-    const ctx = { start, typed };
+    const ctx: Ctx = { start, typed };
 
     if (b.stream && Date.now() > streamOffUntil) {
       // Kirish tekshiruvi (baza) va Gemini oqimini ochish parallel — javob tezroq boshlanadi
       const opened = streamText(ask).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+      let user: User | null;
       try {
-        await aiAccess(req, "talk");
+        user = await aiAccess(req, "talk");
       } catch (e) {
         void opened.then((x) => (x instanceof Error ? undefined : x.cancel().catch(() => {})));
         throw e;
       }
       const src = await opened;
-      if (!(src instanceof Error)) return ndjson(talkEvents(src, ctx));
+      // Javob ovozi ham shu oqimda: brauzer o'ynatadigan bo'laklar bilan aynan bir xil (do'st ovozi, boshlang'ichga — sekinroq)
+      if (!(src instanceof Error)) return ndjson(talkEvents(src, { ...ctx, tts: hasKey() ? { voice: p.voice, slow: level === "beginner", user } : undefined }));
       if (src instanceof AiError && [429, 503, 504].includes(src.status)) throw src;
       // Oqim + JSON sxemasi ishlamasa — bir muddat oddiy so'rovga o'tamiz
       streamOffUntil = Date.now() + 10 * 60_000;
@@ -156,15 +162,15 @@ Keep it friendly and appropriate. If the student brings up something inappropria
 /** Oqim (JSON + sxema) ishlamay qolsa — shu vaqtgacha oddiy so'rov ishlatiladi */
 let streamOffUntil = 0;
 
-type Ctx = { start: boolean; typed: string };
+type Ctx = { start: boolean; typed: string; tts?: { voice: "m" | "f"; slow: boolean; user: User | null } };
 type Help = { lang: "uz" | "ko"; text: string };
 
-const helpOf = (r: Raw): Help[] =>
+const helpOf = (r: Partial<Raw>): Help[] =>
   (r.help ?? [])
     .map((s) => ({ lang: s.lang === "ko" ? ("ko" as const) : ("uz" as const), text: plain(s.text) }))
     .filter((s) => s.text);
 
-const teachOf = (r: Raw, help: Help[]) => {
+const teachOf = (r: Partial<Raw>, help: Help[]) => {
   const ko = help.length ? plain(r.teach?.ko) : "";
   return ko ? { ko, rom: plain(r.teach?.rom), uz: plain(r.teach?.uz) } : undefined;
 };
@@ -189,75 +195,32 @@ function finish(r: Raw, { start, typed }: Ctx) {
   return { transcript, help, teach: teachOf(r, help), reply, rom: plain(r.reply_rom), uz: plain(r.reply_uz), fix, hints };
 }
 
-const ndjson = (body: ReadableStream<Uint8Array>) =>
-  new Response(body, {
-    headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" },
-  });
-
 /**
  * Gemini JSON oqimini suhbat hodisalariga aylantiradi: "heard" va "reply" maydonlari to'liq kelishi bilan
- * darhol yuboriladi, qolgani (tarjima, tuzatish, maslahatlar) — "done" da.
+ * darhol yuboriladi (javob ovozi ham shu zahoti tayyorlana boshlaydi), qolgani (tarjima, tuzatish, maslahatlar) — "done" da.
  */
 function talkEvents(src: ReadableStream<Uint8Array>, ctx: Ctx): ReadableStream<Uint8Array> {
-  const enc = new TextEncoder();
-  const dec = new TextDecoder();
-  const reader = src.getReader();
-  let closed = false;
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      const emit = (o: Record<string, unknown>) => {
-        if (!closed) controller.enqueue(enc.encode(JSON.stringify(o) + "\n"));
-      };
-      const close = () => {
-        if (closed) return;
-        closed = true;
-        controller.close();
-      };
-      void (async () => {
-        let buf = "";
-        let heard = false;
-        let replied = false;
-        try {
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (value) buf += dec.decode(value, { stream: true });
-            if (!replied) {
-              const f = partialJson(buf) as Raw;
-              const voice = !ctx.start && !ctx.typed;
-              if (voice && !heard && "heard" in f) {
-                const transcript = plain(f.heard);
-                if (!transcript) break; // nutq eshitilmadi — "done" da {empty}
-                emit({ t: "heard", transcript });
-                heard = true;
-              }
-              if ("reply" in f && "help" in f && (!voice || heard)) {
-                const help = helpOf(f);
-                const reply = plain(f.reply);
-                if (reply || help.length) {
-                  emit({ t: "reply", transcript: ctx.start ? "" : ctx.typed || plain(f.heard), help, teach: teachOf(f, help), reply });
-                  replied = true;
-                }
-              }
-            }
-            if (done) break;
-          }
-        } catch {
-          // oqim uzildi — kelgan qismi bilan yakunlaymiz
-        }
-        reader.cancel().catch(() => {});
-        let raw: Raw;
-        try {
-          raw = parseJson<Raw>(buf);
-        } catch {
-          raw = partialJson(buf) as Raw;
-        }
-        emit({ t: "done", ...finish(raw, ctx) });
-        close();
-      })();
+  const voiceMsg = !ctx.start && !ctx.typed;
+  let heard = false;
+  return jsonEvents<Raw>(
+    src,
+    ctx.tts ? { user: ctx.tts.user } : null,
+    (f, api) => {
+      if (voiceMsg && !heard && "heard" in f) {
+        const transcript = plain(f.heard);
+        if (!transcript) return "stop"; // nutq eshitilmadi — "done" da {empty}
+        api.emit({ t: "heard", transcript });
+        heard = true;
+      }
+      if (!("reply" in f && "help" in f) || (voiceMsg && !heard)) return;
+      const help = helpOf(f);
+      const reply = plain(f.reply);
+      if (!reply && !help.length) return;
+      // Javob ovozi: brauzer o'ynatadigan bo'laklar bilan aynan bir xil (do'st ovozi, boshlang'ichga — sekinroq)
+      const tts = ctx.tts ? api.voice(talkChunks({ help, reply, voice: ctx.tts.voice, slow: ctx.tts.slow })) : [];
+      api.emit({ t: "reply", transcript: ctx.start ? "" : ctx.typed || plain(f.heard), help, teach: teachOf(f, help), reply, tts });
+      return "enough";
     },
-    cancel() {
-      closed = true;
-      reader.cancel().catch(() => {});
-    },
-  });
+    (raw, api) => api.emit({ t: "done", ...finish(raw, ctx) })
+  );
 }

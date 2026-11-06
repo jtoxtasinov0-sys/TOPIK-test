@@ -11,7 +11,7 @@ process.env.GOOGLE_CLIENT_SECRET = "";
 const { createMemoryStore, setStore } = await import("../src/lib/server/store");
 const voiceRoute = await import("../src/app/api/voice/route");
 const ttsRoute = await import("../src/app/api/tts/route");
-const { splitForSpeech, wavEnvelope } = await import("../src/lib/audio");
+const { splitForSpeech, tutorChunks, wavEnvelope } = await import("../src/lib/audio");
 
 type Call = { model: string; body: Record<string, unknown> };
 type Reply = unknown | { status: number; body: unknown };
@@ -106,6 +106,76 @@ describe("/api/voice", () => {
     mockGemini([voiceOut({ heard: "salom", segments: [{ lang: "ko", text: "안녕하세요" }] })]);
     await voiceRoute.POST(post("/api/voice", { text: "salom" }));
     assert.deepEqual(calls.map(thinkingOf), ["low"], "keyingi so'rov darhol 'low' bilan");
+  });
+});
+
+describe("/api/voice oqimi (stream: true)", () => {
+  const WAV = Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(40)]).toString("base64");
+  const enc = new TextEncoder();
+  const delta = (text: string) => `data: ${JSON.stringify({ event_type: "step.delta", delta: { type: "text", text } })}\n\n`;
+  let tts: Record<string, unknown>[] = [];
+
+  /** Matn — SSE bo'laklari bilan; ovoz (TTS) — WAV */
+  function mockStream(chunks: string[]) {
+    calls = [];
+    tts = [];
+    globalThis.fetch = (async (_url: string | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      if (String(body.model).includes("tts")) {
+        tts.push(body);
+        return Response.json({ steps: [{ type: "model_output", content: [{ type: "audio", data: WAV }] }] });
+      }
+      calls.push({ model: String(body.model), body });
+      let i = 0;
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          async pull(c) {
+            await new Promise((r) => setTimeout(r, 1));
+            if (i >= chunks.length) return c.close();
+            c.enqueue(enc.encode(chunks[i++]));
+          },
+        }),
+        { headers: { "Content-Type": "text/event-stream" } }
+      );
+    }) as typeof fetch;
+  }
+  const readAll = async (res: Response) =>
+    (await res.text())
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l) as Record<string, unknown>);
+
+  test("ovozli savol: heard → reply (+ server tayyorlagan ovoz) → done (practice)", async () => {
+    const segments = [
+      { lang: "uz", text: "Ajoyib savol! «Rahmat» koreyschada" },
+      { lang: "ko", text: "감사합니다" },
+      { lang: "uz", text: "bo‘ladi. Qani, qaytaring!" },
+    ];
+    const json = JSON.stringify({ heard: "rahmat koreyschada qanday", segments, practice: { ko: "감사합니다", rom: "gamsahamnida", uz: "Rahmat" } });
+    const cut = json.indexOf('"practice"');
+    mockStream([delta(json.slice(0, 40)), delta(json.slice(40, cut)), delta(json.slice(cut))]);
+    const res = await voiceRoute.POST(post("/api/voice", { stream: true, audio: { data: "YWJj", mime: "audio/webm" } }));
+    assert.match(res.headers.get("content-type") ?? "", /ndjson/);
+    const evs = await readAll(res);
+    const kinds = evs.map((e) => e.t);
+    assert.deepEqual(kinds.filter((k) => k !== "audio"), ["heard", "reply", "done"]);
+    assert.ok(kinds.indexOf("reply") < kinds.lastIndexOf("audio"), "ovoz javobdan keyin, shu oqimda");
+    const reply = evs.find((e) => e.t === "reply")!;
+    assert.equal(reply.transcript, "rahmat koreyschada qanday");
+    assert.deepEqual(reply.tts, tutorChunks(segments as { lang: "uz" | "ko"; text: string }[]), "bo'laklar brauzerdagi bilan aynan bir xil");
+    const audio = evs.filter((e) => e.t === "audio");
+    assert.equal(audio.length, (reply.tts as unknown[]).length);
+    assert.ok(audio.every((a) => a.data === WAV));
+    assert.deepEqual(evs.find((e) => e.t === "done")!.practice, { ko: "감사합니다", rom: "gamsahamnida", uz: "Rahmat" });
+    assert.equal(tts.length, audio.length);
+    assert.deepEqual((tts[0].generation_config as { speech_config: unknown }).speech_config, [{ voice: "Puck" }], "ustoz — yigit ovozi");
+  });
+
+  test("nutq eshitilmasa — darhol {empty}, ovoz tayyorlanmaydi", async () => {
+    mockStream([delta('{"heard":"","segments":[]}')]);
+    const evs = await readAll(await voiceRoute.POST(post("/api/voice", { stream: true, audio: { data: "YWJj", mime: "audio/webm" } })));
+    assert.deepEqual(evs, [{ t: "done", transcript: "", empty: true }]);
+    assert.equal(tts.length, 0);
   });
 });
 

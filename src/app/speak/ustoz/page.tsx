@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { micToLevel, RecMeter } from "@/components/MicWave";
-import { blobToBase64, postJson, SpeakBtn, useAiErrorText } from "@/components/ui";
+import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
-import { outputLevel, playTutor, stopAudio, unlockAudio, type Segment } from "@/lib/audio";
-import { MicError, releaseMic, startRecording, type Recording } from "@/lib/mic";
+import { expectAudio, outputLevel, playTutor, stopAudio, unlockAudio, type AudioWait, type Segment, type TtsOpts } from "@/lib/audio";
+import { MicError, micQuiet, startRecording, type Recording } from "@/lib/mic";
 import { touchStreak } from "@/lib/store";
 
 // Ovozli ustoz: o'quvchi o'zbekcha so'raydi ("Rahmat koreyschada qanday?"),
@@ -16,7 +16,21 @@ import { touchStreak } from "@/lib/store";
 type Level = "beginner" | "intermediate" | "advanced";
 type Practice = { ko: string; rom?: string; uz?: string };
 type Msg = { role: "me" | "ai"; text: string; segments?: Segment[]; practice?: Practice };
-type VoiceRes = { transcript: string; empty?: boolean; segments: Segment[]; practice?: Practice };
+/**
+ * /api/voice oqimi: heard — o'quvchi gapi; reply — ustoz javobi (tts — server ovozini o'zi yuboradigan bo'laklar);
+ * audio — tayyor ovoz bo'lagi; done — to'liq natija (+ practice). t bo'lmasa — oddiy (oqimsiz) javob.
+ */
+type VoiceEvent = {
+  t?: "heard" | "reply" | "done" | "audio";
+  transcript?: string;
+  empty?: boolean;
+  error?: string;
+  segments?: Segment[];
+  practice?: Practice;
+  tts?: { text: string; opts: TtsOpts }[];
+  text?: string;
+  data?: string;
+};
 
 const CHIPS = [
   "“Rahmat” koreyschada qanday bo‘ladi?",
@@ -90,7 +104,6 @@ export default function VoiceTutorPage() {
       alive.current = false;
       stopAudio();
       recRef.current?.cancel();
-      releaseMic();
     };
   }, []);
 
@@ -110,8 +123,9 @@ export default function VoiceTutorPage() {
    */
   const speak = async (i: number, segs: Segment[]) => {
     recRef.current?.cancel();
-    releaseMic();
     setPlaying(i);
+    setLoadingAudio(true);
+    await micQuiet(); // mikrofon endigina yopilgan bo'lsa — telefon ovoz rejimiga qaytib olsin
     const played = await playTutor(segs, { onLoading: setLoadingAudio });
     setLoadingAudio(false);
     setPlaying((p) => (p === i ? null : p));
@@ -119,39 +133,74 @@ export default function VoiceTutorPage() {
   };
 
   const send = async (payload: { audio?: { data: string; mime: string }; text?: string }) => {
-    const list = msgsRef.current;
+    const history = msgsRef.current.slice(-16).map((m) => ({ role: m.role, text: m.text }));
     busyRef.current = true;
     setBusy(true);
     setErr("");
-    let reply: { index: number; segments: Segment[] } | null = null;
-    try {
-      const r = await postJson<VoiceRes>("/api/voice", {
-        ...payload,
-        level: cfg.current.level,
-        history: list.slice(-16).map((m) => ({ role: m.role, text: m.text })),
-      });
-      if (r.empty) {
-        setErr("Ovoz eshitilmadi. Mikrofonga yaqinroq, aniqroq gapiring.");
-        return;
-      }
-      const next: Msg[] = [
-        ...list,
-        { role: "me", text: r.transcript },
-        { role: "ai", text: r.segments.map((s) => s.text).join(" "), segments: r.segments, practice: r.practice },
-      ];
-      commit(next);
-      touchStreak();
-      reply = { index: next.length - 1, segments: r.segments };
-    } catch (e) {
-      setErr(errText(e));
-    } finally {
+    const idle = () => {
       busyRef.current = false;
       setBusy(false);
+    };
+    let meAt = -1;
+    let aiAt = -1;
+    // Server javob ovozini o'zi tayyorlab yuboradi — shu bo'laklarni kutamiz (qayta so'ramaymiz)
+    const waits = new Map<string, AudioWait>();
+    const addMe = (text: string) => {
+      if (meAt >= 0 || !text) return;
+      const next: Msg[] = [...msgsRef.current, { role: "me", text }];
+      meAt = next.length - 1;
+      commit(next);
+      touchStreak();
+    };
+    const onEvent = (e: VoiceEvent) => {
+      if (e.t === "audio") {
+        const w = waits.get(e.text ?? "");
+        waits.delete(e.text ?? "");
+        if (w && e.data) w.resolve(e.data);
+        else w?.fail();
+        return;
+      }
+      if (!alive.current) return;
+      if (e.t === "heard") return addMe(e.transcript ?? "");
+      if (e.empty) {
+        if (aiAt < 0) setErr("Ovoz eshitilmadi. Mikrofonga yaqinroq, aniqroq gapiring.");
+        return;
+      }
+      if (e.error) {
+        if (aiAt < 0) setErr(errText(new ApiError(e.error, 502)));
+        return;
+      }
+      addMe(e.transcript ?? "");
+      if (aiAt < 0 && e.segments?.length) {
+        const segs = e.segments;
+        const next: Msg[] = [...msgsRef.current, { role: "ai", text: segs.map((x) => x.text).join(" "), segments: segs, practice: e.practice }];
+        aiAt = next.length - 1;
+        commit(next);
+        idle();
+        for (const ch of e.tts ?? []) waits.set(ch.text, expectAudio(ch.text, ch.opts));
+        // Uzluksiz suhbat: ustoz javobini OXIRIGACHA o'qib bo'lgachgina mikrofon o'zi yoqiladi (navbat sizda)
+        void speak(aiAt, segs).then((played) => {
+          if (played && alive.current && session.current && cfg.current.handsFree) void startRec();
+        });
+      }
+      // To'liq natija: takrorlash uchun ibora (practice) kartasi
+      if (e.t !== "reply" && aiAt >= 0 && e.practice) {
+        const list = msgsRef.current.slice();
+        list[aiAt] = { ...list[aiAt], practice: e.practice };
+        commit(list);
+      }
+    };
+
+    if (payload.text) addMe(payload.text);
+    try {
+      await postNdjson<VoiceEvent>("/api/voice", { ...payload, stream: true, level: cfg.current.level, history }, onEvent);
+    } catch (e) {
+      if (alive.current && aiAt < 0) setErr(errText(e));
+    } finally {
+      idle();
+      for (const w of waits.values()) w.fail();
+      waits.clear();
     }
-    if (!reply || !alive.current) return;
-    const played = await speak(reply.index, reply.segments);
-    // Uzluksiz suhbat: ustoz javobini OXIRIGACHA o'qib bo'lgachgina mikrofon o'zi yoqiladi (navbat sizda)
-    if (played && alive.current && session.current && cfg.current.handsFree) void startRec();
   };
 
   const startRec = async () => {
@@ -162,8 +211,7 @@ export default function VoiceTutorPage() {
     let r: Recording;
     try {
       // O'zbekcha savol odatda uzluksiz aytiladi — 0.9 soniya jimlikdan keyin darhol yuboramiz
-      // keep — mikrofon dars davomida ochiq turadi, ruxsat faqat bir marta so'raladi
-      r = await startRecording({ keep: true, silenceMs: 900, onLevel: (rms) => (micLevel.current = rms) });
+      r = await startRecording({ silenceMs: 900, onLevel: (rms) => (micLevel.current = rms) });
     } catch (e) {
       recState.current = "idle";
       setErr(e instanceof MicError ? e.message : "Mikrofonni ochib bo‘lmadi.");
@@ -206,7 +254,6 @@ export default function VoiceTutorPage() {
     stopAudio();
     setPlaying(null);
     recRef.current?.cancel();
-    releaseMic();
   };
 
   /** Ovozli darsdan chiqish: oldingi sahifaga (bo'lmasa — bosh sahifaga) */

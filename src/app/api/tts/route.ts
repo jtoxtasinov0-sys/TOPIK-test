@@ -1,13 +1,13 @@
-import { createHash } from "node:crypto";
-import { errorResponse, hasKey, rateLimit, synthesize } from "@/lib/gemini";
-import { parseScript } from "@/lib/exam";
-import { chargeQuota, requireAiAccess } from "@/lib/server/guard";
-import { trackUsage } from "@/lib/server/usage";
+import { errorResponse, hasKey, rateLimit } from "@/lib/gemini";
+import { requireAiAccess } from "@/lib/server/guard";
+import { hasSpeech, speech } from "@/lib/server/tts";
 
 export const maxDuration = 60;
 
-// Bir xil matn qayta-qayta so'ralganda Gemini'ga qayta murojaat qilmaslik uchun
-const cache = new Map<string, Buffer>();
+/** Uyg'otish: suhbat sahifasi ochilganda — birinchi ovozgacha server tayyor turadi. AI chaqirilmaydi */
+export function GET() {
+  return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+}
 
 export async function POST(req: Request) {
   try {
@@ -18,18 +18,9 @@ export async function POST(req: Request) {
     if (typeof text !== "string" || !text.trim() || text.length > 2500) {
       return Response.json({ error: "Matn noto'g'ri" }, { status: 400 });
     }
-    const key = createHash("sha1").update(`${slow ? 1 : 0}|${voice ?? ""}|${tutor ? "t" : talk ? "k" : ""}|${text}`).digest("hex");
-    let buf = cache.get(key);
-    if (!buf) {
-      rateLimit(req, "tts", 90, 5 * 60_000);
-      await chargeQuota(user, "tts");
-      await trackUsage("tts");
-      // Ovozli ustoz (o'zbekcha + koreyscha) va erkin suhbat javobi — dialog emas, bitta ovoz bilan o'qiladi
-      const turns = tutor || talk ? [{ speaker: null, text: text.trim() }] : parseScript(text);
-      buf = await synthesize(turns, { slow: !!slow, voice, tutor: !!tutor, talk: !tutor && !!talk });
-      cache.set(key, buf);
-      if (cache.size > 400) cache.delete(cache.keys().next().value as string);
-    }
+    const o = { slow: !!slow, voice, tutor: !!tutor, talk: !!talk };
+    if (!hasSpeech(text, o)) rateLimit(req, "tts", 90, 5 * 60_000);
+    const buf = await speech(text, o, user);
     return new Response(new Uint8Array(buf), {
       headers: { "Content-Type": "audio/wav", "Cache-Control": "private, max-age=604800" },
     });

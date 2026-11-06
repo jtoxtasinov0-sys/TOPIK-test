@@ -6,9 +6,9 @@ import { micToLevel, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { LEVELS, PARTNERS, STYLES, TOPICS, greeting, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
-import { outputLevel, playTalk, prefetchTalk, stopAudio, unlockAudio, type Segment } from "@/lib/audio";
+import { expectAudio, outputLevel, playTalk, prefetchTalk, stopAudio, unlockAudio, type AudioWait, type Segment, type TtsOpts } from "@/lib/audio";
 import Link from "next/link";
-import { MicError, releaseMic, startRecording, type Recording } from "@/lib/mic";
+import { MicError, micQuiet, startRecording, type Recording } from "@/lib/mic";
 import { romanize } from "@/lib/romanize";
 import { touchStreak, useStored } from "@/lib/store";
 
@@ -37,14 +37,23 @@ type TalkRes = {
  * /api/talk oqimi hodisalari: heard — o'quvchi gapi; reply — do'st javobi (ovoz darhol boshlanadi);
  * done — to'liq natija (lotincha yozuv, tarjima, tuzatish, maslahatlar). t bo'lmasa — oddiy (oqimsiz) javob.
  */
-type TalkEvent = Partial<TalkRes> & { t?: "heard" | "reply" | "done"; error?: string };
+type TalkEvent = Partial<TalkRes> & {
+  t?: "heard" | "reply" | "done" | "audio";
+  error?: string;
+  /** reply: server shu bo'laklar ovozini o'zi tayyorlab yuboradi */
+  tts?: { text: string; opts: TtsOpts }[];
+  /** audio: bo'lak matni va ovozi (base64 WAV); failed — server tayyorlay olmadi */
+  text?: string;
+  data?: string;
+  failed?: boolean;
+};
 
 type Setup = { partner: string; topic: string; level: TalkLevel; style: TalkStyle; rom: boolean; tr: boolean; handsFree: boolean };
 const DEFAULT_SETUP: Setup = { partner: "minjun", topic: "free", level: "beginner", style: "polite", rom: true, tr: true, handsFree: true };
 
 // Gapirib bo'lgach shuncha jim tursangiz — yuboriladi (boshlang'ichlar gap orasida ko'proq o'ylaydi).
-// Jonli suhbatdagidek: odam gapini tugatgach ~1 soniyada javob keladi
-const SILENCE_MS: Record<TalkLevel, number> = { beginner: 1300, intermediate: 1000, advanced: 800 };
+// Jonli suhbatdagidek: odam gapini tugatgach bir lahzada javob keladi
+const SILENCE_MS: Record<TalkLevel, number> = { beginner: 1200, intermediate: 900, advanced: 750 };
 const NO_SPEECH_MS = 12000;
 const HANGUL = /[가-힣]/;
 const DIDNT_GET = "🤔 Tushunmadim";
@@ -114,7 +123,6 @@ export default function FreeTalkPage() {
       alive.current = false;
       stopAudio();
       recRef.current?.cancel();
-      releaseMic();
     };
   }, []);
 
@@ -127,7 +135,7 @@ export default function FreeTalkPage() {
   // Tanlash ekranida: server uyg'otiladi va birinchi salom ovozi oldindan tayyorlanadi —
   // «Suhbatni boshlash» bosilishi bilan do'st kutmasdan gapiradi
   useEffect(() => {
-    void fetch("/api/talk", { method: "GET" }).catch(() => {});
+    for (const u of ["/api/talk", "/api/tts"]) void fetch(u, { method: "GET" }).catch(() => {});
   }, []);
   useEffect(() => {
     if (started) return;
@@ -156,8 +164,10 @@ export default function FreeTalkPage() {
     const c = cfg.current;
     const id = ++playId.current;
     pauseMic();
-    releaseMic();
     setPlaying(i);
+    setLoadingAudio(true);
+    await micQuiet(); // mikrofon endigina yopilgan bo'lsa — telefon ovoz rejimiga qaytib olsin
+    if (id !== playId.current) return false;
     const played = await playTalk({ help: m.help, reply: m.ko, voice: partnerOf(c.partner).voice, slow: slow ?? c.level === "beginner" }, { onLoading: setLoadingAudio });
     if (id !== playId.current) return false;
     setLoadingAudio(false);
@@ -187,7 +197,8 @@ export default function FreeTalkPage() {
 
     let meAt = -1;
     let aiAt = -1;
-    let playback: Promise<boolean> | null = null;
+    // Server javob ovozini o'zi tayyorlab yuboradi — shu bo'laklarni kutamiz (qayta so'ramaymiz)
+    const waits = new Map<string, AudioWait>();
     const patchMsg = (i: number, p: Partial<AiMsg> | Partial<MeMsg>) => {
       const m = msgsRef.current[i];
       if (!m) return;
@@ -204,6 +215,13 @@ export default function FreeTalkPage() {
       touchStreak();
     };
     const onEvent = (e: TalkEvent) => {
+      if (e.t === "audio") {
+        const w = waits.get(e.text ?? "");
+        waits.delete(e.text ?? "");
+        if (w && e.data) w.resolve(e.data);
+        else w?.fail();
+        return;
+      }
       if (!live()) return;
       if (e.t === "heard") return addMe(e.transcript ?? "");
       if (e.empty) {
@@ -222,7 +240,12 @@ export default function FreeTalkPage() {
         aiAt = next.length - 1;
         commit(next);
         idle();
-        if (alive.current && session.current) playback = speak(aiAt, ai);
+        for (const ch of e.tts ?? []) waits.set(ch.text, expectAudio(ch.text, ch.opts));
+        // Do'st gapirib bo'lishi bilan — navbat sizda (tarjima va maslahatlar oqimi tugashini kutmasdan)
+        if (alive.current && session.current)
+          void speak(aiAt, ai).then((played) => {
+            if (played && alive.current && live() && session.current) listenAgain();
+          });
       }
       if (e.t === "reply") return;
       // To'liq natija: lotincha yozuv, tarjima, maslahatlar va o'quvchi gapidagi tuzatish
@@ -242,9 +265,10 @@ export default function FreeTalkPage() {
       if (live() && aiAt < 0) setErr(errText(e));
     } finally {
       idle();
+      // Oqim tugadi, ba'zi bo'laklar ovozi kelmadi — ular odatdagidek alohida so'raladi
+      for (const w of waits.values()) w.fail();
+      waits.clear();
     }
-    if (!playback) return;
-    if ((await playback) && alive.current && live() && session.current) listenAgain();
   };
 
   const startRec = async () => {
@@ -255,7 +279,6 @@ export default function FreeTalkPage() {
     let r: Recording;
     try {
       r = await startRecording({
-        keep: true, // mikrofon suhbat davomida ochiq turadi — ruxsat faqat bir marta so'raladi
         silenceMs: SILENCE_MS[cfg.current.level] ?? SILENCE_MS.beginner,
         noSpeechMs: NO_SPEECH_MS,
         onLevel: (rms) => (micLevel.current = rms),
@@ -330,7 +353,6 @@ export default function FreeTalkPage() {
     stopAudio();
     setPlaying(null);
     pauseMic();
-    releaseMic();
   };
 
   const backToSetup = () => {

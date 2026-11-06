@@ -83,76 +83,52 @@ function deniedText() {
   return "Mikrofonga ruxsat berilmadi. Manzil qatoridagi 🔒 belgisini bosing → Mikrofon → «Ruxsat berish». Hozircha yozib yuborishingiz mumkin.";
 }
 
+// ---------- iPhone ovoz rejimi ----------
+// iPhone mikrofon ochiq paytda ovozni «qo'ng'iroq» rejimida (past, ba'zan umuman eshitilmaydigan) chiqaradi.
+// Shuning uchun: yozishdan oldin — «play-and-record», mikrofon yopilgach — «playback» (oddiy, baland ovoz).
+// navigator.audioSession — Safari 16.4+; boshqa brauzerlarda hech narsa qilmaydi.
+function setAudioSession(type: "playback" | "play-and-record") {
+  try {
+    const s = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+    if (s && s.type !== type) s.type = type;
+  } catch {}
+}
+
+let lastStop = 0;
+
+/**
+ * Mikrofon yopilgach telefon ovoz rejimini almashtirishiga bir lahza kerak — shu vaqt o'tguncha kutadi.
+ * Aks holda iPhone ovozni «o'ynayapti» deb ko'rsatib, jim qolishi mumkin.
+ */
+export async function micQuiet(ms = 450) {
+  const left = lastStop + ms - performance.now();
+  if (left > 0) await new Promise((r) => setTimeout(r, left));
+}
+
 async function openMic(): Promise<MediaStream> {
+  setAudioSession("play-and-record");
   try {
     return await navigator.mediaDevices.getUserMedia({ audio: AUDIO });
   } catch {
+    setAudioSession("playback");
     throw new MicError(deniedText());
   }
 }
 
-// ---------- Suhbatda mikrofon ----------
-// Navbat o'quvchida (yozuv) va AI o'ylayotganda mikrofon ochiq qoladi — qayta-qayta ochilib-yopilmaydi.
-// AI gapira boshlaganda sahifa releaseMic() chaqiradi: ustoz/do'st gapirayotganda mikrofon yopiq
-// (iPhone mikrofon ochiq paytda boshqa ovozlarni pasaytiradi va «mikrofon yoniq» belgisi chiqadi).
-let held: MediaStream | null = null;
-let opening: Promise<MediaStream> | null = null;
-let idleTimer: ReturnType<typeof setTimeout> | undefined;
-/** Shuncha vaqt yozilmasa — mikrofon yopiladi (telefon unutib qoldirilsa ham ochiq turmasin) */
-const IDLE_RELEASE_MS = 5 * 60_000;
-
-const usable = (s: MediaStream | null) => !!s && s.getAudioTracks().some((t) => t.readyState === "live" && !t.muted);
-
-/** Ishlatilmay qolsa — IDLE_RELEASE_MS dan keyin yopiladi */
-function armIdle(stream: MediaStream) {
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => {
-    if (held === stream) releaseMic();
-  }, IDLE_RELEASE_MS);
-}
-
-/** Ochiq mikrofonni qaytaradi; yo'q bo'lsa — bir marta ruxsat so'rab ochadi */
-async function sharedMic(): Promise<MediaStream> {
-  clearTimeout(idleTimer);
-  if (usable(held)) return held!;
-  if (held) releaseMic();
-  if (!opening) {
-    opening = openMic()
-      .then((s) => {
-        held = s;
-        s.getAudioTracks().forEach((t) =>
-          t.addEventListener("ended", () => {
-            if (held === s) held = null;
-          })
-        );
-        return s;
-      })
-      .finally(() => {
-        opening = null;
-      });
-  }
-  return opening;
-}
-
-/** Suhbatdan chiqqanda: mikrofonni yopadi (telefondagi mikrofon belgisi o'chadi) */
-export function releaseMic() {
-  clearTimeout(idleTimer);
-  const s = held;
-  held = null;
-  s?.getTracks().forEach((t) => t.stop());
-}
-
 /**
  * Mikrofonni ochib, yozishni boshlaydi. Ruxsat berilmasa — MicError (o'zbekcha matn bilan).
- * keep — yozuvdan keyin mikrofon yopilmaydi (suhbat sahifalari; chiqishda releaseMic() chaqiring).
+ * Yozuv tugashi bilan mikrofon darhol yopiladi: AI o'ylab turgan paytda telefon ovoz rejimiga qaytib oladi
+ * va javob ovozi baland, o'z vaqtida eshitiladi.
  */
-export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: number) => void; keep?: boolean } = {}): Promise<Recording> {
-  const keep = !!opts.keep;
-  const stream = keep ? await sharedMic() : await openMic();
-  /** Yozuv tugagach: oddiy rejimda mikrofon yopiladi, suhbatda — ochiq qoladi */
+export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: number) => void } = {}): Promise<Recording> {
+  const stream = await openMic();
+  let closed = false;
   const done = () => {
-    if (keep) armIdle(stream);
-    else stream.getTracks().forEach((t) => t.stop());
+    if (closed) return;
+    closed = true;
+    stream.getTracks().forEach((t) => t.stop());
+    lastStop = performance.now();
+    setAudioSession("playback");
   };
   const mime = pickRecorderMime();
   const rig = (() => {

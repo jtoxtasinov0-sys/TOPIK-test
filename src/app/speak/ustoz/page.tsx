@@ -7,7 +7,7 @@ import { micToLevel, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { expectAudio, outputLevel, playTutor, stopAudio, unlockAudio, type AudioWait, type Segment, type TtsOpts } from "@/lib/audio";
-import { MicError, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
+import { MIC_DEAD_TEXT, MicError, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
 import { touchStreak } from "@/lib/store";
 
 // Ovozli ustoz: o'quvchi o'zbekcha so'raydi ("Rahmat koreyschada qanday?"),
@@ -126,7 +126,7 @@ export default function VoiceTutorPage() {
     recRef.current?.cancel();
     setPlaying(i);
     setLoadingAudio(true);
-    await micSettled(); // mikrofon endigina ochilgan bo'lsa — telefon (quloqchin) ovoz rejimini almashtirib olsin
+    await micSettled(); // quloqchinsiz — mikrofon yopiladi (javob baland karnaydan); quloqchin — rejimini almashtirib olsin
     const played = await playTutor(segs, { onLoading: setLoadingAudio });
     setLoadingAudio(false);
     setPlaying((p) => (p === i ? null : p));
@@ -212,7 +212,7 @@ export default function VoiceTutorPage() {
     let r: Recording;
     try {
       // O'zbekcha savol odatda uzluksiz aytiladi — 0.8 soniya jimlikdan keyin darhol yuboramiz
-      // keep — mikrofon dars davomida ochiq: ruxsat bir marta, quloqchin rejimi almashmaydi, yozuv bir zumda
+      // keep — quloqchin bilan mikrofon dars davomida ochiq; quloqchinsiz — faqat yozuv paytida (javob karnaydan)
       r = await startRecording({ keep: true, silenceMs: 800, onLevel: (rms) => (micLevel.current = rms) });
     } catch (e) {
       recState.current = "idle";
@@ -234,6 +234,7 @@ export default function VoiceTutorPage() {
     setRec(false);
     if (res.kind === "cancel") return;
     if (res.kind === "silent") return setErr("Ovoz eshitilmadi — gapirish uchun mikrofonni bosing.");
+    if (res.kind === "dead") return setErr(MIC_DEAD_TEXT);
     if (res.kind === "short") return setErr("Juda qisqa yozuv. Mikrofonni bosib, gapiring.");
     await send({ audio: { data: await blobToBase64(res.blob), mime: res.blob.type } });
   };
@@ -276,7 +277,7 @@ export default function VoiceTutorPage() {
     const t = q.trim();
     if (!t || busyRef.current || rec) return;
     unlockAudio();
-    void warmMic(); // ruxsat shu bosishda bir marta; ustoz javobidan keyin mikrofon bir zumda yoqiladi
+    void warmMic(); // ruxsat shu bosishda so'raladi — ustoz javobidan keyin mikrofon darhol yoqiladi
     session.current = true;
     stopAudio();
     setText("");

@@ -8,7 +8,7 @@ import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { LEVELS, PARTNERS, STYLES, TOPICS, greeting, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
 import { expectAudio, outputLevel, playTalk, prefetchTalk, stopAudio, unlockAudio, type AudioWait, type Segment, type TtsOpts } from "@/lib/audio";
 import Link from "next/link";
-import { MicError, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
+import { MIC_DEAD_TEXT, MicError, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
 import { romanize } from "@/lib/romanize";
 import { touchStreak, useStored } from "@/lib/store";
 
@@ -167,7 +167,7 @@ export default function FreeTalkPage() {
     pauseMic();
     setPlaying(i);
     setLoadingAudio(true);
-    await micSettled(); // mikrofon endigina ochilgan bo'lsa — telefon (quloqchin) ovoz rejimini almashtirib olsin
+    await micSettled(); // quloqchinsiz — mikrofon yopiladi (javob baland karnaydan); quloqchin — rejimini almashtirib olsin
     if (id !== playId.current) return false;
     const played = await playTalk({ help: m.help, reply: m.ko, voice: partnerOf(c.partner).voice, slow: slow ?? c.level === "beginner" }, { onLoading: setLoadingAudio });
     if (id !== playId.current) return false;
@@ -280,7 +280,7 @@ export default function FreeTalkPage() {
     let r: Recording;
     try {
       r = await startRecording({
-        keep: true, // mikrofon suhbat davomida ochiq: ruxsat bir marta, quloqchin rejimi almashmaydi, yozuv bir zumda
+        keep: true, // quloqchin bilan mikrofon suhbat davomida ochiq; quloqchinsiz — faqat yozuv paytida (javob karnaydan)
         silenceMs: SILENCE_MS[cfg.current.level] ?? SILENCE_MS.beginner,
         noSpeechMs: NO_SPEECH_MS,
         onLevel: (rms) => (micLevel.current = rms),
@@ -305,6 +305,7 @@ export default function FreeTalkPage() {
     setRec(false);
     // Jim tursangiz mikrofon o'chadi — xato emas, navbat sizda qoladi
     if (res.kind === "cancel" || res.kind === "silent") return;
+    if (res.kind === "dead") return setErr(MIC_DEAD_TEXT);
     if (res.kind === "short") return setErr("Juda qisqa yozuv. Mikrofonni bosib, gapiring.");
     await send({ audio: { data: await blobToBase64(res.blob), mime: res.blob.type } });
   };
@@ -336,7 +337,7 @@ export default function FreeTalkPage() {
   };
 
   /**
-   * Suhbat boshlanishi: mikrofonga ruxsat shu bosishda BIR MARTA so'raladi va mikrofon suhbat davomida ochiq turadi.
+   * Suhbat boshlanishi: mikrofonga ruxsat shu bosishda so'raladi (quloqchin bilan mikrofon suhbat davomida ochiq turadi).
    * Salom AI'siz, darhol (ovozi oldindan tayyor); do'st gapirib bo'lgach — navbat sizda.
    */
   const begin = async () => {
@@ -475,9 +476,9 @@ export default function FreeTalkPage() {
         <div className="callout info" style={{ marginTop: 16 }}>
           🎧 Quloqchin bilan gaplashing — mikrofon do‘stingiz ovozini eshitmaydi. Shovqinsiz joyda yaxshiroq ishlaydi.
           <br />
-          🎙️ Mikrofonga ruxsat suhbat boshida bir marta so‘raladi va suhbat davomida mikrofon ochiq turadi (telefonda mikrofon belgisi yonadi), lekin
-          ovozingiz faqat navbatingizda yoziladi. iPhone’da har kirganda ham so‘ramasligi uchun: Safari’da «aA» → «Veb-sayt sozlamalari» → Mikrofon →
-          «Ruxsat berish».
+          🎙️ Ovozingiz faqat navbatingizda yoziladi. Quloqchinsiz mikrofon faqat yozuv paytida ochiladi — do‘stingiz ovozi baland karnaydan
+          eshitiladi; quloqchin bilan mikrofon suhbat davomida ochiq turadi. iPhone’da mikrofon ruxsatini qayta-qayta so‘ramasligi uchun: Safari’da
+          «aA» → «Veb-sayt sozlamalari» → Mikrofon → «Ruxsat berish».
         </div>
       </main>
     );

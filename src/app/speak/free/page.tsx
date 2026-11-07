@@ -6,7 +6,7 @@ import { micToLevel, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { LEVELS, PARTNERS, STYLES, TOPICS, greeting, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
-import { expectAudio, outputLevel, playTalk, prefetchTalk, stopAudio, unlockAudio, type AudioWait, type PlayResult, type Segment, type TtsOpts } from "@/lib/audio";
+import { expectAudio, outputLevel, playTalk, prefetchTalk, stopAudio, primeAudio, type AudioWait, type PlayResult, type Segment, type TtsOpts } from "@/lib/audio";
 import Link from "next/link";
 import { MIC_DEAD_TEXT, MicError, micCanAutoOpen, micSettled, micSettleNeeded, releaseMic, startRecording, type Recording } from "@/lib/mic";
 import { romanize } from "@/lib/romanize";
@@ -159,7 +159,7 @@ export default function FreeTalkPage() {
   };
 
   /**
-   * Do'st gapiradi. Shu paytda mikrofon yopiq: navbat — do'stda (iPhone ham ovozni pasaytirmaydi).
+   * Do'st gapiradi. Shu paytda ovozingiz yozilmaydi: navbat — do'stda.
    * Mikrofonni kutish kerak bo'lmasa — ovoz await'siz, shu zahoti boshlanadi (tugma bosilgan paytda — iPhone ham o'ynatadi).
    * ended — oxirigacha o'qildi; failed — ovoz chiqmadi (navbat baribir o'quvchiga, suhbat qotmaydi);
    * stopped — to'xtatildi yoki boshqa ovoz almashtirdi.
@@ -171,7 +171,7 @@ export default function FreeTalkPage() {
     setPlaying(i);
     setLoadingAudio(true);
     if (micSettleNeeded()) {
-      await micSettled(); // quloqchinsiz — mikrofon yopiladi (javob baland karnaydan); quloqchin — rejimini almashtirib olsin
+      await micSettled(); // mikrofon endigina ochilgan bo'lsa — telefon (quloqchin) ovoz rejimini almashtirib olsin
       if (id !== playId.current) return "stopped";
     }
     const voice = partnerOf(c.partner).voice;
@@ -290,7 +290,7 @@ export default function FreeTalkPage() {
     let r: Recording;
     try {
       r = await startRecording({
-        keep: true, // quloqchin bilan mikrofon suhbat davomida ochiq; quloqchinsiz — faqat yozuv paytida (javob karnaydan)
+        keep: true, // mikrofon suhbat davomida ochiq (xuddi qo'ng'iroqdagidek), yozuv faqat navbatingizda
         silenceMs: SILENCE_MS[cfg.current.level] ?? SILENCE_MS.beginner,
         noSpeechMs: NO_SPEECH_MS,
         onLevel: (rms) => (micLevel.current = rms),
@@ -324,7 +324,7 @@ export default function FreeTalkPage() {
   const pauseMic = () => recRef.current?.cancel();
 
   const onMic = () => {
-    unlockAudio();
+    primeAudio();
     session.current = true;
     if (rec) {
       recRef.current?.stop();
@@ -338,7 +338,7 @@ export default function FreeTalkPage() {
   const sendText = async (q: string) => {
     const t = q.trim();
     if (!t || busyRef.current) return;
-    unlockAudio();
+    primeAudio();
     session.current = true;
     pauseMic();
     stopAudio();
@@ -353,7 +353,7 @@ export default function FreeTalkPage() {
    * ruxsat o'shanda bir marta so'raladi. Ovoz chiqmasa ham navbat sizga o'tadi.
    */
   const begin = () => {
-    unlockAudio();
+    primeAudio();
     gen.current++;
     const g = gen.current;
     session.current = true;
@@ -388,7 +388,7 @@ export default function FreeTalkPage() {
   };
 
   const replay = async (i: number, slow?: boolean) => {
-    unlockAudio();
+    primeAudio();
     if (playing === i && !slow) {
       stopAudio();
       setPlaying(null);
@@ -487,10 +487,10 @@ export default function FreeTalkPage() {
           </div>
         </div>
         <div className="callout info" style={{ marginTop: 16 }}>
-          🎧 Quloqchin bilan gaplashing — mikrofon do‘stingiz ovozini eshitmaydi. Shovqinsiz joyda yaxshiroq ishlaydi.
+          🎙️ Mikrofonga ruxsat do‘stingiz salom bergach bir marta so‘raladi va mikrofon suhbat davomida ochiq turadi — xuddi qo‘ng‘iroqdagidek
+          (telefonda mikrofon belgisi yonib turadi). Ovozingiz faqat navbatingizda yoziladi; «To‘xtatish» yoki chiqishda mikrofon yopiladi.
           <br />
-          🎙️ Mikrofonga ruxsat do‘stingiz salom bergach bir marta so‘raladi. Ovozingiz faqat navbatingizda yoziladi: quloqchinsiz mikrofon faqat yozuv
-          paytida ochiladi — do‘stingiz ovozi baland karnaydan eshitiladi; quloqchin bilan mikrofon suhbat davomida ochiq turadi.
+          🔊 Do‘stingiz ovozi past bo‘lsa — telefonning ovoz tugmasini bosing. Shovqinsiz joyda yaxshiroq ishlaydi.
         </div>
       </main>
     );
@@ -708,7 +708,7 @@ export default function FreeTalkPage() {
           <div className="rec-hint">Ovozingiz yozilmoqda — koreyscha gapiring, jim tursangiz o‘zi yuboriladi</div>
         ) : (
           <div className="tiny muted" style={{ textAlign: "center", marginTop: 8 }}>
-            Bilmagan so‘zingizni o‘zbekcha ayting · quloqchin bilan yaxshiroq ishlaydi
+            Bilmagan so‘zingizni o‘zbekcha ayting · shovqinsiz joyda yaxshiroq ishlaydi
           </div>
         )}
       </div>

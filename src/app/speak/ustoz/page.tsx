@@ -6,7 +6,7 @@ import { Icon } from "@/components/Icon";
 import { micToLevel, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
-import { expectAudio, outputLevel, playTutor, stopAudio, unlockAudio, type AudioWait, type PlayResult, type Segment, type TtsOpts } from "@/lib/audio";
+import { expectAudio, outputLevel, playTutor, stopAudio, primeAudio, type AudioWait, type PlayResult, type Segment, type TtsOpts } from "@/lib/audio";
 import { MIC_DEAD_TEXT, MicError, micCanAutoOpen, micSettled, micSettleNeeded, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
 import { touchStreak } from "@/lib/store";
 
@@ -119,14 +119,14 @@ export default function VoiceTutorPage() {
   };
 
   /**
-   * Ustoz gapiradi. Shu paytda mikrofon yopiq: avval ustoz to'liq tushuntiradi, keyin navbat o'quvchiga.
+   * Ustoz gapiradi. Shu paytda ovoz yozilmaydi: avval ustoz to'liq tushuntiradi, keyin navbat o'quvchiga.
    * ended — oxirigacha o'qildi; failed — ovoz chiqmadi (navbat baribir o'quvchiga, dars qotmaydi); stopped — to'xtatildi.
    */
   const speak = async (i: number, segs: Segment[]): Promise<PlayResult> => {
     recRef.current?.cancel();
     setPlaying(i);
     setLoadingAudio(true);
-    // quloqchinsiz — mikrofon yopiladi (javob baland karnaydan); quloqchin — rejimini almashtirib olsin
+    // mikrofon endigina ochilgan bo'lsa — telefon (quloqchin) ovoz rejimini almashtirib olsin
     if (micSettleNeeded()) await micSettled();
     const played = await playTutor(segs, { onLoading: setLoadingAudio });
     setLoadingAudio(false);
@@ -215,7 +215,7 @@ export default function VoiceTutorPage() {
     let r: Recording;
     try {
       // O'zbekcha savol odatda uzluksiz aytiladi — 0.8 soniya jimlikdan keyin darhol yuboramiz
-      // keep — quloqchin bilan mikrofon dars davomida ochiq; quloqchinsiz — faqat yozuv paytida (javob karnaydan)
+      // keep — mikrofon dars davomida ochiq (xuddi qo'ng'iroqdagidek), yozuv faqat navbatingizda
       r = await startRecording({ keep: true, silenceMs: 800, onLevel: (rms) => (micLevel.current = rms) });
     } catch (e) {
       recState.current = "idle";
@@ -243,7 +243,7 @@ export default function VoiceTutorPage() {
   };
 
   const onMic = () => {
-    unlockAudio();
+    primeAudio();
     session.current = true;
     if (rec) {
       recRef.current?.stop();
@@ -279,7 +279,7 @@ export default function VoiceTutorPage() {
   const sendText = async (q: string) => {
     const t = q.trim();
     if (!t || busyRef.current || rec) return;
-    unlockAudio();
+    primeAudio();
     void warmMic(); // ruxsat shu bosishda so'raladi — ustoz javobidan keyin mikrofon darhol yoqiladi
     session.current = true;
     stopAudio();
@@ -288,7 +288,7 @@ export default function VoiceTutorPage() {
   };
 
   const replay = (i: number) => {
-    unlockAudio();
+    primeAudio();
     if (playing === i) {
       stopAudio();
       setPlaying(null);
@@ -474,7 +474,7 @@ export default function VoiceTutorPage() {
           <div className="rec-hint">Ovozingiz yozilmoqda — gapirib bo‘lgach jim turing, o‘zi yuboriladi</div>
         ) : (
           <div className="tiny muted" style={{ textAlign: "center", marginTop: 8 }}>
-            Maslahat: shovqinsiz joyda gapiring; quloqchin bilan ustoz o‘z ovozini eshitmaydi.
+            Maslahat: shovqinsiz joyda gapiring; ustoz ovozi past bo‘lsa — telefonning ovoz tugmasini bosing.
           </div>
         )}
       </div>

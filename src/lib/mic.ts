@@ -1,12 +1,9 @@
 "use client";
 
-import { pickRecorderMime } from "./audio";
+import { pickRecorderMime, setCallMode, suspendVoiceAudio, voiceContext } from "./audio";
 
 // Mikrofon: gapni yozib oladi va gapirib bo'lgach jim tursangiz o'zi to'xtaydi.
 // Ovozli ustoz (/speak/ustoz) va erkin suhbat (/speak/free) shu yerdan foydalanadi.
-
-// Ovoz balandligi (RMS) shu chegaradan oshsa — gapiryapti deb hisoblaymiz
-const SPEECH_RMS = 0.025;
 
 export type SpeechTiming = {
   /** gapirib bo'lgach shuncha ms jim tursa — tugadi */
@@ -15,6 +12,11 @@ export type SpeechTiming = {
   noSpeechMs?: number;
   maxMs?: number;
 };
+
+// Ovoz balandligi (RMS) chegarasi: shovqin darajasiga qarab moslashadi (jim xonada sezgirroq, shovqinda qattiqroq).
+// Mikrofon «xom» ovoz beradi (exo/shovqin bostirish o'chiq) — shuning uchun qat'iy chegara yetmaydi.
+const SPEECH_MIN = 0.009;
+const SPEECH_MAX = 0.06;
 
 /**
  * Mikrofon ovozini kuzatadi: balandlikni onLevel'ga beradi va gapirib bo'lgach jim tursa
@@ -26,6 +28,7 @@ export function monitorSpeech(an: AnalyserNode, onLevel: (rms: number) => void, 
   const t0 = performance.now();
   let heard = false;
   let lastLoud = t0;
+  let floor = Infinity; // shovqin darajasi: eng past balandlik (sekin ko'tarilib boradi)
   let done = false;
   let id = 0;
   const end = (noSpeech: boolean) => {
@@ -41,7 +44,9 @@ export function monitorSpeech(an: AnalyserNode, onLevel: (rms: number) => void, 
     const rms = Math.sqrt(sum / wave.length);
     onLevel(rms);
     const now = performance.now();
-    if (rms > SPEECH_RMS) {
+    if (rms > 0) floor = rms < floor ? rms : floor + (rms - floor) * 0.002;
+    const threshold = Math.min(SPEECH_MAX, Math.max(SPEECH_MIN, floor * 2.5));
+    if (rms > threshold) {
       if (now - t0 > 250) heard = true;
       lastLoud = now;
     }
@@ -77,63 +82,63 @@ export type Recording = {
 
 export class MicError extends Error {}
 
-const AUDIO: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
-
 const isIos = () =>
   typeof navigator !== "undefined" && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
 
-/** Ruxsat berilmaganda: qurilmaga mos, doimiy ruxsat berish yo'li bilan */
-function deniedText() {
+/**
+ * Mikrofon sozlamalari. Exo bostirish (echoCancellation) O'CHIQ: iPhone uni yoqsa «ovozli qo'ng'iroq» ishlovini
+ * ulaydi — javob ovozi past, xuddi quloqqa tutiladigan dinamikdan chiqqandek bo'ladi. Bizga exo bostirish kerak emas:
+ * javob o'qilayotganda yozuv bo'lmaydi (ovoz faqat sizning navbatingizda yoziladi).
+ */
+function constraints(): MediaTrackConstraints {
+  return isIos()
+    ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }
+    : { echoCancellation: false, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
+}
+
+const isApp = () =>
+  typeof window !== "undefined" &&
+  ((navigator as unknown as { standalone?: boolean }).standalone === true || !!window.matchMedia?.("(display-mode: standalone)").matches);
+
+/** Mikrofon ochilmadi: xato turiga va qurilmaga mos xabar (oxirida — xato nomi, muammoni aniqlash uchun) */
+function micErrorText(e: unknown) {
+  const name = e instanceof Error || e instanceof DOMException ? e.name : "";
+  const tag = name ? ` (${name})` : "";
   if (typeof window !== "undefined" && !window.isSecureContext) return "Mikrofon faqat https:// manzilda ishlaydi.";
-  // Bosh ekrandagi ilova (manzil qatori yo'q): iPhone ilova qayta ochilganda yana so'raydi
-  const app =
-    typeof window !== "undefined" &&
-    ((navigator as unknown as { standalone?: boolean }).standalone === true || window.matchMedia?.("(display-mode: standalone)").matches);
-  if (isIos() && app)
-    return "Mikrofonga ruxsat berilmadi. Ilovani butunlay yopib (pastdan yuqoriga surib), qayta oching va so‘ralganda «Ruxsat berish» (Allow) ni bosing. Hozircha yozib yuborishingiz mumkin.";
+  if (name === "NotFoundError" || name === "OverconstrainedError") return `Mikrofon topilmadi. Yozib yuborishingiz mumkin.${tag}`;
+  if (name === "NotReadableError" || name === "AbortError")
+    return `Mikrofon band: qo‘ng‘iroq yoki boshqa ilova uni ishlatyapti. Uni yopib, mikrofonni qayta bosing.${tag}`;
+  if (isIos() && isApp())
+    return `Mikrofonga ruxsat berilmadi. Ilovani butunlay yopib (pastdan yuqoriga surib), qayta oching va so‘ralganda «Ruxsat berish» (Allow) ni bosing. Hozircha yozib yuborishingiz mumkin.${tag}`;
   if (isIos())
-    return "Mikrofonga ruxsat berilmadi. Har safar so‘ramasligi uchun: Safari’da manzil qatoridagi «aA» → «Veb-sayt sozlamalari» (Website Settings) → Mikrofon → «Ruxsat berish» (Allow). Hozircha yozib yuborishingiz mumkin.";
-  return "Mikrofonga ruxsat berilmadi. Manzil qatoridagi 🔒 belgisini bosing → Mikrofon → «Ruxsat berish». Hozircha yozib yuborishingiz mumkin.";
+    return `Mikrofonga ruxsat berilmadi. Har safar so‘ramasligi uchun: Safari’da manzil qatoridagi «aA» → «Veb-sayt sozlamalari» (Website Settings) → Mikrofon → «Ruxsat berish» (Allow). Hozircha yozib yuborishingiz mumkin.${tag}`;
+  return `Mikrofonga ruxsat berilmadi. Manzil qatoridagi 🔒 belgisini bosing → Mikrofon → «Ruxsat berish». Hozircha yozib yuborishingiz mumkin.${tag}`;
 }
 
+// ---------- Mikrofon suhbat davomida ochiq ----------
+// Mikrofon suhbatda bir marta ochiladi va «To'xtatish», chiqish yoki 3 daqiqa ishlatilmaslikkacha ochiq turadi —
+// xuddi qo'ng'iroqdagidek. Sabab (iPhone, ayniqsa bosh ekrandagi ilova): mikrofonni har navbatda yopib-ochish
+// telefonning ovoz rejimini qayta-qayta almashtiradi — shundan keyin javob ovozi o'ynamay qolardi, mikrofonni qayta
+// ochishga esa ruxsat berilmasdi. Mikrofon ochiq paytda iPhone sahifaga Web Audio ovozini tugma bosilmasa ham
+// o'ynatishga ruxsat beradi — javoblar shu yo'l bilan o'ynaydi (audio.ts, setCallMode).
+// Ovoz baribir faqat sizning navbatingizda (ekranda «Tinglayapman») yoziladi: MediaRecorder faqat shu paytda ishlaydi.
+// navigator.audioSession ataylab o'zgartirilmaydi (avvalgi «playback» ↔ «play-and-record» almashtirish iPhone'da
+// ijroni ham, mikrofonni ham buzardi).
 
-// ---------- iPhone ovoz rejimi ----------
-// navigator.audioSession — Safari 16.4+ (boshqa brauzerlarda hech narsa qilmaydi). Yozuv paytida — «play-and-record»;
-// mikrofon yopilgach — «playback» (javob baland karnaydan); suhbatdan chiqqanda — «auto» (oddiy ovoz rejimi).
-type SessionType = "auto" | "playback" | "play-and-record";
-function setAudioSession(type: SessionType) {
-  try {
-    const s = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
-    if (s && s.type !== type) s.type = type;
-  } catch {}
-}
-/** Mikrofon yopiq paytdagi ovoz rejimi: suhbat davomida — «playback», chiqqach — «auto» */
-let idleSession: SessionType = "auto";
-
-// ---------- Mikrofon qachon ochiq turadi ----------
-// Telefonning o'z mikrofoni va karnayi (quloqchinsiz): mikrofon ochiq paytda iPhone (va ko'p Android) ovozni
-// «qo'ng'iroq» rejimiga o'tkazadi — javob baland karnaydan emas, quloqqa tutiladigan dinamikdan past chiqadi,
-// ijrodan keyin esa ochiq qolgan mikrofon ba'zan ovoz bermay qo'yadi (to'lqin yo'q, yozuv bo'sh). Shuning uchun
-// quloqchinsiz mikrofon FAQAT yozuv paytida ochiq: yozuv tugashi bilan yopiladi, javob baland karnaydan eshitiladi.
-// Quloqchin (Bluetooth / simli) bilan: mikrofon suhbat davomida ochiq turadi — aks holda quloqchin har navbatda
-// «musiqa ↔ qo'ng'iroq» rejimiga o'tib (1-2 soniya), shu paytda boshlangan javob ovozi eshitilmay qoladi.
-// Ikkala holatda ham ovoz faqat sizning navbatingizda (ekranda «Tinglayapman») yoziladi.
-
-/** Ochiq mikrofon: oqim + ovoz balandligini o'lchash (AudioContext oqim bilan birga ochiladi va yopiladi) */
-type Mic = { stream: MediaStream; ctx: AudioContext; an: AnalyserNode; headset: boolean; at: number; users: number; closed?: boolean };
+/** Ochiq mikrofon: oqim + ovoz balandligini o'lchash (umumiy AudioContext'da) */
+type Mic = { stream: MediaStream; ctx: AudioContext; src: MediaStreamAudioSourceNode; an: AnalyserNode; headset: boolean; at: number; users: number; closed?: boolean };
 
 const HEADSET = /airpods|bluetooth|headset|headphone|hands-?free|buds|pods|airdots|beats|bose|sony|jbl|wh-|wf-|наушник|гарнитур/i;
-/** Shuncha vaqt yozilmasa — quloqchindagi ochiq mikrofon ham yopiladi (telefon unutib qoldirilsa ham ochiq turmasin) */
+/** Shuncha vaqt yozilmasa — ochiq mikrofon yopiladi (telefon unutib qoldirilsa ham ochiq turmasin) */
 const IDLE_RELEASE_MS = 3 * 60_000;
-/** Mikrofon yopilgach telefon karnay rejimiga qaytib olishi uchun kutish (aks holda iPhone ovozni jim «o'ynashi» mumkin) */
-const QUIET_MS = 450;
-/** Mikrofon ochilgach Bluetooth quloqchin «qo'ng'iroq» rejimiga o'tib olishi uchun kutish */
+/** Mikrofon endigina ochilgan bo'lsa — telefon (Bluetooth quloqchin) ovoz rejimini almashtirib olishi uchun kutish */
+const SETTLE_MS = 300;
 const HEADSET_SETTLE_MS = 900;
 /** Yozuv boshlanib shuncha vaqt ichida mikrofondan bironta ham ovoz namunasi kelmasa — mikrofon «o'lik» */
 const DEAD_MS = 2000;
 const HEADSET_DEAD_MS = 3500;
 
-/** Suhbat davomida ochiq turgan mikrofon (faqat quloqchin bilan; quloqchinsiz — faqat yozuv paytida) */
+/** Suhbat davomida ochiq turgan mikrofon */
 let held: Mic | null = null;
 let opening: Promise<Mic> | null = null;
 let epoch = 0; // releaseMic() da oshadi — chiqqandan keyin ochilib ulgurgan mikrofon saqlanib qolmasligi uchun
@@ -141,34 +146,34 @@ let lastClose = 0;
 let asked = false; // shu sahifa ochilgandan beri mikrofon so'ralganmi
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
-const live = (m: Mic | null) => !!m && m.stream.getAudioTracks().some((t) => t.readyState === "live" && !t.muted);
+const live = (m: Mic | null) => !!m && !m.closed && m.stream.getAudioTracks().some((t) => t.readyState === "live" && !t.muted);
 
 async function openMic(): Promise<Mic> {
   asked = true;
-  idleSession = "playback";
-  setAudioSession("play-and-record");
+  const ctx = voiceContext();
   let stream: MediaStream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO });
-  } catch {
-    if (!held) setAudioSession(idleSession);
-    throw new MicError(deniedText());
+    stream = await navigator.mediaDevices.getUserMedia({ audio: constraints() });
+  } catch (e) {
+    throw new MicError(micErrorText(e));
   }
   try {
-    const ctx = new AudioContext();
+    if (!ctx) throw new Error("no AudioContext");
     const an = ctx.createAnalyser();
     an.fftSize = 512;
-    ctx.createMediaStreamSource(stream).connect(an);
+    const src = ctx.createMediaStreamSource(stream);
+    src.connect(an);
+    // Mikrofon ochiq paytda kontekstni tugma bosilmasa ham ishga tushirish mumkin (iPhone ham ruxsat beradi)
+    void ctx.resume?.().catch(() => {});
     const headset = HEADSET.test(stream.getAudioTracks()[0]?.label ?? "");
-    return { stream, ctx, an, headset, at: performance.now(), users: 0 };
+    return { stream, ctx, src, an, headset, at: performance.now(), users: 0 };
   } catch {
     stream.getTracks().forEach((t) => t.stop());
-    if (!held) setAudioSession(idleSession);
     throw new MicError("Brauzeringiz ovoz yozishni qo‘llamaydi. Yozib yuboring.");
   }
 }
 
-/** Mikrofonni yopadi: telefondagi mikrofon belgisi o'chadi, ovoz yana baland karnaydan chiqadi */
+/** Mikrofonni yopadi: telefondagi mikrofon belgisi o'chadi */
 function closeMic(m: Mic) {
   if (held === m) {
     held = null;
@@ -177,9 +182,11 @@ function closeMic(m: Mic) {
   if (m.closed) return;
   m.closed = true;
   m.stream.getTracks().forEach((t) => t.stop());
-  void m.ctx.close().catch(() => {});
+  try {
+    m.src.disconnect();
+  } catch {}
   lastClose = performance.now();
-  if (!held) setAudioSession(idleSession);
+  if (!held) setCallMode(false);
 }
 
 function armIdle(m: Mic) {
@@ -200,6 +207,7 @@ async function sharedMic(): Promise<Mic> {
       .then((m) => {
         if (e !== epoch) return m; // shu orada suhbatdan chiqildi — saqlamaymiz (ishlatgan joy o'zi yopadi)
         held = m;
+        setCallMode(true);
         m.stream.getAudioTracks().forEach((t) =>
           t.addEventListener("ended", () => {
             if (held === m && m.users === 0) closeMic(m);
@@ -215,7 +223,7 @@ async function sharedMic(): Promise<Mic> {
 }
 
 /**
- * Yozuv mikrofonni «band qiladi». Qaytgan funksiya bo'shatadi: quloqchin bo'lsa — suhbat uchun ochiq qoladi,
+ * Yozuv mikrofonni «band qiladi». Qaytgan funksiya bo'shatadi: suhbat rejimida (keep) mikrofon ochiq qoladi,
  * aks holda (yoki mikrofon buzuq bo'lsa) — yopiladi. Bir necha marta chaqirilsa ham bir marta ishlaydi.
  */
 function lease(m: Mic, keep: boolean) {
@@ -225,7 +233,7 @@ function lease(m: Mic, keep: boolean) {
     if (done) return;
     done = true;
     m.users--;
-    if (!broken && keep && m.headset && held === m && live(m)) return armIdle(m);
+    if (!broken && keep && held === m && live(m)) return armIdle(m);
     if (held === m) {
       held = null;
       clearTimeout(idleTimer);
@@ -235,50 +243,40 @@ function lease(m: Mic, keep: boolean) {
 }
 
 /**
- * Tugma bosilgan paytda chaqiring: mikrofonga ruxsat shu bosishda (kerak bo'lsa) so'raladi.
- * Quloqchin bilan mikrofon suhbat davomida ochiq qoladi; quloqchinsiz — darhol yopiladi (salom ovozi karnaydan).
- * Hech qachon xato bermaydi: ruxsat berilmasa — mikrofon bosilganda xabar chiqadi.
+ * Tugma bosilgan paytda chaqiring: mikrofonga ruxsat shu bosishda (kerak bo'lsa) so'raladi va mikrofon
+ * suhbat davomida ochiq qoladi. Hech qachon xato bermaydi: ruxsat berilmasa — mikrofon bosilganda xabar chiqadi.
  */
 export async function warmMic(): Promise<void> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return;
   try {
     const m = await sharedMic();
-    if (m.headset && held === m) armIdle(m);
-    else if (m.users === 0) closeMic(m);
+    if (held === m && m.users === 0) armIdle(m);
   } catch {}
 }
 
-/**
- * Javob ovozini o'ynatishdan oldin chaqiring. Quloqchinsiz: mikrofon ochiq qolgan bo'lsa — yopiladi va telefon
- * karnay rejimiga qaytib olguncha kutiladi. Quloqchin bilan: mikrofon endigina ochilgan bo'lsa — quloqchin
- * «qo'ng'iroq» rejimiga o'tib olguncha kutiladi (aks holda javobning boshi yoki hammasi eshitilmay qoladi).
- */
+/** Mikrofon endigina ochilgan bo'lsa — javob ovozidan oldin telefon ovoz rejimini almashtirib olguncha kutadi */
 export async function micSettled() {
   if (opening) await opening.catch(() => {});
-  if (held && !held.headset && held.users === 0) closeMic(held);
-  const until = held?.headset ? held.at + HEADSET_SETTLE_MS : lastClose + QUIET_MS;
-  const left = until - performance.now();
+  const left = settleUntil() - performance.now();
   if (left > 0) await new Promise((r) => setTimeout(r, left));
 }
 
+const settleUntil = () => (held ? held.at + (held.headset ? HEADSET_SETTLE_MS : SETTLE_MS) : 0);
+
 /**
- * micSettled() ni kutish kerakmi. Kerak bo'lmasa (mikrofon ochilmagan / ancha oldin yopilgan) — javob ovozi
- * await'siz, shu zahoti boshlanadi: tugma bosilgan paytda bo'lsa (birinchi salom) iPhone uni albatta o'ynatadi.
+ * micSettled() ni kutish kerakmi. Kerak bo'lmasa — javob ovozi await'siz, shu zahoti boshlanadi:
+ * tugma bosilgan paytda bo'lsa (birinchi salom) iPhone uni albatta o'ynatadi.
  */
 export function micSettleNeeded() {
-  if (opening) return true;
-  if (held && !held.headset && held.users === 0) return true;
-  const until = held?.headset ? held.at + HEADSET_SETTLE_MS : lastClose + QUIET_MS;
-  return until > performance.now();
+  return !!opening || settleUntil() > performance.now();
 }
 
 // ---------- Ruxsat qayta so'ralmasligi uchun ----------
-// iPhone (WebKit) bergan ruxsatni ilova ochiq turguncha eslab turadi, lekin mikrofon yopilgach:
-//  - tugma bosilmasdan (o'zi) qayta ochilsa va mikrofon 1 daqiqadan ko'p yopiq turgan bo'lsa — ruxsatni qayta so'raydi;
-//  - tugma bosib ochilsa — 10 daqiqagacha so'ramaydi.
-// Shuning uchun mikrofon o'zi faqat ruxsat so'ralmaydigan paytda yoqiladi; aks holda «Navbat sizda — mikrofonni
-// bosing» (bosilganda ruxsat qayta so'ralmaydi). Android va kompyuterda ruxsat saytga doimiy beriladi — cheklov yo'q.
+// Mikrofon suhbat davomida ochiq — ruxsat bir marta so'raladi. U yopilgan bo'lsa (3 daqiqa jimlik, «To'xtatish»):
+// iPhone uni tugma bosilmasdan (o'zi) qayta ochganda, 1 daqiqadan ko'p yopiq turgan bo'lsa, ruxsatni qayta so'raydi.
+// Shuning uchun bunday paytda mikrofon o'zi yoqilmaydi — «Navbat sizda», bosilganda ochiladi.
 // Istisno — eng birinchi ochilish (salomdan keyin): ruxsat baribir bir marta so'raladi, bu o'sha yagona so'rov.
+// Android va kompyuterda ruxsat saytga doimiy beriladi — cheklov yo'q.
 const AUTO_OPEN_MS = 50_000;
 
 /** Mikrofonni tugma bosilmasdan (o'zi) yoqsa bo'ladimi — ruxsat qayta so'ralmaydimi */
@@ -289,19 +287,19 @@ export function micCanAutoOpen() {
   return lastClose > 0 && performance.now() - lastClose < AUTO_OPEN_MS;
 }
 
-/** Suhbatdan chiqqanda / «To'xtatish»: mikrofon yopiladi va telefon oddiy ovoz rejimiga qaytadi */
+/** Suhbatdan chiqqanda / «To'xtatish»: mikrofon yopiladi, suhbat ovozi to'xtaydi */
 export function releaseMic() {
   epoch++;
-  idleSession = "auto";
   const m = held;
   if (m) closeMic(m);
-  setAudioSession("auto");
+  setCallMode(false);
+  suspendVoiceAudio();
 }
 
 /**
  * Mikrofonni ochib, yozishni boshlaydi. Ruxsat berilmasa — MicError (o'zbekcha matn bilan).
- * keep — suhbat rejimi: quloqchin bilan mikrofon yozuvdan keyin ochiq qoladi (chiqishda releaseMic() chaqiring);
- * quloqchinsiz va oddiy rejimda yozuv tugashi bilan mikrofon yopiladi.
+ * keep — suhbat rejimi: mikrofon yozuvdan keyin ochiq qoladi (chiqishda releaseMic() chaqiring);
+ * oddiy rejimda yozuv tugashi bilan mikrofon yopiladi.
  * Mikrofon ovoz bermasa (iPhone ba'zan ochiq mikrofonni «o'chirib» qo'yadi) — bir marta o'zi qaytadan ochadi.
  */
 export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: number) => void; keep?: boolean } = {}): Promise<Recording> {

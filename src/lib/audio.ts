@@ -384,7 +384,7 @@ const TICK_MS = 250;
  * yubormaydi. Shuning uchun haqiqiy o'ynash joyi (currentTime) kuzatiladi: to'xtab qolsa — bir marta davom ettiramiz
  * (boshidan emas, to'xtagan joyidan), bo'lmasa false; oxiriga yetib to'xtagan bo'lsa — tugadi. Ekranda «gapiryapti» qotib qolmaydi.
  */
-function playUrl(url: string, onStart?: () => void, rate = 1): Promise<boolean> {
+function playElement(url: string, onStart?: () => void, rate = 1): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const a = audioEl();
     let done = false;
@@ -461,6 +461,182 @@ function playUrl(url: string, onStart?: () => void, rate = 1): Promise<boolean> 
     a.playbackRate = rate;
     play();
   });
+}
+
+// ---------- Suhbat rejimi: javob ovozi Web Audio orqali ----------
+// Mikrofon ochiq paytda (suhbat — xuddi qo'ng'iroqdagidek) iPhone sahifaga <audio> ni tugma bosilmasa o'ynatishni
+// ko'pincha taqiqlaydi, lekin Web Audio (AudioContext) ovozini — ruxsat beradi. Shuning uchun suhbat rejimida
+// (mic.ts → setCallMode) barcha ovozlar bitta umumiy AudioContext orqali o'ynaydi. Shu kontekst mikrofon
+// balandligini o'lchash uchun ham ishlatiladi. Web Audio ishlamasa — odatdagi <audio> ga qaytiladi.
+
+type AudioCtor = typeof AudioContext;
+let actx: AudioContext | null = null;
+let callMode = false;
+
+/** Umumiy AudioContext (kerak bo'lsa yaratadi). Brauzer qo'llamasa — null */
+export function voiceContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (actx && actx.state !== "closed") return actx;
+  const C = (window.AudioContext ?? (window as unknown as { webkitAudioContext?: AudioCtor }).webkitAudioContext) as AudioCtor | undefined;
+  if (!C) return null;
+  try {
+    actx = new C();
+  } catch {
+    actx = null;
+  }
+  return actx;
+}
+
+/**
+ * Foydalanuvchi bosgan paytda (tugma handler'ida) chaqiring: <audio> ham, Web Audio ham ochiladi —
+ * keyingi avtomatik ovozlar iPhone'da ham o'ynaydi.
+ */
+export function primeAudio() {
+  unlockAudio();
+  const c = voiceContext();
+  if (!c) return;
+  if (c.state !== "running") void c.resume().catch(() => {});
+  // iPhone: bo'sh bufer o'ynatilganda kontekst haqiqatan ochiladi
+  try {
+    const s = c.createBufferSource();
+    s.buffer = c.createBuffer(1, 1, 22050);
+    s.connect(c.destination);
+    s.start(0);
+  } catch {}
+}
+
+/** mic.ts chaqiradi: mikrofon ochiq (suhbat rejimi) — ovozlar Web Audio orqali o'ynaydi */
+export function setCallMode(on: boolean) {
+  callMode = on;
+}
+
+/** Suhbatdan chiqqanda: kontekst to'xtatib qo'yiladi (keyingi bosishda primeAudio qayta ochadi) */
+export function suspendVoiceAudio() {
+  if (actx && actx.state === "running") void actx.suspend().catch(() => {});
+}
+
+/** Kontekst ishlayaptimi — to'xtab turgan bo'lsa uyg'otib ko'radi (mikrofon ochiq paytda iPhone ham ruxsat beradi) */
+async function ctxRunning(c: AudioContext, ms = 700): Promise<boolean> {
+  if (c.state === "running") return true;
+  try {
+    await Promise.race([c.resume(), new Promise((r) => setTimeout(r, ms))]);
+  } catch {}
+  return (c.state as string) === "running";
+}
+
+const decoded = new Map<string, AudioBuffer>();
+
+async function decodeUrl(c: AudioContext, url: string): Promise<AudioBuffer | null> {
+  const hit = decoded.get(url);
+  if (hit) return hit;
+  try {
+    const data = await (await fetch(url)).arrayBuffer();
+    if (!envelopes.has(url)) envelopes.set(url, wavEnvelope(data)); // decodeAudioData buferni «olib qo'yadi» — oldin hisoblaymiz
+    const buf = await new Promise<AudioBuffer>((resolve, reject) => {
+      const p = c.decodeAudioData(data, resolve, reject); // eski Safari faqat callback bilan ishlaydi
+      if (p && typeof p.then === "function") p.then(resolve, reject);
+    });
+    decoded.set(url, buf);
+    if (decoded.size > 40) decoded.delete(decoded.keys().next().value as string);
+    return buf;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * AudioBuffer'ni o'ynatadi. ended — oxirigacha; stopped — to'xtatildi; failed — o'rtasida to'xtab qoldi;
+ * stall — umuman boshlanmadi (kontekst soati yurmadi) — chaqiruvchi <audio> bilan qayta urinadi.
+ */
+function playBuffer(c: AudioContext, buf: AudioBuffer, url: string, onStart?: () => void, rate = 1): Promise<"ended" | "stopped" | "failed" | "stall"> {
+  return new Promise((resolve) => {
+    let src: AudioBufferSourceNode;
+    try {
+      src = c.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = rate;
+      src.connect(c.destination);
+    } catch {
+      return resolve("stall");
+    }
+    const env = envelopes.get(url) ?? null;
+    const dur = buf.duration / rate;
+    let t0 = c.currentTime;
+    let lastT = t0;
+    let lastMove = performance.now();
+    let done = false;
+    const finish = (r: "ended" | "stopped" | "failed" | "stall") => {
+      if (done) return;
+      done = true;
+      clearInterval(tick);
+      src.onended = null;
+      try {
+        src.disconnect();
+      } catch {}
+      if (current === ctl) current = null;
+      if (levelSource === level) levelSource = null;
+      resolve(r);
+    };
+    const level = () => {
+      const t = Math.max(0, c.currentTime - t0) * rate;
+      return env ? env[Math.floor(t * ENV_FPS)] ?? 0 : syntheticLevel();
+    };
+    const ctl = {
+      stop: () => {
+        try {
+          src.stop();
+        } catch {}
+        finish("stopped");
+      },
+    };
+    const tick = setInterval(() => {
+      const now = c.currentTime;
+      if (now !== lastT) {
+        lastT = now;
+        lastMove = performance.now();
+      }
+      if (now - t0 >= dur + 0.25) return finish("ended"); // «ended» kelmasa ham
+      if (performance.now() - lastMove > STALL_MS) {
+        try {
+          src.stop();
+        } catch {}
+        finish(now - t0 > 0.15 ? "failed" : "stall");
+      }
+    }, TICK_MS);
+    current = ctl;
+    levelSource = level;
+    src.onended = () => finish("ended");
+    try {
+      t0 = c.currentTime;
+      src.start();
+    } catch {
+      return finish("stall");
+    }
+    onStart?.();
+  });
+}
+
+/**
+ * Ovozni o'ynatadi: suhbat rejimida — Web Audio orqali (boshlanmasa — <audio> bilan), aks holda — <audio>
+ * (await'siz, shu zahoti: tugma bosilgan paytda chaqirilsa iPhone ham o'ynatadi).
+ * true — oxirigacha o'ynadi; false — to'xtatildi yoki ovoz chiqmadi.
+ */
+function playUrl(url: string, onStart?: () => void, rate = 1): Promise<boolean> {
+  const c = callMode ? actx : null;
+  if (!c) return playElement(url, onStart, rate);
+  const token = playToken;
+  return (async () => {
+    if (await ctxRunning(c)) {
+      const buf = await decodeUrl(c, url);
+      if (token !== playToken) return false;
+      if (buf) {
+        const r = await playBuffer(c, buf, url, onStart, rate);
+        if (r !== "stall") return r === "ended";
+      }
+    }
+    if (token !== playToken) return false;
+    return playElement(url, onStart, rate);
+  })();
 }
 
 // ---------- Ovozli ustoz: o'zbekcha + koreyscha aralash nutq ----------

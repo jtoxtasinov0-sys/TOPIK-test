@@ -39,10 +39,10 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
  * NDJSON oqimli so'rov: server har bir qatorni yuborishi bilan onEvent chaqiriladi (butun javobni kutmasdan).
  * Server oddiy JSON qaytarsa — u bitta hodisa sifatida beriladi.
  */
-export async function postNdjson<T>(url: string, body: unknown, onEvent: (e: T) => void): Promise<void> {
+export async function postNdjson<T>(url: string, body: unknown, onEvent: (e: T) => void, signal?: AbortSignal): Promise<void> {
   let res: Response;
   try {
-    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
   } catch {
     throw new ApiError("network", 0);
   }

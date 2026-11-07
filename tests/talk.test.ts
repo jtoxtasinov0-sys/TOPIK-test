@@ -349,6 +349,19 @@ describe("/api/talk oqimi", () => {
     assert.equal(ttsCalls.length, 2, "Gemini TTS har bo'lakka bir marta");
   });
 
+  test("oldindan yuborilgan yozuv javobdan oldin bekor qilinsa — kunlik limit qaytariladi", async () => {
+    const { chargeQuota, refundQuota } = await import("../src/lib/server/guard");
+    const { getStore } = await import("../src/lib/server/store");
+    const u = { id: "spec-user", email: "spec@example.com", name: "S", createdAt: 0, lastLoginAt: 0, trialEndsAt: 0 };
+    const key = `q:${u.id}:talk:${new Date().toISOString().slice(0, 10)}`;
+    await chargeQuota(u, "talk");
+    await chargeQuota(u, "talk");
+    assert.equal(await getStore().get<number>(key), 2);
+    await refundQuota(u, "talk");
+    assert.equal(await getStore().get<number>(key), 1, "bekor qilingan so'rov hisobga olinmaydi");
+    await refundQuota(null, "talk"); // ochiq rejim — hech narsa qilmaydi
+  });
+
   test("partialField: hali tugamagan satr maydonining kelgan qismi", () => {
     assert.equal(partialField('{"heard":"네","help":[],"reply":"아, 좋아요! 저', "reply"), "아, 좋아요! 저");
     assert.equal(partialField('{"reply":"a\\"b\\n', "reply"), 'a"b\n');

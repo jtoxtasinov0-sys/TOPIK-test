@@ -1,6 +1,6 @@
 import { AiError, errorResponse, generateJson, hasKey, LANG_NAME, MODELS, normalizeMime, partialField, rateLimit, streamText, type ContentPart } from "@/lib/gemini";
 import { talkSchema } from "@/lib/schemas";
-import { aiAccess, authEnabled } from "@/lib/server/guard";
+import { aiAccess, authEnabled, refundQuota } from "@/lib/server/guard";
 import { readSession } from "@/lib/server/session";
 import { jsonEvents, ndjson } from "@/lib/server/events";
 import type { User } from "@/lib/server/users";
@@ -144,7 +144,8 @@ Keep it friendly and appropriate. If the student brings up something inappropria
       }
       const src = await opened;
       // Javob ovozi ham shu oqimda: brauzer o'ynatadigan bo'laklar bilan aynan bir xil (do'st ovozi, boshlang'ichga — sekinroq)
-      if (!(src instanceof Error)) return ndjson(talkEvents(src, { ...ctx, tts: hasKey() ? { voice: p.voice, slow: level === "beginner", user } : undefined }));
+      if (!(src instanceof Error))
+        return ndjson(talkEvents(src, { ...ctx, user, signal: req.signal, tts: hasKey() ? { voice: p.voice, slow: level === "beginner", user } : undefined }));
       if (src instanceof AiError && [429, 503, 504].includes(src.status)) throw src;
       // Oqim + JSON sxemasi ishlamasa — bir muddat oddiy so'rovga o'tamiz
       streamOffUntil = Date.now() + 10 * 60_000;
@@ -162,7 +163,14 @@ Keep it friendly and appropriate. If the student brings up something inappropria
 /** Oqim (JSON + sxema) ishlamay qolsa — shu vaqtgacha oddiy so'rov ishlatiladi */
 let streamOffUntil = 0;
 
-type Ctx = { start: boolean; typed: string; tts?: { voice: "m" | "f"; slow: boolean; user: User | null } };
+type Ctx = {
+  start: boolean;
+  typed: string;
+  tts?: { voice: "m" | "f"; slow: boolean; user: User | null };
+  /** oqim uchun: limitni qaytarish (so'rov javobdan oldin bekor qilinsa) */
+  user?: User | null;
+  signal?: AbortSignal;
+};
 type Help = { lang: "uz" | "ko"; text: string };
 
 const helpOf = (r: Partial<Raw>): Help[] =>
@@ -204,6 +212,16 @@ function finish(r: Raw, { start, typed }: Ctx) {
 function talkEvents(src: ReadableStream<Uint8Array>, ctx: Ctx): ReadableStream<Uint8Array> {
   const voiceMsg = !ctx.start && !ctx.typed;
   let heard = false;
+  // Brauzer so'rovni javob yozilmasdan bekor qilsa (erkin suhbatda oldindan yuborilgan yozuv — o'quvchi yana
+  // gapira boshladi) — kunlik limit qaytariladi: Gemini javobni yozib ulgurmagan
+  let replied = false;
+  let refunded = false;
+  const cancelled = () => {
+    if (replied || refunded) return;
+    refunded = true;
+    void refundQuota(ctx.user ?? null, "talk");
+  };
+  ctx.signal?.addEventListener("abort", cancelled, { once: true });
   let early = ""; // oldindan ovozlanayotgan birinchi gap
   // Oldindan tayyorlangan ovoz brauzer uni kutayotganini bilgachgina («reply» dan keyin) yuboriladi
   let replySent!: () => void;
@@ -239,12 +257,15 @@ function talkEvents(src: ReadableStream<Uint8Array>, ctx: Ctx): ReadableStream<U
       const chunks = tts ? talkChunks({ help, reply, voice: tts.voice, slow: tts.slow }) : [];
       api.voice(chunks.filter((c) => c.text !== early || !c.opts.talk));
       api.emit({ t: "reply", transcript: ctx.start ? "" : ctx.typed || plain(f.heard), help, teach: teachOf(f, help), reply, tts: chunks });
+      replied = true;
       replySent();
       return "enough";
     },
     (raw, api) => {
+      replied = true;
       replySent();
       api.emit({ t: "done", ...finish(raw, ctx) });
-    }
+    },
+    cancelled
   );
 }

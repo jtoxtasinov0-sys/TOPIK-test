@@ -6,9 +6,9 @@ import { micToLevel, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { LEVELS, PARTNERS, STYLES, TOPICS, greeting, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
-import { expectAudio, outputLevel, playTalk, prefetchTalk, stopAudio, unlockAudio, type AudioWait, type Segment, type TtsOpts } from "@/lib/audio";
+import { expectAudio, outputLevel, playTalk, prefetchTalk, stopAudio, unlockAudio, type AudioWait, type PlayResult, type Segment, type TtsOpts } from "@/lib/audio";
 import Link from "next/link";
-import { MIC_DEAD_TEXT, MicError, micCanAutoOpen, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
+import { MIC_DEAD_TEXT, MicError, micCanAutoOpen, micSettled, micSettleNeeded, releaseMic, startRecording, type Recording } from "@/lib/mic";
 import { romanize } from "@/lib/romanize";
 import { touchStreak, useStored } from "@/lib/store";
 
@@ -19,7 +19,8 @@ import { touchStreak, useStored } from "@/lib/store";
 type Teach = { ko: string; rom?: string; uz?: string };
 type Hint = { ko: string; uz: string };
 type Fix = { ko: string; uz?: string };
-type AiMsg = { role: "ai"; help: Segment[]; teach?: Teach; ko: string; rom?: string; uz?: string; hints: Hint[] };
+/** whole — birinchi salom: ovozi oldindan tayyor, bitta bo'lak bo'lib uzilishsiz o'ynaydi */
+type AiMsg = { role: "ai"; help: Segment[]; teach?: Teach; ko: string; rom?: string; uz?: string; hints: Hint[]; whole?: boolean };
 type MeMsg = { role: "me"; text: string; fix?: Fix };
 type Msg = AiMsg | MeMsg;
 type TalkRes = {
@@ -142,7 +143,7 @@ export default function FreeTalkPage() {
     if (started) return;
     const t = setTimeout(() => {
       const g = greeting(s.partner, s.topic, s.style);
-      prefetchTalk({ reply: g.ko, voice: partnerOf(s.partner).voice, slow: s.level === "beginner" });
+      prefetchTalk({ reply: g.ko, voice: partnerOf(s.partner).voice, slow: s.level === "beginner", whole: true });
     }, 700);
     return () => clearTimeout(t);
   }, [started, s.partner, s.topic, s.style, s.level]);
@@ -159,26 +160,31 @@ export default function FreeTalkPage() {
 
   /**
    * Do'st gapiradi. Shu paytda mikrofon yopiq: navbat — do'stda (iPhone ham ovozni pasaytirmaydi).
-   * true — oxirigacha o'qildi, endi navbat o'quvchiga; false — to'xtatildi, ovoz chiqmadi yoki boshqa ovoz almashtirdi.
+   * Mikrofonni kutish kerak bo'lmasa — ovoz await'siz, shu zahoti boshlanadi (tugma bosilgan paytda — iPhone ham o'ynatadi).
+   * ended — oxirigacha o'qildi; failed — ovoz chiqmadi (navbat baribir o'quvchiga, suhbat qotmaydi);
+   * stopped — to'xtatildi yoki boshqa ovoz almashtirdi.
    */
-  const speak = async (i: number, m: AiMsg, slow?: boolean) => {
+  const speak = async (i: number, m: AiMsg, slow?: boolean): Promise<PlayResult> => {
     const c = cfg.current;
     const id = ++playId.current;
     pauseMic();
     setPlaying(i);
     setLoadingAudio(true);
-    await micSettled(); // quloqchinsiz — mikrofon yopiladi (javob baland karnaydan); quloqchin — rejimini almashtirib olsin
-    if (id !== playId.current) return false;
-    const played = await playTalk({ help: m.help, reply: m.ko, voice: partnerOf(c.partner).voice, slow: slow ?? c.level === "beginner" }, { onLoading: setLoadingAudio });
-    if (id !== playId.current) return false;
+    if (micSettleNeeded()) {
+      await micSettled(); // quloqchinsiz — mikrofon yopiladi (javob baland karnaydan); quloqchin — rejimini almashtirib olsin
+      if (id !== playId.current) return "stopped";
+    }
+    const voice = partnerOf(c.partner).voice;
+    const played = await playTalk({ help: m.help, reply: m.ko, voice, slow: slow ?? c.level === "beginner", whole: m.whole }, { onLoading: setLoadingAudio });
+    if (id !== playId.current) return "stopped";
     setLoadingAudio(false);
     setPlaying((p) => (p === i ? null : p));
     return played;
   };
 
   /**
-   * Uzluksiz rejimda: do'st gapirib bo'lgach mikrofon o'zi yoqiladi. iPhone ruxsatni qayta so'raydigan paytda
-   * (mikrofon uzoq yopiq turgan bo'lsa) — o'zi yoqilmaydi: «Navbat sizda», bosilganda ruxsat so'ralmaydi.
+   * Uzluksiz rejimda: do'st gapirib bo'lgach (ovoz chiqmagan bo'lsa ham) mikrofon o'zi yoqiladi. iPhone ruxsatni qayta
+   * so'raydigan paytda (mikrofon uzoq yopiq turgan bo'lsa) — o'zi yoqilmaydi: «Navbat sizda», bosilganda ruxsat so'ralmaydi.
    */
   const listenAgain = () => {
     if (alive.current && session.current && cfg.current.handsFree && micCanAutoOpen()) void startRec();
@@ -245,10 +251,11 @@ export default function FreeTalkPage() {
         commit(next);
         idle();
         for (const ch of e.tts ?? []) waits.set(ch.text, expectAudio(ch.text, ch.opts));
-        // Do'st gapirib bo'lishi bilan — navbat sizda (tarjima va maslahatlar oqimi tugashini kutmasdan)
+        // Do'st gapirib bo'lishi bilan — navbat sizda (tarjima va maslahatlar oqimi tugashini kutmasdan).
+        // Ovoz chiqmasa ham navbat sizga o'tadi — javob matni ekranda, suhbat to'xtab qolmaydi
         if (alive.current && session.current)
-          void speak(aiAt, ai).then((played) => {
-            if (played && alive.current && live() && session.current) listenAgain();
+          void speak(aiAt, ai).then((r) => {
+            if (r !== "stopped" && alive.current && live() && session.current) listenAgain();
           });
       }
       if (e.t === "reply") return;
@@ -340,21 +347,24 @@ export default function FreeTalkPage() {
   };
 
   /**
-   * Suhbat boshlanishi: mikrofonga ruxsat shu bosishda so'raladi (quloqchin bilan mikrofon suhbat davomida ochiq turadi).
-   * Salom AI'siz, darhol (ovozi oldindan tayyor); do'st gapirib bo'lgach — navbat sizda.
+   * Suhbat boshlanishi. Salom AI'siz, darhol: ovozi oldindan tayyor va BITTA bo'lak — shu bosishning o'zida
+   * boshlanadi va uzilishsiz oxirigacha o'ynaydi. Mikrofon salom paytida ochilmaydi (aks holda iPhone ovoz
+   * rejimini almashtirib, salom yarmida jim bo'lib qolardi): do'st gapirib bo'lgach mikrofon o'zi yoqiladi —
+   * ruxsat o'shanda bir marta so'raladi. Ovoz chiqmasa ham navbat sizga o'tadi.
    */
-  const begin = async () => {
+  const begin = () => {
     unlockAudio();
-    void warmMic();
     gen.current++;
     const g = gen.current;
     session.current = true;
     const hi = greeting(cfg.current.partner, cfg.current.topic, cfg.current.style);
-    const ai: AiMsg = { role: "ai", help: [], ko: hi.ko, rom: romanize(hi.ko), uz: hi.uz, hints: hi.hints };
+    const ai: AiMsg = { role: "ai", help: [], ko: hi.ko, rom: romanize(hi.ko), uz: hi.uz, hints: hi.hints, whole: true };
     commit([ai]);
     setErr("");
     setStarted(true);
-    if ((await speak(0, ai)) && g === gen.current) listenAgain();
+    void speak(0, ai).then((r) => {
+      if (r !== "stopped" && g === gen.current) listenAgain();
+    });
   };
 
   /** Suhbatni to'xtatish: ovoz va yozuv to'xtaydi, avtomatik tinglash o'chadi (suhbat qoladi) */
@@ -387,7 +397,7 @@ export default function FreeTalkPage() {
     const m = msgsRef.current[i];
     if (!m || m.role !== "ai") return;
     pauseMic();
-    if ((await speak(i, m, slow)) && i === msgsRef.current.length - 1 && !busyRef.current) listenAgain();
+    if ((await speak(i, m, slow)) !== "stopped" && i === msgsRef.current.length - 1 && !busyRef.current) listenAgain();
   };
 
   // ---------- Tanlash ekrani ----------
@@ -479,7 +489,7 @@ export default function FreeTalkPage() {
         <div className="callout info" style={{ marginTop: 16 }}>
           🎧 Quloqchin bilan gaplashing — mikrofon do‘stingiz ovozini eshitmaydi. Shovqinsiz joyda yaxshiroq ishlaydi.
           <br />
-          🎙️ Mikrofonga ruxsat suhbat boshida bir marta so‘raladi. Ovozingiz faqat navbatingizda yoziladi: quloqchinsiz mikrofon faqat yozuv
+          🎙️ Mikrofonga ruxsat do‘stingiz salom bergach bir marta so‘raladi. Ovozingiz faqat navbatingizda yoziladi: quloqchinsiz mikrofon faqat yozuv
           paytida ochiladi — do‘stingiz ovozi baland karnaydan eshitiladi; quloqchin bilan mikrofon suhbat davomida ochiq turadi.
         </div>
       </main>

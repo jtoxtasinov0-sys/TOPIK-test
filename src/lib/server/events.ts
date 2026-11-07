@@ -31,7 +31,9 @@ export function jsonEvents<T>(
   src: ReadableStream<Uint8Array>,
   tts: { user: User | null } | null,
   partial: (f: Partial<T>, api: EventApi, raw: string) => void | "stop" | "enough",
-  final: (raw: T, api: EventApi) => void
+  final: (raw: T, api: EventApi) => void,
+  /** brauzer oqimni oxirigacha o'qimay uzib qo'ysa (so'rov bekor qilindi) */
+  onCancel?: () => void
 ): ReadableStream<Uint8Array> {
   const enc = new TextEncoder();
   const dec = new TextDecoder();
@@ -93,6 +95,7 @@ export function jsonEvents<T>(
     cancel() {
       closed = true;
       reader.cancel().catch(() => {});
+      onCancel?.();
     },
   });
 }

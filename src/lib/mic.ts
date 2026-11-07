@@ -13,28 +13,41 @@ export type SpeechTiming = {
   maxMs?: number;
 };
 
-// Ovoz balandligi (RMS) chegarasi: shovqin darajasiga qarab moslashadi (jim xonada sezgirroq, shovqinda qattiqroq).
-// Mikrofon «xom» ovoz beradi (exo/shovqin bostirish o'chiq) — shuning uchun qat'iy chegara yetmaydi.
-const SPEECH_MIN = 0.014;
-const SPEECH_MAX = 0.08;
+// Nutqni aniqlash: chegara qat'iy son emas — xonadagi shovqinga nisbatan (shovqin darajasidan ~3.5 barobar baland).
+// iPhone mikrofoni «xom» ovoz beradi (kuchaytirilmagan) — gap juda past kelishi mumkin, shuning uchun mutlaq
+// chegara juda kichik. Bitta taqillash, nafas yoki do'st ovozining aks-sadosi «gap» deb hisoblanmaydi.
+const SPEECH_ABS = 0.003;
+const SPEECH_RATIO = 3.5;
 /** Yozuv boshida shuncha vaqt e'tiborga olinmaydi: do'st ovozining aks-sadosi, telefonni qo'lga olish shitirlashi */
 const IGNORE_MS = 400;
-/** «Gapirdi» deyish uchun shuncha vaqt (taxminan uzluksiz) baland ovoz kerak — bitta taqillash yoki nafas yetmaydi */
-const SPEECH_NEED_MS = 250;
+/** «Gapira boshladi» deyish uchun shuncha (taxminan uzluksiz) baland ovoz kerak */
+const SPEECH_NEED_MS = 200;
+/** Gap davom etyapti deyish uchun ketma-ket baland ovoz (bundan qisqa taqillash jimlikni buzmaydi) */
+const RUN_MS = 120;
 
 /**
  * Mikrofon ovozini kuzatadi: balandlikni onLevel'ga beradi va gapirib bo'lgach jim tursa
  * (yoki umuman gapirmasa) onEnd'ni chaqiradi. Qaytgan funksiya kuzatishni to'xtatadi.
- * Shovqin, taqillash yoki aks-sado «gap» deb hisoblanmaydi: siz haqiqatan gapira boshlamaguncha yozuv yuborilmaydi.
+ * pauseMs — gapdan keyin shuncha jimlikda onPause (masalan, javobni oldindan tayyorlash uchun),
+ * keyin yana gapirsa — onResume.
  */
-export function monitorSpeech(an: AnalyserNode, onLevel: (rms: number) => void, onEnd: (noSpeech: boolean) => void, timing: SpeechTiming = {}) {
-  const { silenceMs = 1100, noSpeechMs = 8000, maxMs = 60000 } = timing;
+export function monitorSpeech(
+  an: AnalyserNode,
+  onLevel: (rms: number) => void,
+  onEnd: (noSpeech: boolean) => void,
+  timing: SpeechTiming & { pauseMs?: number; onPause?: () => void; onResume?: () => void } = {}
+) {
+  const { silenceMs = 1100, noSpeechMs = 8000, maxMs = 60000, pauseMs, onPause, onResume } = timing;
   const wave = new Float32Array(an.fftSize);
   const t0 = performance.now();
   let heard = false;
+  let paused = false;
   let lastLoud = t0;
-  let loudMs = 0; // baland ovoz davomiyligi (jimlikda asta kamayadi)
+  let loudMs = 0; // baland ovoz yig'indisi (jimlikda asta kamayadi) — «gapira boshladi»
+  let run = 0; // ketma-ket baland ovoz — «gap davom etyapti»
+  let quiet = 0; // ketma-ket jimlik (run'ni uzish uchun)
   let prev = t0;
+  let smooth = 0;
   let floor = Infinity; // shovqin darajasi: eng past balandlik (sekin ko'tarilib boradi)
   let done = false;
   let id = 0;
@@ -53,15 +66,34 @@ export function monitorSpeech(an: AnalyserNode, onLevel: (rms: number) => void, 
     const now = performance.now();
     const dt = Math.min(100, now - prev);
     prev = now;
-    if (rms > 0) floor = rms < floor ? rms : floor + (rms - floor) * 0.0015;
-    const threshold = Math.min(SPEECH_MAX, Math.max(SPEECH_MIN, floor * 3));
-    if (now - t0 > IGNORE_MS && rms > threshold) {
-      loudMs += dt;
-      if (heard || loudMs >= SPEECH_NEED_MS) {
-        heard = true;
-        lastLoud = now;
+    smooth = smooth ? smooth * 0.4 + rms * 0.6 : rms;
+    if (smooth > 0) floor = smooth < floor ? smooth : floor + (smooth - floor) * 0.0015;
+    const threshold = Math.max(SPEECH_ABS, floor * SPEECH_RATIO);
+    const loud = now - t0 > IGNORE_MS && smooth > threshold;
+    if (loud) {
+      loudMs = Math.min(1500, loudMs + dt);
+      run += dt;
+      quiet = 0;
+    } else {
+      loudMs = Math.max(0, loudMs - dt * 0.5);
+      quiet += dt;
+      if (quiet > 40) run = 0;
+    }
+    if (!heard && loudMs >= SPEECH_NEED_MS) {
+      heard = true;
+      lastLoud = now;
+    }
+    if (heard && loud && run >= RUN_MS) {
+      lastLoud = now;
+      if (paused) {
+        paused = false;
+        onResume?.();
       }
-    } else loudMs = Math.max(0, loudMs - dt * 0.5);
+    }
+    if (heard && pauseMs && !paused && now - lastLoud > pauseMs) {
+      paused = true;
+      onPause?.();
+    }
     if (heard && now - lastLoud > silenceMs) return end(false);
     if (!heard && now - t0 > noSpeechMs) return end(true);
     if (now - t0 > maxMs) return end(false);
@@ -383,7 +415,19 @@ export function releaseMic() {
  * oddiy rejimda yozuv tugashi bilan mikrofon yopiladi.
  * Mikrofon ovoz bermasa (iPhone ba'zan ochiq mikrofonni «o'chirib» qo'yadi) — bir marta o'zi qaytadan ochadi.
  */
-export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: number) => void; keep?: boolean } = {}): Promise<Recording> {
+export type RecordOptions = SpeechTiming & {
+  onLevel?: (rms: number) => void;
+  keep?: boolean;
+  /**
+   * Gapdan keyin shuncha jimlikda shu paytgacha yozilgan ovoz onPause'ga beriladi (yozuv to'xtamaydi) — javobni
+   * oldindan tayyorlash uchun. Yana gapira boshlasa — onResume (oldindan tayyorlangan javob kerak emas).
+   */
+  pauseMs?: number;
+  onPause?: (blob: Blob) => void;
+  onResume?: () => void;
+};
+
+export async function startRecording(opts: RecordOptions = {}): Promise<Recording> {
   const keep = !!opts.keep;
   const acquire = () => (keep ? sharedMic() : openMic());
   const mime = pickRecorderMime();
@@ -446,8 +490,14 @@ export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: numb
     mr = rec;
     chunks = [];
     alive = false;
+    let snapshot = false; // requestData() so'raldi — kelgan bo'lak bilan shu paytgacha yozilgan ovoz onPause'ga
     rec.ondataavailable = (e) => {
       if (e.data.size) chunks.push(e.data);
+      if (snapshot && mr === rec && rec.state === "recording" && !stopping) {
+        snapshot = false;
+        const blob = new Blob(chunks, { type: rec.mimeType || mime || "audio/webm" });
+        if (blob.size >= 2000) opts.onPause?.(blob);
+      }
     };
     rec.onstop = () => {
       if (mr !== rec) return;
@@ -477,7 +527,22 @@ export async function startRecording(opts: SpeechTiming & { onLevel?: (rms: numb
         silent = noSpeech && alive;
         stop();
       },
-      opts
+      {
+        ...opts,
+        onPause: opts.onPause
+          ? () => {
+              try {
+                if (rec.state === "recording") {
+                  snapshot = true;
+                  rec.requestData();
+                }
+              } catch {
+                snapshot = false;
+              }
+            }
+          : undefined,
+        onResume: opts.onResume,
+      }
     );
     const track = mic.stream.getAudioTracks()[0];
     const onBad = () => void broken();

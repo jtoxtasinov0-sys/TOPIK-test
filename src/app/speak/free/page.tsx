@@ -53,9 +53,11 @@ type TalkEvent = Partial<TalkRes> & {
 type Setup = { partner: string; topic: string; level: TalkLevel; style: TalkStyle; rom: boolean; tr: boolean; handsFree: boolean };
 const DEFAULT_SETUP: Setup = { partner: "minjun", topic: "free", level: "beginner", style: "polite", rom: true, tr: true, handsFree: true };
 
-// Gapirib bo'lgach shuncha jim tursangiz — yuboriladi (boshlang'ichlar gap orasida ko'proq o'ylaydi).
-// Jonli suhbatdagidek: odam gapini tugatgach bir lahzada javob keladi
-const SILENCE_MS: Record<TalkLevel, number> = { beginner: 1100, intermediate: 850, advanced: 650 };
+// Gapirib bo'lgach shuncha jim tursangiz — o'zi yuboriladi (gap orasida o'ylab olishga ulgurasiz; boshlang'ichlarga ko'proq).
+// Javob esa kutib qolmaydi: qisqa pauzadayoq oldindan tayyorlana boshlaydi (SPECULATE_MS)
+const SILENCE_MS: Record<TalkLevel, number> = { beginner: 2500, intermediate: 2000, advanced: 1700 };
+// Shuncha qisqa pauzada yozuv oldindan yuboriladi — javob siz jim turgan 2 soniya ichida tayyorlanadi
+const SPECULATE_MS = 700;
 const NO_SPEECH_MS = 12000;
 const HANGUL = /[가-힣]/;
 const DIDNT_GET = "🤔 Tushunmadim";
@@ -194,15 +196,24 @@ export default function FreeTalkPage() {
     if (alive.current && session.current && cfg.current.handsFree && micCanAutoOpen()) void startRec();
   };
 
-  const send = async (payload: { audio?: { data: string; mime: string }; text?: string; start?: boolean }) => {
+  type Payload = { audio?: { data: string; mime: string }; text?: string; start?: boolean };
+  /**
+   * Bitta suhbat so'rovi (/api/talk oqimi). speculative — «oldindan» yuborilgan yozuv: javob hodisalari yig'ilib turadi
+   * va ekranga chiqmaydi; commit() — ishlatiladi (siz 2 soniya jim turdingiz), abort() — bekor (yana gapirdingiz).
+   * onFail — javob kelmasa (oldindan yuborilgan yozuv yaroqsiz chiqsa) xato ko'rsatish o'rniga chaqiriladi.
+   */
+  const talk = (payload: Payload, speculative = false) => {
     const c = cfg.current;
     const g = gen.current;
     const history = historyOf(msgsRef.current);
     const live = () => g === gen.current;
-    busyRef.current = true;
-    setBusy(true);
-    setErr("");
-    setHintsFor(null);
+    const ctl = new AbortController();
+    let committed = !speculative;
+    let finished = false;
+    let failed = false;
+    let handedOff = false; // javob kelmadi — qayta yuborildi (band holatini yangi so'rov boshqaradi)
+    let onFail: (() => void) | null = null;
+    const buffer: TalkEvent[] = [];
     const idle = () => {
       if (!live()) return;
       busyRef.current = false;
@@ -228,6 +239,18 @@ export default function FreeTalkPage() {
       commit(next);
       touchStreak();
     };
+    /** Javob kelmadi: oldindan yuborilgan bo'lsa — oddiy yo'l bilan qayta yuboriladi, aks holda xato ko'rsatiladi */
+    const fail = (text: string) => {
+      if (aiAt >= 0 || failed) return;
+      failed = true;
+      if (onFail) {
+        handedOff = true;
+        ctl.abort();
+        const f = onFail;
+        onFail = null;
+        f();
+      } else setErr(text);
+    };
     const onEvent = (e: TalkEvent) => {
       if (e.t === "audio") {
         const w = waits.get(e.text ?? "");
@@ -236,16 +259,10 @@ export default function FreeTalkPage() {
         else w?.fail();
         return;
       }
-      if (!live()) return;
+      if (!live() || failed) return;
       if (e.t === "heard") return addMe(e.transcript ?? "");
-      if (e.empty) {
-        if (aiAt < 0) setErr("Ovoz eshitilmadi. Mikrofonga yaqinroq, aniqroq gapiring.");
-        return;
-      }
-      if (e.error) {
-        if (aiAt < 0) setErr(errText(new ApiError(e.error, 502)));
-        return;
-      }
+      if (e.empty) return fail("Ovoz eshitilmadi. Mikrofonga yaqinroq, aniqroq gapiring.");
+      if (e.error) return fail(errText(new ApiError(e.error, 502)));
       addMe(e.transcript ?? "");
       if (aiAt < 0) {
         // Javob keldi — tarjima va maslahatlarni kutmasdan ko'rsatamiz va ovozni boshlaymiz
@@ -267,24 +284,69 @@ export default function FreeTalkPage() {
       patchMsg(aiAt, { rom: e.rom, uz: e.uz, hints: e.hints ?? [], ...(e.teach ? { teach: e.teach } : {}) });
       if (meAt >= 0 && e.fix) patchMsg(meAt, { fix: e.fix });
     };
-
-    if (payload.text) addMe(payload.text);
-    try {
-      await postNdjson<TalkEvent>(
-        "/api/talk",
-        { ...payload, stream: true, partner: c.partner, topic: c.topic, level: c.level, style: c.style, history },
-        onEvent
-      );
-    } catch (e) {
-      // Javob allaqachon ko'rsatilgan bo'lsa — qolgan qismi (tarjima) kelmay qolgani muhim emas
-      if (live() && aiAt < 0) setErr(errText(e));
-    } finally {
-      idle();
+    const open = () => {
+      busyRef.current = true;
+      setBusy(true);
+      setErr("");
+      setHintsFor(null);
+      if (payload.text) addMe(payload.text);
+    };
+    const close = () => {
+      if (!handedOff) idle();
       // Oqim tugadi, ba'zi bo'laklar ovozi kelmadi — ular odatdagidek alohida so'raladi
       for (const w of waits.values()) w.fail();
       waits.clear();
-    }
+    };
+    let netError: unknown = null;
+    if (committed) open();
+    const done = postNdjson<TalkEvent>(
+      "/api/talk",
+      { ...payload, stream: true, partner: c.partner, topic: c.topic, level: c.level, style: c.style, history },
+      (e) => (committed ? onEvent(e) : buffer.push(e)),
+      ctl.signal
+    )
+      .catch((e) => {
+        netError = e;
+        // Javob allaqachon ko'rsatilgan bo'lsa — qolgan qismi (tarjima) kelmay qolgani muhim emas
+        if (committed && live() && !ctl.signal.aborted) fail(errText(e));
+      })
+      .finally(() => {
+        finished = true;
+        if (committed) close();
+      });
+    return {
+      done,
+      /** Oldindan yuborilgan javobni ishlatish. retry — javob kelmasa, oddiy yo'l bilan qayta yuborish */
+      commit: (retry: () => void) => {
+        if (committed) return;
+        committed = true;
+        onFail = retry;
+        open();
+        for (const e of buffer.splice(0)) onEvent(e);
+        if (netError && !failed) fail("");
+        if (finished) close();
+      },
+      abort: () => {
+        if (committed) return;
+        ctl.abort();
+      },
+    };
   };
+  type Talk = ReturnType<typeof talk>;
+
+  const send = async (payload: Payload) => {
+    await talk(payload).done;
+  };
+
+  /** Oldindan yuborilgan yozuv (siz ~0.7 s jim turdingiz) — 2 soniya jim tursangiz shu javob darhol ishlatiladi */
+  const spec = useRef<Talk | null>(null);
+  const specToken = useRef(0);
+  const dropSpec = () => {
+    specToken.current++;
+    spec.current?.abort();
+    spec.current = null;
+  };
+  const toAudio = async (b: Blob) => ({ data: await blobToBase64(b), mime: b.type });
 
   const startRec = async () => {
     if (recState.current !== "idle" || busyRef.current) return;
@@ -293,11 +355,25 @@ export default function FreeTalkPage() {
     stopAudio();
     let r: Recording;
     try {
+      dropSpec();
       r = await startRecording({
         keep: true, // mikrofon suhbat davomida ochiq (xuddi qo'ng'iroqdagidek), yozuv faqat navbatingizda
         silenceMs: SILENCE_MS[cfg.current.level] ?? SILENCE_MS.beginner,
         noSpeechMs: NO_SPEECH_MS,
         onLevel: (rms) => (micLevel.current = rms),
+        // Tezlik: qisqa pauzada shu paytgacha yozilgan gap oldindan yuboriladi — javob siz jim turgan paytda tayyorlanadi
+        pauseMs: SPECULATE_MS,
+        onPause: (blob) => {
+          dropSpec();
+          const token = specToken.current;
+          void toAudio(blob).then(
+            (audio) => {
+              if (token === specToken.current && recState.current === "rec" && alive.current) spec.current = talk({ audio }, true);
+            },
+            () => {}
+          );
+        },
+        onResume: dropSpec,
       });
     } catch (e) {
       recState.current = "idle";
@@ -315,13 +391,23 @@ export default function FreeTalkPage() {
     recRef.current = null;
     recState.current = "idle";
     micLevel.current = 0;
+    // Oldindan yuborilgan javob — faqat yozuv odatdagidek (jimlik yoki «Yuborish») tugagan bo'lsa ishlatiladi
+    const sp = spec.current;
+    spec.current = null;
+    specToken.current++;
+    if (!alive.current || res.kind !== "audio") sp?.abort();
     if (!alive.current) return;
     setRec(false);
     // Jim tursangiz mikrofon o'chadi — xato emas, navbat sizda qoladi
     if (res.kind === "cancel" || res.kind === "silent") return;
     if (res.kind === "dead") return setErr(MIC_DEAD_TEXT);
     if (res.kind === "short") return setErr("Juda qisqa yozuv. Mikrofonni bosib, gapiring.");
-    await send({ audio: { data: await blobToBase64(res.blob), mime: res.blob.type } });
+    const full = () => toAudio(res.blob).then((audio) => send({ audio }));
+    if (!sp) return full();
+    // Siz pauzadan keyin boshqa gapirmadingiz — oldindan tayyorlangan javob darhol ishlatiladi
+    // (kelmasa yoki yaroqsiz bo'lsa — to'liq yozuv odatdagidek qayta yuboriladi)
+    sp.commit(() => void full());
+    await sp.done;
   };
 
   /** Mikrofonni to'xtatish (yubormasdan) — maslahat yoki namunani tinglaganda mikrofon ovozni yozib olmasligi uchun */

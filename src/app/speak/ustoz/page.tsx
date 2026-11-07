@@ -216,9 +216,9 @@ export default function VoiceTutorPage() {
     stopAudio();
     let r: Recording;
     try {
-      // O'zbekcha savol odatda uzluksiz aytiladi — 0.8 soniya jimlikdan keyin darhol yuboramiz
+      // O'zbekcha savol: 1.5 soniya jim tursangiz o'zi yuboriladi (gap orasida o'ylab olishga ulgurasiz)
       // keep — mikrofon dars davomida ochiq (xuddi qo'ng'iroqdagidek), yozuv faqat navbatingizda
-      r = await startRecording({ keep: true, silenceMs: 800, onLevel: (rms) => (micLevel.current = rms) });
+      r = await startRecording({ keep: true, silenceMs: 1500, onLevel: (rms) => (micLevel.current = rms) });
     } catch (e) {
       recState.current = "idle";
       setErr(e instanceof MicError ? e.message : "Mikrofonni ochib bo‘lmadi.");

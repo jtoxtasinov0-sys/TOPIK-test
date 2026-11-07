@@ -18,6 +18,8 @@ export interface Kv {
   set(key: string, value: unknown, opts?: { nx?: boolean; ttlSec?: number }): Promise<boolean>;
   del(key: string): Promise<void>;
   incr(key: string, ttlSec?: number): Promise<number>;
+  /** Hisoblagichni 1 ga kamaytiradi (bekor qilingan so'rov limitini qaytarish uchun) */
+  decr(key: string): Promise<number>;
   /** Hash ichidagi hisoblagichni 1 ga oshiradi (statistika uchun) */
   hincr(key: string, field: string, ttlSec?: number): Promise<void>;
   hgetall(key: string): Promise<Record<string, number>>;
@@ -82,6 +84,9 @@ function upstash(url: string, token: string): Kv {
         ["EXPIRE", key, ttlSec],
       ]);
       return Number(n);
+    },
+    async decr(key) {
+      return Number(await cmd<number>("DECR", key));
     },
     async hincr(key, field, ttlSec) {
       if (!ttlSec) {
@@ -191,6 +196,14 @@ export function createMemoryStore(file?: string): Kv {
         const cur = data.kv[key];
         const n = (cur ? Number(JSON.parse(cur.v)) || 0 : 0) + 1;
         data.kv[key] = { v: JSON.stringify(n), ...(ttlSec ? { exp: now + ttlSec * 1000 } : cur?.exp ? { exp: cur.exp } : {}) };
+        return n;
+      }, true);
+    },
+    decr(key) {
+      return run(() => {
+        const cur = data.kv[key];
+        const n = (cur ? Number(JSON.parse(cur.v)) || 0 : 0) - 1;
+        data.kv[key] = { v: JSON.stringify(n), ...(cur?.exp ? { exp: cur.exp } : {}) };
         return n;
       }, true);
     },

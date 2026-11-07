@@ -57,6 +57,18 @@ export async function chargeQuota(user: User | null, bucket: Bucket) {
   if (n > DAILY_LIMITS[bucket]) throw new AiError("Bugungi AI limiti tugadi. Ertaga yana davom eting", 429, "QUOTA");
 }
 
+/**
+ * Bekor qilingan so'rov uchun ayirilgan limitni qaytaradi (masalan, erkin suhbatda oldindan yuborilgan yozuv:
+ * o'quvchi yana gapira boshladi — javob kerak bo'lmadi). Xato bo'lsa — jim o'tib ketadi.
+ */
+export async function refundQuota(user: User | null, bucket: Bucket) {
+  if (!user || isAdminEmail(user.email)) return;
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    await getStore().decr(`q:${user.id}:${bucket}:${day}`);
+  } catch {}
+}
+
 /** requireAiAccess + chargeQuota + statistika (TTS bundan foydalanmaydi — u avtomatik so'raladi) */
 export async function aiAccess(req: Request, bucket: Bucket) {
   let user: User | null;

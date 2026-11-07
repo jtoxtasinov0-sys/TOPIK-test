@@ -377,6 +377,30 @@ export async function transcribe(audioBase64: string, mime: string, languages: s
 
 const VOICES = { 남자: "Charon", 여자: "Kore", narrator: "Kore", m: "Puck", f: "Aoede" };
 
+/**
+ * Oqim bilan kelayotgan JSON'dagi hali tugamagan satr maydonining shu paytgacha kelgan qismi (escape'lari ochilgan).
+ * Masalan `{"reply":"아, 좋아요! 저도` → "아, 좋아요! 저도". Maydon hali boshlanmagan bo'lsa — null.
+ */
+export function partialField(raw: string, key: string): string | null {
+  const m = new RegExp(`"${key}"\\s*:\\s*"`).exec(raw);
+  if (!m) return null;
+  let s = raw.slice(m.index + m[0].length);
+  for (let j = 0; j < s.length; j++) {
+    if (s[j] === "\\") j++;
+    else if (s[j] === '"') {
+      s = s.slice(0, j);
+      break;
+    }
+  }
+  // Oxirida chala qolgan escape (\ yoki \uXX) — tashlab yuboriladi
+  s = s.replace(/\\(u[0-9a-fA-F]{0,3})?$/, "");
+  try {
+    return JSON.parse(`"${s}"`) as string;
+  } catch {
+    return null;
+  }
+}
+
 /** Gemini TTS — WAV (RIFF) bufer qaytaradi */
 export async function synthesize(
   turns: { speaker: string | null; text: string }[],

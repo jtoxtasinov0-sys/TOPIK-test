@@ -29,11 +29,13 @@ export function speech(text: string, o: TtsOpts, user: User | null): Promise<Buf
   const running = inflight.get(key);
   if (running) return running;
   const job = (async () => {
-    await chargeQuota(user, "tts");
-    await trackUsage("tts");
+    // Tezlik: ovoz limit tekshiruvini (baza so'rovi) kutmasdan darhol tayyorlana boshlaydi — ikkalasi parallel.
+    // Limit tugagan bo'lsa ovoz qaytarilmaydi (so'rovlar soni rateLimit va kirish tekshiruvi bilan cheklangan)
+    const quota = chargeQuota(user, "tts");
+    void trackUsage("tts").catch(() => {});
     // Ovozli ustoz (o'zbekcha + koreyscha) va erkin suhbat javobi — dialog emas, bitta ovoz bilan o'qiladi
     const turns = o.tutor || o.talk ? [{ speaker: null, text: text.trim() }] : parseScript(text);
-    const buf = await synthesize(turns, { slow: !!o.slow, voice: o.voice, tutor: !!o.tutor, talk: !o.tutor && !!o.talk });
+    const [, buf] = await Promise.all([quota, synthesize(turns, { slow: !!o.slow, voice: o.voice, tutor: !!o.tutor, talk: !o.tutor && !!o.talk })]);
     cache.set(key, buf);
     if (cache.size > 400) cache.delete(cache.keys().next().value as string);
     return buf;

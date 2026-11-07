@@ -166,6 +166,7 @@ async function openMic(): Promise<Mic> {
     // Mikrofon ochiq paytda kontekstni tugma bosilmasa ham ishga tushirish mumkin (iPhone ham ruxsat beradi)
     void ctx.resume?.().catch(() => {});
     const headset = HEADSET.test(stream.getAudioTracks()[0]?.label ?? "");
+    watchRoute();
     return { stream, ctx, src, an, headset, at: performance.now(), users: 0 };
   } catch {
     stream.getTracks().forEach((t) => t.stop());
@@ -208,9 +209,10 @@ async function sharedMic(): Promise<Mic> {
         if (e !== epoch) return m; // shu orada suhbatdan chiqildi — saqlamaymiz (ishlatgan joy o'zi yopadi)
         held = m;
         setCallMode(true);
+        // Mikrofon o'chib qoldi (masalan, quloqchin uzildi) — qaytadan ochiladi
         m.stream.getAudioTracks().forEach((t) =>
           t.addEventListener("ended", () => {
-            if (held === m && m.users === 0) closeMic(m);
+            if (held === m && m.users === 0) refreshRoute();
           })
         );
         return m;
@@ -233,13 +235,82 @@ function lease(m: Mic, keep: boolean) {
     if (done) return;
     done = true;
     m.users--;
-    if (!broken && keep && held === m && live(m)) return armIdle(m);
+    if (!broken && keep && held === m && live(m)) {
+      armIdle(m);
+      if (routeDirty) refreshRoute(); // yozuv paytida quloqchin ulandi/uzildi — endi qayta ochamiz
+      return;
+    }
     if (held === m) {
       held = null;
       clearTimeout(idleTimer);
     }
     if (m.users <= 0) closeMic(m);
   };
+}
+
+// ---------- Quloqchin ulanishi / uzilishi ----------
+// Mikrofon ochiq paytda quloqchin (AirPods va h.k.) uzilsa, iPhone ovozni baland karnayga emas, quloqqa tutiladigan
+// kichik dinamikka o'tkazib qo'yadi. Mikrofon qaytadan ochilsa — telefon ovoz yo'lini yangidan tanlaydi: quloqchin
+// bo'lmasa — baland karnay (suhbat boshidagidek), ulangan bo'lsa — quloqchin. Shuning uchun qurilmalar o'zgarganda
+// (devicechange) yoki mikrofon o'chib qolganda mikrofon o'zi qayta ochiladi; yozuv paytida bo'lsa — yozuv tugagach.
+let routeDirty = false;
+let routeTimer: ReturnType<typeof setTimeout> | undefined;
+let watching = false;
+let refreshes: number[] = [];
+let devices = ""; // ovoz kirish qurilmalari ro'yxati (o'zgarganini bilish uchun)
+
+const listDevices = async () => {
+  const all = await navigator.mediaDevices.enumerateDevices();
+  return all
+    .filter((d) => d.kind === "audioinput")
+    .map((d) => `${d.deviceId}|${d.label}`)
+    .sort()
+    .join(";");
+};
+
+function watchRoute() {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.addEventListener) return;
+  void listDevices().then((d) => (devices = d), () => {});
+  if (watching) return;
+  watching = true;
+  navigator.mediaDevices.addEventListener("devicechange", () => {
+    clearTimeout(routeTimer);
+    // Bir ulanishda bir necha marta keladi; ruxsat berilganda ham kelishi mumkin — faqat ro'yxat o'zgarsa qayta ochamiz
+    routeTimer = setTimeout(() => {
+      void listDevices().then(
+        (d) => {
+          if (d === devices) return;
+          devices = d;
+          refreshRoute();
+        },
+        () => refreshRoute()
+      );
+    }, 350);
+  });
+}
+
+/** Mikrofonni qayta ochadi — telefon ovozni yangi yo'lga (quloqchin yoki baland karnay) o'tkazadi */
+function refreshRoute() {
+  const m = held;
+  if (!m || m.closed) return;
+  if (m.users > 0) {
+    routeDirty = true;
+    return;
+  }
+  routeDirty = false;
+  // Cheksiz qayta ochilib qolmasin: 10 soniyada ko'pi bilan 3 marta
+  const now = performance.now();
+  refreshes = refreshes.filter((t) => now - t < 10_000);
+  if (refreshes.length >= 3) return closeMic(m);
+  refreshes.push(now);
+  closeMic(m);
+  setCallMode(true); // qayta ochilguncha ham javob Web Audio orqali davom etadi
+  void sharedMic().then(
+    (n) => {
+      if (held === n && n.users === 0) armIdle(n);
+    },
+    () => setCallMode(false)
+  );
 }
 
 /**
@@ -290,6 +361,8 @@ export function micCanAutoOpen() {
 /** Suhbatdan chiqqanda / «To'xtatish»: mikrofon yopiladi, suhbat ovozi to'xtaydi */
 export function releaseMic() {
   epoch++;
+  routeDirty = false;
+  clearTimeout(routeTimer);
   const m = held;
   if (m) closeMic(m);
   setCallMode(false);

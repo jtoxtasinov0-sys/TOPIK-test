@@ -138,11 +138,13 @@ let held: Mic | null = null;
 let opening: Promise<Mic> | null = null;
 let epoch = 0; // releaseMic() da oshadi — chiqqandan keyin ochilib ulgurgan mikrofon saqlanib qolmasligi uchun
 let lastClose = 0;
+let asked = false; // shu sahifa ochilgandan beri mikrofon so'ralganmi
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
 const live = (m: Mic | null) => !!m && m.stream.getAudioTracks().some((t) => t.readyState === "live" && !t.muted);
 
 async function openMic(): Promise<Mic> {
+  asked = true;
   idleSession = "playback";
   setAudioSession("play-and-record");
   let stream: MediaStream;
@@ -259,18 +261,31 @@ export async function micSettled() {
   if (left > 0) await new Promise((r) => setTimeout(r, left));
 }
 
+/**
+ * micSettled() ni kutish kerakmi. Kerak bo'lmasa (mikrofon ochilmagan / ancha oldin yopilgan) — javob ovozi
+ * await'siz, shu zahoti boshlanadi: tugma bosilgan paytda bo'lsa (birinchi salom) iPhone uni albatta o'ynatadi.
+ */
+export function micSettleNeeded() {
+  if (opening) return true;
+  if (held && !held.headset && held.users === 0) return true;
+  const until = held?.headset ? held.at + HEADSET_SETTLE_MS : lastClose + QUIET_MS;
+  return until > performance.now();
+}
+
 // ---------- Ruxsat qayta so'ralmasligi uchun ----------
 // iPhone (WebKit) bergan ruxsatni ilova ochiq turguncha eslab turadi, lekin mikrofon yopilgach:
 //  - tugma bosilmasdan (o'zi) qayta ochilsa va mikrofon 1 daqiqadan ko'p yopiq turgan bo'lsa — ruxsatni qayta so'raydi;
 //  - tugma bosib ochilsa — 10 daqiqagacha so'ramaydi.
 // Shuning uchun mikrofon o'zi faqat ruxsat so'ralmaydigan paytda yoqiladi; aks holda «Navbat sizda — mikrofonni
 // bosing» (bosilganda ruxsat qayta so'ralmaydi). Android va kompyuterda ruxsat saytga doimiy beriladi — cheklov yo'q.
+// Istisno — eng birinchi ochilish (salomdan keyin): ruxsat baribir bir marta so'raladi, bu o'sha yagona so'rov.
 const AUTO_OPEN_MS = 50_000;
 
 /** Mikrofonni tugma bosilmasdan (o'zi) yoqsa bo'ladimi — ruxsat qayta so'ralmaydimi */
 export function micCanAutoOpen() {
   if (live(held) || opening) return true;
   if (!isIos()) return true;
+  if (!asked) return true; // hali so'ralmagan: birinchi (yagona) so'rov
   return lastClose > 0 && performance.now() - lastClose < AUTO_OPEN_MS;
 }
 

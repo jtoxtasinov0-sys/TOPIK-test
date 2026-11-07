@@ -485,4 +485,13 @@ describe("erkin suhbat ovozi", () => {
     assert.deepEqual(splitTalk("좋아요. 네?"), ["좋아요. 네?"]);
     assert.deepEqual(splitTalk("시장에서 뭐 샀어요?"), ["시장에서 뭐 샀어요?"]);
   });
+
+  test("birinchi salom bo'linmaydi (whole) — «안녕하세요!» dan keyin uzilib qolmaydi, bitta bo'lak bo'lib o'ynaydi", () => {
+    for (const style of ["polite", "casual"] as const) {
+      const g = greeting("minjun", "free", style);
+      assert.ok(talkChunks({ reply: g.ko, voice: "m" }).length > 1, "oddiy javob birinchi gapdan bo'linadi");
+      assert.deepEqual(talkChunks({ reply: g.ko, voice: "m", slow: true, whole: true }), [{ text: g.ko, opts: { talk: true, voice: "m", slow: true } }]);
+    }
+    assert.deepEqual(talkChunks({ reply: " ", voice: "m", whole: true }), []);
+  });
 });

@@ -17,13 +17,19 @@ export function splitTalk(text: string): string[] {
   return m ? [m[1].trim(), m[2].trim()] : t ? [t] : [];
 }
 
-/** Erkin suhbat uchun o'qiladigan bo'laklar: avval o'zbekcha yordam (ustoz uslubida), keyin koreyscha javob — bitta suhbatdosh ovozi */
-export function talkChunks(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }): SpeechChunk[] {
+export type TalkSpeech = { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean; whole?: boolean };
+
+/**
+ * Erkin suhbat uchun o'qiladigan bo'laklar: avval o'zbekcha yordam (ustoz uslubida), keyin koreyscha javob — bitta suhbatdosh ovozi.
+ * whole — javob bo'linmaydi (birinchi salom: ovozi oldindan tayyor, bitta bo'lak bo'lib uzilishsiz o'ynaydi).
+ */
+export function talkChunks(t: TalkSpeech): SpeechChunk[] {
   const help = (t.help ?? []).map((s) => s.text).join(" ").trim();
   const reply = t.reply.trim();
+  const parts = t.whole ? (reply ? [reply] : []) : splitTalk(reply);
   return [
     ...(help ? [{ text: help, opts: { tutor: true, voice: t.voice } }] : []),
-    ...splitTalk(reply).map((p) => ({ text: p, opts: { talk: true, voice: t.voice, slow: !!t.slow } })),
+    ...parts.map((p) => ({ text: p, opts: { talk: true, voice: t.voice, slow: !!t.slow } })),
   ];
 }
 

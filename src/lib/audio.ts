@@ -1,10 +1,17 @@
 "use client";
 
 import { parseScript } from "./exam";
-import { talkChunks, tutorChunks, type Segment, type SpeechChunk, type TtsOpts } from "./speech";
+import { talkChunks, tutorChunks, type Segment, type SpeechChunk, type TalkSpeech, type TtsOpts } from "./speech";
 
 export { splitForSpeech, splitTalk, talkChunks, tutorChunks } from "./speech";
-export type { Segment, SpeechChunk, TtsOpts } from "./speech";
+export type { Segment, SpeechChunk, TalkSpeech, TtsOpts } from "./speech";
+
+/**
+ * Javob ovozi natijasi: ended — oxirigacha o'qildi; stopped — to'xtatildi (stopAudio: foydalanuvchi bo'ldi,
+ * boshqa ovoz boshlandi, chiqildi); failed — ovoz chiqmadi (telefon o'ynatmadi). failed bo'lsa ham navbat
+ * o'quvchiga o'tadi — suhbat qotib qolmaydi (javob matni ekranda bor).
+ */
+export type PlayResult = "ended" | "stopped" | "failed";
 
 // Koreyscha ovoz: avval Gemini TTS (/api/tts), bo'lmasa brauzer speechSynthesis.
 // Natijalar xotirada va Cache Storage'da saqlanadi — qayta tinglash bepul va tez.
@@ -71,6 +78,11 @@ async function loadAudio(key: string, text: string, opts: TtsOpts): Promise<stri
   } catch {
     return null;
   }
+}
+
+/** Xotirada tayyor turgan ovoz (kutmasdan) — bo'lmasa null */
+function readyAudio(text: string, opts: TtsOpts): string | null {
+  return memory.get(keyOf(text, opts)) ?? null;
 }
 
 async function fetchServerAudio(text: string, opts: TtsOpts): Promise<string | null> {
@@ -362,12 +374,15 @@ export function unlockSpeech() {
 
 /** Ovoz shuncha vaqt oldinga siljimasa — «qotib qoldi» deb hisoblanadi */
 const STALL_MS = 2500;
+/** Ovoz holati shu oraliqda tekshiriladi */
+const TICK_MS = 250;
 
 /**
  * true — oxirigacha o'ynadi; false — to'xtatildi, xato yoki brauzer o'ynatmadi.
- * iPhone ba'zan ovozni «o'ynayapti» deb ko'rsatib, aslida boshlamaydi yoki o'zi to'xtatib qo'yadi
- * (masalan, mikrofon endigina yopilganda). Shunday bo'lsa — bir marta qayta urinamiz; bo'lmasa false
- * (ekranda «gapiryapti» qotib qolmaydi, mikrofon o'zi yoqilmaydi).
+ * a.play() shu zahoti (Promise ichida, await'siz) chaqiriladi: tugma bosilgan paytda chaqirilsa — iPhone ham ruxsat beradi.
+ * iPhone ba'zan ovozni «o'ynayapti» deb ko'rsatib, aslida boshlamaydi, o'zi to'xtatib qo'yadi yoki oxirida «ended»
+ * yubormaydi. Shuning uchun haqiqiy o'ynash joyi (currentTime) kuzatiladi: to'xtab qolsa — bir marta davom ettiramiz
+ * (boshidan emas, to'xtagan joyidan), bo'lmasa false; oxiriga yetib to'xtagan bo'lsa — tugadi. Ekranda «gapiryapti» qotib qolmaydi.
  */
 function playUrl(url: string, onStart?: () => void, rate = 1): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
@@ -375,35 +390,49 @@ function playUrl(url: string, onStart?: () => void, rate = 1): Promise<boolean> 
     let done = false;
     let started = false;
     let retried = false;
-    let stall: ReturnType<typeof setTimeout> | undefined;
+    let lastPos = -1;
+    let lastMove = performance.now();
     let env: Float32Array | null = envelopes.get(url) ?? null;
     if (!envelopes.has(url)) void envelopeFor(url).then((e) => (env = e));
     const finish = (ended: boolean) => {
       if (done) return;
       done = true;
-      clearTimeout(stall);
-      a.onended = a.onerror = a.onplay = a.onpause = a.ontimeupdate = null;
+      clearInterval(tick);
+      a.onended = a.onerror = a.onplay = a.onpause = null;
       if (current === ctl) current = null;
       if (levelSource === level) levelSource = null;
+      if (ended) unlocked = true; // element ovoz bera oladi — keyingi javoblar ham o'zi o'ynaydi
       resolve(ended);
     };
     const play = () => {
-      a.play().catch(() => (retried ? finish(false) : retry()));
-      watch();
+      lastMove = performance.now();
+      try {
+        a.play().catch(() => (retried ? finish(false) : retry()));
+      } catch {
+        if (retried) finish(false);
+        else retry();
+      }
     };
     const retry = () => {
       if (done) return;
       if (retried) return finish(false);
       retried = true;
-      try {
-        a.currentTime = 0;
-      } catch {}
       play();
     };
-    const watch = () => {
-      clearTimeout(stall);
-      stall = setTimeout(retry, STALL_MS);
-    };
+    const atEnd = () => Number.isFinite(a.duration) && a.duration > 0 && a.currentTime >= a.duration - 0.15;
+    const tick = setInterval(() => {
+      if (done) return;
+      const pos = a.currentTime;
+      if (pos !== lastPos) {
+        lastPos = pos;
+        lastMove = performance.now();
+        return;
+      }
+      if (performance.now() - lastMove < STALL_MS) return;
+      // Oxiriga yetib to'xtagan-u, «ended» kelmagan — tugadi deb hisoblaymiz
+      if (atEnd()) return finish(true);
+      retry();
+    }, TICK_MS);
     const level = () => (env ? env[Math.floor(a.currentTime * ENV_FPS)] ?? 0 : a.paused ? 0 : syntheticLevel());
     const ctl = {
       stop: () => {
@@ -419,13 +448,12 @@ function playUrl(url: string, onStart?: () => void, rate = 1): Promise<boolean> 
       if (!started) onStart?.();
       started = true;
     };
-    // O'ynayotgan bo'lsa — vaqt oldinga siljiydi; siljimay qolsa watch() qayta urinadi
-    a.ontimeupdate = () => {
-      if (!a.paused) watch();
-    };
-    // Biz to'xtatmagan bo'lsak-u, ovoz to'xtab qolsa (telefon to'xtatdi) — qayta urinish. Oxirida ham «pause» keladi — u emas
+    // Biz to'xtatmagan bo'lsak-u, ovoz to'xtab qolsa (telefon to'xtatdi) — to'xtagan joyidan davom ettiramiz.
+    // Oxirida ham «pause» keladi — u emas
     a.onpause = () => {
-      if (!done && !a.ended) retry();
+      if (done || a.ended) return;
+      if (atEnd()) return finish(true);
+      retry();
     };
     a.src = url;
     // src o'zgarganda tezlik 1 ga qaytadi — har safar qayta o'rnatamiz (ovoz balandligi/ohangi saqlanadi)
@@ -451,17 +479,30 @@ function browserSpeakSegments(segs: Segment[], onStart?: () => void, pitch = 0.8
     let i = 0;
     let stopped = false;
     let spoke = false;
+    let finished = false;
     const done = () => {
-      levelSource = null;
+      if (finished) return;
+      finished = true;
+      clearTimeout(silentTimer);
+      if (current === ctl) current = null;
+      if (levelSource === syntheticLevel) levelSource = null;
       resolve(spoke && !stopped);
     };
-    current = {
+    const ctl = {
       stop: () => {
         stopped = true;
         synth.cancel();
         done();
       },
     };
+    current = ctl;
+    // Brauzer ovozi umuman boshlanmasa (iPhone bosilmagan paytda bloklaydi) — kutib qolmaymiz
+    const silentTimer = setTimeout(() => {
+      if (spoke || finished) return;
+      stopped = true;
+      synth.cancel();
+      done();
+    }, 5000);
     levelSource = syntheticLevel;
     const next = () => {
       if (stopped) return;
@@ -495,31 +536,43 @@ type PlayHooks = { onLoading?: (b: boolean) => void; onStart?: () => void; rate?
 /**
  * Bo'laklarni ketma-ket o'qiydi: hammasi parallel tayyorlanadi, birinchisi tayyor bo'lishi bilan o'ynaydi.
  * Gemini ovozi bo'lmasa — brauzer ovozi (fallback bo'laklari, tillar bo'yicha).
- * true — javob oxirigacha o'qildi (shundan keyingina navbat o'quvchiga, mikrofon yoqiladi);
- * false — to'xtatildi yoki ovoz chiqmadi (mikrofon o'zi yoqilmaydi).
+ * Birinchi bo'lak xotirada tayyor bo'lsa — await'siz, shu zahoti o'ynaydi: tugma bosilgan paytda chaqirilsa
+ * (masalan, birinchi salom) iPhone ovozni bosishning o'zi deb biladi va albatta o'ynatadi.
+ * ended — javob oxirigacha o'qildi; stopped — to'xtatildi; failed — ovoz chiqmadi (navbat baribir o'quvchiga).
  */
-async function playChunks(chunks: SpeechChunk[], fallback: Segment[], hooks: PlayHooks & { pitch?: number } = {}): Promise<boolean> {
+async function playChunks(chunks: SpeechChunk[], fallback: Segment[], hooks: PlayHooks & { pitch?: number } = {}): Promise<PlayResult> {
   stopAudio();
   const token = playToken;
-  const list = chunks.filter((c) => c.text.trim());
-  if (!list.length) return false;
-  const jobs = list.map((c) => fetchServerAudio(c.text.trim(), c.opts)); // hammasi parallel so'raladi
-  hooks.onLoading?.(true);
-  const first = await jobs[0];
-  hooks.onLoading?.(false);
-  if (token !== playToken) return false;
-  if (!first) return browserSpeakSegments(fallback, hooks.onStart, hooks.pitch);
-  if (!(await playUrl(first, hooks.onStart, hooks.rate))) return false;
-  for (let k = 1; k < jobs.length; k++) {
-    if (token !== playToken) return false;
+  const stopped = () => token !== playToken;
+  const outcome = (ok: boolean): PlayResult => (ok ? "ended" : stopped() ? "stopped" : "failed");
+  const list = chunks.filter((c) => c.text.trim()).map((c) => ({ text: c.text.trim(), opts: c.opts }));
+  if (!list.length) return "failed";
+  const speakBrowser = async () => outcome(await browserSpeakSegments(fallback, hooks.onStart, hooks.pitch));
+  // Gemini ovozi o'chiq (kirilmagan / sinov tugagan / AI ulanmagan) — brauzer ovozi, shu zahoti
+  if (serverTtsOff && !readyAudio(list[0].text, list[0].opts)) return speakBrowser();
+  const jobs = list.map((c) => fetchServerAudio(c.text, c.opts)); // hammasi parallel so'raladi
+  let first = readyAudio(list[0].text, list[0].opts);
+  if (!first) {
     hooks.onLoading?.(true);
-    const url = await jobs[k];
-    hooks.onLoading?.(false);
-    if (token !== playToken) return false;
-    if (!url) return true; // keyingi bo'lak tayyorlanmadi — matni ekranda bor, navbat o'quvchiga
-    if (!(await playUrl(url, undefined, hooks.rate))) return false;
+    first = await jobs[0];
+    if (stopped()) return "stopped";
   }
-  return true;
+  hooks.onLoading?.(false);
+  if (!first) return speakBrowser();
+  if (!(await playUrl(first, hooks.onStart, hooks.rate))) return outcome(false);
+  for (let k = 1; k < list.length; k++) {
+    if (stopped()) return "stopped";
+    let url = readyAudio(list[k].text, list[k].opts);
+    if (!url) {
+      hooks.onLoading?.(true);
+      url = await jobs[k];
+      hooks.onLoading?.(false);
+      if (stopped()) return "stopped";
+    }
+    if (!url) return "ended"; // keyingi bo'lak tayyorlanmadi — matni ekranda bor, navbat o'quvchiga
+    if (!(await playUrl(url, undefined, hooks.rate))) return outcome(false);
+  }
+  return "ended";
 }
 
 /** Ustoz ovozi biroz tezroq o'ynaydi — suhbat jonliroq bo'ladi (ohang o'zgarmaydi) */
@@ -531,12 +584,12 @@ export function playTutor(segs: Segment[], opts: PlayHooks = {}) {
 }
 
 /** Erkin suhbat javobi ovozini oldindan tayyorlab qo'yadi (masalan, birinchi salom — bosilishi bilan gapiradi) */
-export function prefetchTalk(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }) {
+export function prefetchTalk(t: TalkSpeech) {
   for (const c of talkChunks(t)) prefetchAudio(c.text.trim(), c.opts);
 }
 
 /** Erkin suhbat: koreys do'st javobini ovoz chiqarib o'qiydi */
-export function playTalk(t: { help?: Segment[]; reply: string; voice: "m" | "f"; slow?: boolean }, opts: PlayHooks = {}) {
+export function playTalk(t: TalkSpeech, opts: PlayHooks = {}) {
   const fallback: Segment[] = [...(t.help ?? []), ...(t.reply.trim() ? [{ lang: "ko" as const, text: t.reply.trim() }] : [])];
   return playChunks(talkChunks(t), fallback, { ...opts, pitch: t.voice === "f" ? 1.15 : 0.8 });
 }

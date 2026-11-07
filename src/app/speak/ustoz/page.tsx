@@ -6,8 +6,8 @@ import { Icon } from "@/components/Icon";
 import { micToLevel, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
-import { expectAudio, outputLevel, playTutor, stopAudio, unlockAudio, type AudioWait, type Segment, type TtsOpts } from "@/lib/audio";
-import { MIC_DEAD_TEXT, MicError, micCanAutoOpen, micSettled, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
+import { expectAudio, outputLevel, playTutor, stopAudio, unlockAudio, type AudioWait, type PlayResult, type Segment, type TtsOpts } from "@/lib/audio";
+import { MIC_DEAD_TEXT, MicError, micCanAutoOpen, micSettled, micSettleNeeded, releaseMic, startRecording, warmMic, type Recording } from "@/lib/mic";
 import { touchStreak } from "@/lib/store";
 
 // Ovozli ustoz: o'quvchi o'zbekcha so'raydi ("Rahmat koreyschada qanday?"),
@@ -120,13 +120,14 @@ export default function VoiceTutorPage() {
 
   /**
    * Ustoz gapiradi. Shu paytda mikrofon yopiq: avval ustoz to'liq tushuntiradi, keyin navbat o'quvchiga.
-   * true — oxirigacha o'qildi; false — to'xtatildi yoki ovoz chiqmadi (mikrofon o'zi yoqilmaydi).
+   * ended — oxirigacha o'qildi; failed — ovoz chiqmadi (navbat baribir o'quvchiga, dars qotmaydi); stopped — to'xtatildi.
    */
-  const speak = async (i: number, segs: Segment[]) => {
+  const speak = async (i: number, segs: Segment[]): Promise<PlayResult> => {
     recRef.current?.cancel();
     setPlaying(i);
     setLoadingAudio(true);
-    await micSettled(); // quloqchinsiz — mikrofon yopiladi (javob baland karnaydan); quloqchin — rejimini almashtirib olsin
+    // quloqchinsiz — mikrofon yopiladi (javob baland karnaydan); quloqchin — rejimini almashtirib olsin
+    if (micSettleNeeded()) await micSettled();
     const played = await playTutor(segs, { onLoading: setLoadingAudio });
     setLoadingAudio(false);
     setPlaying((p) => (p === i ? null : p));
@@ -181,8 +182,9 @@ export default function VoiceTutorPage() {
         for (const ch of e.tts ?? []) waits.set(ch.text, expectAudio(ch.text, ch.opts));
         // Uzluksiz suhbat: ustoz javobini OXIRIGACHA o'qib bo'lgachgina mikrofon o'zi yoqiladi (navbat sizda).
         // iPhone ruxsatni qayta so'raydigan paytda (uzoq javobdan keyin) — o'zi yoqilmaydi, mikrofonni bosasiz
-        void speak(aiAt, segs).then((played) => {
-          if (played && alive.current && session.current && cfg.current.handsFree && micCanAutoOpen()) void startRec();
+        // Ovoz chiqmasa ham navbat o'quvchiga o'tadi — javob matni ekranda
+        void speak(aiAt, segs).then((r) => {
+          if (r !== "stopped" && alive.current && session.current && cfg.current.handsFree && micCanAutoOpen()) void startRec();
         });
       }
       // To'liq natija: takrorlash uchun ibora (practice) kartasi

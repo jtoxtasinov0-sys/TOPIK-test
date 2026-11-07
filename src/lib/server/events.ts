@@ -10,8 +10,11 @@ import type { User } from "./users";
 
 export type EventApi = {
   emit: (o: Record<string, unknown>) => void;
-  /** Bo'laklar ovozini parallel tayyorlaydi; qaysilari tayyorlanishini qaytaradi (TTS o'chiq bo'lsa — []) */
-  voice: (chunks: SpeechChunk[]) => SpeechChunk[];
+  /**
+   * Bo'laklar ovozini parallel tayyorlaydi; qaysilari tayyorlanishini qaytaradi (TTS o'chiq bo'lsa — []).
+   * after — ovoz shu va'da bajarilgandan keyingina yuboriladi (masalan, brauzer uni kutayotganini bilib olgach)
+   */
+  voice: (chunks: SpeechChunk[], after?: Promise<unknown>) => SpeechChunk[];
 };
 
 export const ndjson = (body: ReadableStream<Uint8Array>) =>
@@ -20,14 +23,14 @@ export const ndjson = (body: ReadableStream<Uint8Array>) =>
   });
 
 /**
- * partial — har yangi bo'lakda to'liq kelgan maydonlar bilan chaqiriladi: "stop" — o'qish to'xtaydi,
- * "enough" — boshqa chaqirilmaydi (o'qish davom etadi). final — oxirida to'liq javob (uzilsa — kelgan qismi) bilan.
+ * partial — har yangi bo'lakda to'liq kelgan maydonlar (va hozirgacha kelgan xom matn) bilan chaqiriladi: "stop" — o'qish
+ * to'xtaydi, "enough" — boshqa chaqirilmaydi (o'qish davom etadi). final — oxirida to'liq javob (uzilsa — kelgan qismi) bilan.
  * Oqim ovozlar tayyor bo'lgach yopiladi. tts — null bo'lsa ovoz tayyorlanmaydi.
  */
 export function jsonEvents<T>(
   src: ReadableStream<Uint8Array>,
   tts: { user: User | null } | null,
-  partial: (f: Partial<T>, api: EventApi) => void | "stop" | "enough",
+  partial: (f: Partial<T>, api: EventApi, raw: string) => void | "stop" | "enough",
   final: (raw: T, api: EventApi) => void
 ): ReadableStream<Uint8Array> {
   const enc = new TextEncoder();
@@ -43,15 +46,15 @@ export function jsonEvents<T>(
         } catch {}
       };
       const voices: Promise<unknown>[] = [];
-      const voice = (chunks: SpeechChunk[]) => {
+      const voice = (chunks: SpeechChunk[], after?: Promise<unknown>) => {
         if (!tts) return [];
-        for (const c of chunks)
-          voices.push(
-            speech(c.text, c.opts, tts.user).then(
-              (buf) => emit({ t: "audio", text: c.text, data: buf.toString("base64") }),
-              () => emit({ t: "audio", text: c.text, failed: true })
-            )
+        for (const c of chunks) {
+          const job = speech(c.text, c.opts, tts.user).then(
+            (buf) => ({ t: "audio", text: c.text, data: buf.toString("base64") }),
+            () => ({ t: "audio", text: c.text, failed: true })
           );
+          voices.push((after ? Promise.all([job, after.catch(() => {})]).then(([e]) => e) : job).then(emit));
+        }
         return chunks;
       };
       const api: EventApi = { emit, voice };
@@ -63,7 +66,7 @@ export function jsonEvents<T>(
             const { done, value } = await reader.read();
             if (value) buf += dec.decode(value, { stream: true });
             if (watching) {
-              const r = partial(partialJson(buf) as Partial<T>, api);
+              const r = partial(partialJson(buf) as Partial<T>, api, buf);
               if (r === "stop") break;
               if (r === "enough") watching = false;
             }

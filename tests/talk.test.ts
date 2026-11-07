@@ -12,7 +12,7 @@ const { createMemoryStore, setStore } = await import("../src/lib/server/store");
 const talkRoute = await import("../src/app/api/talk/route");
 const ttsRoute = await import("../src/app/api/tts/route");
 const { talkChunks, splitTalk } = await import("../src/lib/audio");
-const { partialJson } = await import("../src/lib/gemini");
+const { partialJson, partialField } = await import("../src/lib/gemini");
 const { greeting, TOPICS } = await import("../src/data/talk");
 
 type Call = { body: Record<string, unknown> };
@@ -309,6 +309,53 @@ describe("/api/talk oqimi", () => {
     const res = await ttsRoute.POST(post("/api/tts", { text: "그렇군요!", talk: true, voice: "f", slow: true }));
     assert.equal(res.status, 200);
     assert.equal(ttsCalls.length, 2, "server keshidan");
+  });
+
+  test("tezlik: javobning birinchi gapi ovozi javob yozilib bo'lishini kutmasdan boshlanadi, ikki marta tayyorlanmaydi", async () => {
+    const r = { ...full, heard: "네, 출근했어요", reply: "아, 그렇군요! 오늘 회사에서 바빴어요? 점심은 뭐 먹었어요?" };
+    const json = JSON.stringify(r);
+    const cut = json.indexOf("오늘 회사에서") + 7; // birinchi gap va keyingisining boshi kelgan, qolgani — gate'dan keyin
+    let release!: () => void;
+    const open = new Promise<void>((x) => (release = x));
+    mockStream(() => sse([delta(json.slice(0, cut)), delta(json.slice(cut))], { at: 1, open }));
+    const res = await talkRoute.POST(post("/api/talk", { stream: true, text: "네, 출근했어요", partner: "minjun", level: "intermediate" }));
+    const reader = res.body!.getReader();
+    const dec = new TextDecoder();
+
+    // Javob hali yozilmoqda — birinchi gap ovozi allaqachon tayyorlanyapti
+    for (let k = 0; k < 50 && !ttsCalls.length; k++) await new Promise((x) => setTimeout(x, 5));
+    assert.equal(ttsCalls.length, 1, "birinchi gap ovozi javob tugashidan oldin so'raldi");
+    const said = (ttsCalls[0].body.input as { content: { text: string }[] }[])[0].content[0].text;
+    assert.equal(said, "아, 그렇군요!");
+
+    release();
+    let raw = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      raw += dec.decode(value, { stream: true });
+    }
+    const lines = raw.trim().split("\n").map((l) => JSON.parse(l) as Record<string, unknown>);
+    const kinds = lines.map((l) => (l.t === "audio" ? `audio:${l.text}` : String(l.t)));
+    const at = (k: string) => kinds.indexOf(k);
+    const reply = lines.find((l) => l.t === "reply")!;
+    assert.deepEqual(reply.tts, talkChunks({ help: [], reply: r.reply, voice: "m", slow: false }));
+    assert.deepEqual(
+      (reply.tts as { text: string }[]).map((c) => c.text),
+      ["아, 그렇군요!", "오늘 회사에서 바빴어요? 점심은 뭐 먹었어요?"]
+    );
+    assert.ok(at("audio:아, 그렇군요!") > at("reply"), "oldindan tayyorlangan ovoz brauzer uni kutayotganini bilgach keladi");
+    assert.equal(kinds.filter((k) => k.startsWith("audio:")).length, 2, "har bir bo'lak ovozi bir marta");
+    assert.equal(ttsCalls.length, 2, "Gemini TTS har bo'lakka bir marta");
+  });
+
+  test("partialField: hali tugamagan satr maydonining kelgan qismi", () => {
+    assert.equal(partialField('{"heard":"네","help":[],"reply":"아, 좋아요! 저', "reply"), "아, 좋아요! 저");
+    assert.equal(partialField('{"reply":"a\\"b\\n', "reply"), 'a"b\n');
+    assert.equal(partialField('{"reply":"ab\\u00', "reply"), "ab", "chala escape tashlanadi");
+    assert.equal(partialField('{"reply":"끝"', "reply"), "끝");
+    assert.equal(partialField('{"reply_rom":"x"', "reply"), null);
+    assert.equal(partialField('{"heard":"\\"reply\\": \\"x"', "reply"), null, "boshqa satr ichidagi matn emas");
   });
 
   test("ovoz tayyorlanmasa — audio failed (brauzer o'zi so'raydi), javob baribir keladi", async () => {

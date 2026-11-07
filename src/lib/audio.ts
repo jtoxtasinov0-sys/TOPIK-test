@@ -35,16 +35,22 @@ export function hash(s: string) {
 const keyOf = (text: string, opts: TtsOpts) => hash(`${opts.slow ? "s" : "n"}|${opts.voice ?? ""}|${opts.tutor ? "t" : opts.talk ? "k" : ""}|${text}`);
 const cacheUrl = (key: string) => `/__tts/${key}.wav`;
 
-/** Tayyor ovozni xotira va Cache Storage'ga qo'yadi (qayta tinglash — bepul va darhol) */
+/**
+ * Tayyor ovozni xotira va Cache Storage'ga qo'yadi (qayta tinglash — bepul va darhol).
+ * Tezlik: ovoz darhol ishlatiladi — Cache Storage'ga yozish orqada, kutilmaydi; suhbat rejimida esa
+ * Web Audio uchun shu zahoti ochib (decode) qo'yiladi — o'ynash navbati kelganda kutmaydi.
+ */
 async function storeBlob(key: string, blob: Blob): Promise<string> {
-  try {
-    if ("caches" in window) {
-      const c = await caches.open(CACHE);
-      await c.put(cacheUrl(key), new Response(blob, { headers: { "Content-Type": "audio/wav" } }));
-    }
-  } catch {}
   const url = URL.createObjectURL(blob);
   memory.set(key, url);
+  if (callMode && actx) void decodeUrl(actx, url);
+  try {
+    if ("caches" in window)
+      void caches
+        .open(CACHE)
+        .then((c) => c.put(cacheUrl(key), new Response(blob, { headers: { "Content-Type": "audio/wav" } })))
+        .catch(() => {});
+  } catch {}
   return url;
 }
 
@@ -525,10 +531,20 @@ async function ctxRunning(c: AudioContext, ms = 700): Promise<boolean> {
 }
 
 const decoded = new Map<string, AudioBuffer>();
+const decoding = new Map<string, Promise<AudioBuffer | null>>();
 
-async function decodeUrl(c: AudioContext, url: string): Promise<AudioBuffer | null> {
+/** Ovozni Web Audio uchun ochadi (bir xil ovoz ikki marta ochilmaydi — oldindan boshlangan bo'lsa, o'shani kutadi) */
+function decodeUrl(c: AudioContext, url: string): Promise<AudioBuffer | null> {
   const hit = decoded.get(url);
-  if (hit) return hit;
+  if (hit) return Promise.resolve(hit);
+  const running = decoding.get(url);
+  if (running) return running;
+  const job = decodeNow(c, url).finally(() => decoding.delete(url));
+  decoding.set(url, job);
+  return job;
+}
+
+async function decodeNow(c: AudioContext, url: string): Promise<AudioBuffer | null> {
   try {
     const data = await (await fetch(url)).arrayBuffer();
     if (!envelopes.has(url)) envelopes.set(url, wavEnvelope(data)); // decodeAudioData buferni «olib qo'yadi» — oldin hisoblaymiz

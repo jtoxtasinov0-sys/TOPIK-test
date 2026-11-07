@@ -54,7 +54,7 @@ const DEFAULT_SETUP: Setup = { partner: "minjun", topic: "free", level: "beginne
 
 // Gapirib bo'lgach shuncha jim tursangiz — yuboriladi (boshlang'ichlar gap orasida ko'proq o'ylaydi).
 // Jonli suhbatdagidek: odam gapini tugatgach bir lahzada javob keladi
-const SILENCE_MS: Record<TalkLevel, number> = { beginner: 1100, intermediate: 800, advanced: 650 };
+const SILENCE_MS: Record<TalkLevel, number> = { beginner: 1000, intermediate: 700, advanced: 550 };
 const NO_SPEECH_MS = 12000;
 const HANGUL = /[가-힣]/;
 const DIDNT_GET = "🤔 Tushunmadim";

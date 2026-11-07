@@ -1,10 +1,10 @@
-import { AiError, errorResponse, generateJson, hasKey, LANG_NAME, MODELS, normalizeMime, rateLimit, streamText, type ContentPart } from "@/lib/gemini";
+import { AiError, errorResponse, generateJson, hasKey, LANG_NAME, MODELS, normalizeMime, partialField, rateLimit, streamText, type ContentPart } from "@/lib/gemini";
 import { talkSchema } from "@/lib/schemas";
 import { aiAccess, authEnabled } from "@/lib/server/guard";
 import { readSession } from "@/lib/server/session";
 import { jsonEvents, ndjson } from "@/lib/server/events";
 import type { User } from "@/lib/server/users";
-import { talkChunks } from "@/lib/speech";
+import { splitTalk, talkChunks } from "@/lib/speech";
 import { teacherNotes } from "@/lib/knowledge";
 import { partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
 
@@ -197,30 +197,54 @@ function finish(r: Raw, { start, typed }: Ctx) {
 
 /**
  * Gemini JSON oqimini suhbat hodisalariga aylantiradi: "heard" va "reply" maydonlari to'liq kelishi bilan
- * darhol yuboriladi (javob ovozi ham shu zahoti tayyorlana boshlaydi), qolgani (tarjima, tuzatish, maslahatlar) — "done" da.
+ * darhol yuboriladi, qolgani (tarjima, tuzatish, maslahatlar) — "done" da.
+ * Tezlik uchun: javobning birinchi gapi yozilib bo'lishi bilan (javobning qolgani hali yozilayotganda) uning ovozi
+ * tayyorlana boshlaydi — bu bo'lak brauzer o'ynatadigan birinchi bo'lak bilan aynan bir xil (splitTalk).
  */
 function talkEvents(src: ReadableStream<Uint8Array>, ctx: Ctx): ReadableStream<Uint8Array> {
   const voiceMsg = !ctx.start && !ctx.typed;
   let heard = false;
+  let early = ""; // oldindan ovozlanayotgan birinchi gap
+  // Oldindan tayyorlangan ovoz brauzer uni kutayotganini bilgachgina («reply» dan keyin) yuboriladi
+  let replySent!: () => void;
+  const sent = new Promise<void>((r) => (replySent = r));
   return jsonEvents<Raw>(
     src,
     ctx.tts ? { user: ctx.tts.user } : null,
-    (f, api) => {
+    (f, api, raw) => {
       if (voiceMsg && !heard && "heard" in f) {
         const transcript = plain(f.heard);
         if (!transcript) return "stop"; // nutq eshitilmadi — "done" da {empty}
         api.emit({ t: "heard", transcript });
         heard = true;
       }
-      if (!("reply" in f && "help" in f) || (voiceMsg && !heard)) return;
+      if (voiceMsg && !heard) return;
+      const tts = ctx.tts;
+      if (!("reply" in f)) {
+        // Javob hali yozilmoqda: o'zbekcha yordam yo'q bo'lsa — birinchi gap tayyor bo'lishi bilan ovozlaymiz
+        if (tts && !early && "help" in f && !helpOf(f).length) {
+          const parts = splitTalk(plain(partialField(raw, "reply") ?? ""));
+          if (parts.length > 1) {
+            early = parts[0];
+            api.voice([{ text: early, opts: { talk: true, voice: tts.voice, slow: tts.slow } }], sent);
+          }
+        }
+        return;
+      }
+      if (!("help" in f)) return;
       const help = helpOf(f);
       const reply = plain(f.reply);
       if (!reply && !help.length) return;
       // Javob ovozi: brauzer o'ynatadigan bo'laklar bilan aynan bir xil (do'st ovozi, boshlang'ichga — sekinroq)
-      const tts = ctx.tts ? api.voice(talkChunks({ help, reply, voice: ctx.tts.voice, slow: ctx.tts.slow })) : [];
-      api.emit({ t: "reply", transcript: ctx.start ? "" : ctx.typed || plain(f.heard), help, teach: teachOf(f, help), reply, tts });
+      const chunks = tts ? talkChunks({ help, reply, voice: tts.voice, slow: tts.slow }) : [];
+      api.voice(chunks.filter((c) => c.text !== early || !c.opts.talk));
+      api.emit({ t: "reply", transcript: ctx.start ? "" : ctx.typed || plain(f.heard), help, teach: teachOf(f, help), reply, tts: chunks });
+      replySent();
       return "enough";
     },
-    (raw, api) => api.emit({ t: "done", ...finish(raw, ctx) })
+    (raw, api) => {
+      replySent();
+      api.emit({ t: "done", ...finish(raw, ctx) });
+    }
   );
 }

@@ -10,18 +10,39 @@ export function micToLevel(rms: number) {
   return Math.min(1, Math.pow(Math.max(0, rms) * 8, 0.7));
 }
 
+/**
+ * Mikrofon sezgirligi har xil (iPhone «xom» ovozi ancha past keladi) — grafik o'zi moslashadi: shovqin darajasi
+ * (eng past) va oxirgi soniyalardagi eng baland ovoz o'lchanadi, gap doim deyarli to'liq balandlikda ko'rinadi,
+ * jimlik esa — past. Har bir yozuv uchun yangisini yarating (useRef(autoMicLevel())).
+ */
+export function autoMicLevel() {
+  let floor = Infinity;
+  let peak = 0;
+  return (rms: number) => {
+    const r = Math.max(0, rms);
+    if (r <= 0) return 0;
+    floor = r < floor ? r : floor + (r - floor) * 0.002;
+    peak = Math.max(r, peak * 0.992, floor * 4, 0.012); // ~2 soniyada asta pasayadi
+    const v = (r - floor * 1.4) / (peak - floor * 1.4);
+    return Math.min(1, Math.max(0, Math.pow(Math.max(0, v), 0.65) * 1.05));
+  };
+}
+
 const BAR = 3;
 const GAP = 2;
 const STEP = BAR + GAP;
 const SAMPLE_MS = 45;
 const LOUD = 0.14;
 
-export function MicWave({ getLevel, height = 34 }: { getLevel: () => number; height?: number }) {
+/** tone: mic — siz gapirganda (jimlik kulrang); voice — do'st gapirganda (doim rangli, ko'k-binafsha) */
+export function MicWave({ getLevel, height = 34, tone = "mic" }: { getLevel: () => number; height?: number; tone?: "mic" | "voice" }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const levelRef = useRef(getLevel);
+  const toneRef = useRef(tone);
   useEffect(() => {
     levelRef.current = getLevel;
-  }, [getLevel]);
+    toneRef.current = tone;
+  }, [getLevel, tone]);
 
   useEffect(() => {
     const cv = ref.current;
@@ -60,17 +81,24 @@ export function MicWave({ getLevel, height = 34 }: { getLevel: () => number; hei
       if (hist.length > max) hist.splice(0, hist.length - max);
 
       ctx.clearRect(0, 0, W, H);
+      const voice = toneRef.current === "voice";
       const loud = ctx.createLinearGradient(0, 0, 0, H);
-      loud.addColorStop(0, "#d63dff");
-      loud.addColorStop(0.5, "#8b3dff");
-      loud.addColorStop(1, "#3a86ff");
+      if (voice) {
+        loud.addColorStop(0, "#2edeff");
+        loud.addColorStop(0.5, "#8b3dff");
+        loud.addColorStop(1, "#2edeff");
+      } else {
+        loud.addColorStop(0, "#d63dff");
+        loud.addColorStop(0.5, "#8b3dff");
+        loud.addColorStop(1, "#3a86ff");
+      }
       for (let i = 0; i < hist.length; i++) {
         const v = hist[hist.length - 1 - i];
         const x = W - (i + 1) * STEP;
         if (x < -BAR) break;
         const h = Math.max(3, v * (H - 2));
         ctx.globalAlpha = Math.max(0.25, 1 - (i * STEP) / (W * 1.15)); // eski ustunlar asta-sekin xiralashadi
-        ctx.fillStyle = v > LOUD ? loud : "#b9b4d3";
+        ctx.fillStyle = voice || v > LOUD ? loud : "#b9b4d3";
         const y = (H - h) / 2;
         ctx.beginPath();
         if (ctx.roundRect) ctx.roundRect(x, y, BAR, h, 1.5);

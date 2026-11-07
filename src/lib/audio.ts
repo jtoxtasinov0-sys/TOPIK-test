@@ -511,6 +511,63 @@ export function primeAudio() {
   } catch {}
 }
 
+// ---------- Balandlik: javob ovozi kuchaytiriladi ----------
+// Mikrofon ochiq paytda iPhone ovozni sezilarli pasaytiradi. Shuning uchun Web Audio'da har bir ovoz eng baland
+// nuqtasigacha ko'tariladi (normalizatsiya), keyin kompressor jim joylarni ko'taradi va oxirida cheklagich
+// (limiter) ovoz «xirillab» qolmasligini ta'minlaydi — gap ancha baland va tiniq eshitiladi.
+let outNode: AudioNode | null = null;
+let outCtx: AudioContext | null = null;
+
+/** Kuchaytirish zanjiri: kompressor → qo'shimcha kuchaytirish → cheklagich → karnay */
+function output(c: AudioContext): AudioNode {
+  if (outNode && outCtx === c) return outNode;
+  try {
+    const comp = c.createDynamicsCompressor();
+    comp.threshold.value = -26;
+    comp.knee.value = 10;
+    comp.ratio.value = 4;
+    comp.attack.value = 0.003;
+    comp.release.value = 0.2;
+    const boost = c.createGain();
+    boost.gain.value = LOUDNESS_BOOST;
+    const limit = c.createDynamicsCompressor();
+    limit.threshold.value = -2;
+    limit.knee.value = 0;
+    limit.ratio.value = 20;
+    limit.attack.value = 0.001;
+    limit.release.value = 0.08;
+    comp.connect(boost).connect(limit).connect(c.destination);
+    outNode = comp;
+  } catch {
+    outNode = c.destination;
+  }
+  outCtx = c;
+  return outNode;
+}
+
+/** Kompressordan keyingi qo'shimcha kuchaytirish (cheklagich tepani ushlab turadi) */
+const LOUDNESS_BOOST = 1.6;
+/** Normalizatsiya: eng baland nuqta shu darajagacha ko'tariladi, lekin ko'pi bilan MAX_NORM marta */
+const NORM_PEAK = 0.98;
+const MAX_NORM = 6;
+const normGain = new WeakMap<AudioBuffer, number>();
+
+function normalizeGain(buf: AudioBuffer) {
+  const hit = normGain.get(buf);
+  if (hit) return hit;
+  let peak = 0;
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) {
+      const v = Math.abs(d[i]);
+      if (v > peak) peak = v;
+    }
+  }
+  const g = peak > 0.001 ? Math.min(MAX_NORM, NORM_PEAK / peak) : 1;
+  normGain.set(buf, g);
+  return g;
+}
+
 /** mic.ts chaqiradi: mikrofon ochiq (suhbat rejimi) — ovozlar Web Audio orqali o'ynaydi */
 export function setCallMode(on: boolean) {
   callMode = on;
@@ -567,11 +624,15 @@ async function decodeNow(c: AudioContext, url: string): Promise<AudioBuffer | nu
 function playBuffer(c: AudioContext, buf: AudioBuffer, url: string, onStart?: () => void, rate = 1): Promise<"ended" | "stopped" | "failed" | "stall"> {
   return new Promise((resolve) => {
     let src: AudioBufferSourceNode;
+    let gain: GainNode | null = null;
     try {
       src = c.createBufferSource();
       src.buffer = buf;
       src.playbackRate.value = rate;
-      src.connect(c.destination);
+      // Baland va tiniq: normalizatsiya → kompressor → cheklagich (output)
+      gain = c.createGain();
+      gain.gain.value = normalizeGain(buf);
+      src.connect(gain).connect(output(c));
     } catch {
       return resolve("stall");
     }
@@ -588,6 +649,7 @@ function playBuffer(c: AudioContext, buf: AudioBuffer, url: string, onStart?: ()
       src.onended = null;
       try {
         src.disconnect();
+        gain?.disconnect();
       } catch {}
       if (current === ctl) current = null;
       if (levelSource === level) levelSource = null;

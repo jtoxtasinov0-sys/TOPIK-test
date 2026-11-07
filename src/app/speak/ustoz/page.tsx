@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
-import { micToLevel, RecMeter } from "@/components/MicWave";
+import { autoMicLevel, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
 import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
 import { expectAudio, outputLevel, playTutor, stopAudio, primeAudio, type AudioWait, type PlayResult, type Segment, type TtsOpts } from "@/lib/audio";
@@ -111,7 +111,9 @@ export default function VoiceTutorPage() {
   // Shar uchun ovoz balandligi: yozayotganda — mikrofon, gapirayotganda — ustoz ovozi
   const getLevel = useCallback(() => (recState.current === "rec" ? Math.min(1, micLevel.current * 7) : outputLevel()), []);
   // Yozuv grafigi uchun: faqat mikrofon
-  const getMicLevel = useCallback(() => micToLevel(micLevel.current), []);
+  // Grafik mikrofon sezgirligiga o'zi moslashadi (iPhone ovozi past kelsa ham gap baland ko'rinadi)
+  const micAuto = useRef<((rms: number) => number) | null>(null);
+  const getMicLevel = useCallback(() => (micAuto.current ??= autoMicLevel())(micLevel.current), []);
 
   const commit = (list: Msg[]) => {
     msgsRef.current = list;

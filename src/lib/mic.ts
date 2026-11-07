@@ -15,12 +15,17 @@ export type SpeechTiming = {
 
 // Ovoz balandligi (RMS) chegarasi: shovqin darajasiga qarab moslashadi (jim xonada sezgirroq, shovqinda qattiqroq).
 // Mikrofon «xom» ovoz beradi (exo/shovqin bostirish o'chiq) — shuning uchun qat'iy chegara yetmaydi.
-const SPEECH_MIN = 0.009;
-const SPEECH_MAX = 0.06;
+const SPEECH_MIN = 0.014;
+const SPEECH_MAX = 0.08;
+/** Yozuv boshida shuncha vaqt e'tiborga olinmaydi: do'st ovozining aks-sadosi, telefonni qo'lga olish shitirlashi */
+const IGNORE_MS = 400;
+/** «Gapirdi» deyish uchun shuncha vaqt (taxminan uzluksiz) baland ovoz kerak — bitta taqillash yoki nafas yetmaydi */
+const SPEECH_NEED_MS = 250;
 
 /**
  * Mikrofon ovozini kuzatadi: balandlikni onLevel'ga beradi va gapirib bo'lgach jim tursa
  * (yoki umuman gapirmasa) onEnd'ni chaqiradi. Qaytgan funksiya kuzatishni to'xtatadi.
+ * Shovqin, taqillash yoki aks-sado «gap» deb hisoblanmaydi: siz haqiqatan gapira boshlamaguncha yozuv yuborilmaydi.
  */
 export function monitorSpeech(an: AnalyserNode, onLevel: (rms: number) => void, onEnd: (noSpeech: boolean) => void, timing: SpeechTiming = {}) {
   const { silenceMs = 1100, noSpeechMs = 8000, maxMs = 60000 } = timing;
@@ -28,6 +33,8 @@ export function monitorSpeech(an: AnalyserNode, onLevel: (rms: number) => void, 
   const t0 = performance.now();
   let heard = false;
   let lastLoud = t0;
+  let loudMs = 0; // baland ovoz davomiyligi (jimlikda asta kamayadi)
+  let prev = t0;
   let floor = Infinity; // shovqin darajasi: eng past balandlik (sekin ko'tarilib boradi)
   let done = false;
   let id = 0;
@@ -44,12 +51,17 @@ export function monitorSpeech(an: AnalyserNode, onLevel: (rms: number) => void, 
     const rms = Math.sqrt(sum / wave.length);
     onLevel(rms);
     const now = performance.now();
-    if (rms > 0) floor = rms < floor ? rms : floor + (rms - floor) * 0.002;
-    const threshold = Math.min(SPEECH_MAX, Math.max(SPEECH_MIN, floor * 2.5));
-    if (rms > threshold) {
-      if (now - t0 > 250) heard = true;
-      lastLoud = now;
-    }
+    const dt = Math.min(100, now - prev);
+    prev = now;
+    if (rms > 0) floor = rms < floor ? rms : floor + (rms - floor) * 0.0015;
+    const threshold = Math.min(SPEECH_MAX, Math.max(SPEECH_MIN, floor * 3));
+    if (now - t0 > IGNORE_MS && rms > threshold) {
+      loudMs += dt;
+      if (heard || loudMs >= SPEECH_NEED_MS) {
+        heard = true;
+        lastLoud = now;
+      }
+    } else loudMs = Math.max(0, loudMs - dt * 0.5);
     if (heard && now - lastLoud > silenceMs) return end(false);
     if (!heard && now - t0 > noSpeechMs) return end(true);
     if (now - t0 > maxMs) return end(false);
@@ -257,35 +269,28 @@ let routeDirty = false;
 let routeTimer: ReturnType<typeof setTimeout> | undefined;
 let watching = false;
 let refreshes: number[] = [];
-let devices = ""; // ovoz kirish qurilmalari ro'yxati (o'zgarganini bilish uchun)
 
-const listDevices = async () => {
-  const all = await navigator.mediaDevices.enumerateDevices();
-  return all
-    .filter((d) => d.kind === "audioinput")
-    .map((d) => `${d.deviceId}|${d.label}`)
-    .sort()
-    .join(";");
-};
+/** Hozir quloqchin (Bluetooth / simli) ulanganmi — ovoz kirish qurilmalari nomidan */
+const headsetConnected = async () =>
+  (await navigator.mediaDevices.enumerateDevices()).some((d) => d.kind === "audioinput" && HEADSET.test(d.label));
 
 function watchRoute() {
-  if (typeof navigator === "undefined" || !navigator.mediaDevices?.addEventListener) return;
-  void listDevices().then((d) => (devices = d), () => {});
-  if (watching) return;
+  if (watching || typeof navigator === "undefined" || !navigator.mediaDevices?.addEventListener) return;
   watching = true;
   navigator.mediaDevices.addEventListener("devicechange", () => {
     clearTimeout(routeTimer);
-    // Bir ulanishda bir necha marta keladi; ruxsat berilganda ham kelishi mumkin — faqat ro'yxat o'zgarsa qayta ochamiz
+    // Bir ulanishda bir necha marta keladi; ruxsat berilganda yoki boshqa sabab bilan ham keladi —
+    // mikrofon faqat quloqchin haqiqatan ulansa yoki uzilsa qayta ochiladi (bekordan-bekorga ochib-yopilmaydi)
     routeTimer = setTimeout(() => {
-      void listDevices().then(
-        (d) => {
-          if (d === devices) return;
-          devices = d;
-          refreshRoute();
+      const m = held;
+      if (!m) return;
+      void headsetConnected().then(
+        (on) => {
+          if (held === m && on !== m.headset) refreshRoute();
         },
-        () => refreshRoute()
+        () => {}
       );
-    }, 350);
+    }, 400);
   });
 }
 
@@ -301,7 +306,10 @@ function refreshRoute() {
   // Cheksiz qayta ochilib qolmasin: 10 soniyada ko'pi bilan 3 marta
   const now = performance.now();
   refreshes = refreshes.filter((t) => now - t < 10_000);
-  if (refreshes.length >= 3) return closeMic(m);
+  if (refreshes.length >= 3) {
+    if (!live(m)) closeMic(m); // ishlamay qolgan bo'lsa — yopamiz (keyingi yozuv qayta ochadi)
+    return;
+  }
   refreshes.push(now);
   closeMic(m);
   setCallMode(true); // qayta ochilguncha ham javob Web Audio orqali davom etadi

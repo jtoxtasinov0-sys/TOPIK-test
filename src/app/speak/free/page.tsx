@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { micToLevel, RecMeter } from "@/components/MicWave";
+import { autoMicLevel, MicWave, RecMeter } from "@/components/MicWave";
 import { ApiError, blobToBase64, postNdjson, SpeakBtn, useAiErrorText } from "@/components/ui";
-import { VoiceOrb, type OrbMode } from "@/components/VoiceOrb";
+import { TalkBot } from "@/components/TalkBot";
+import type { OrbMode } from "@/components/VoiceOrb";
 import { LEVELS, PARTNERS, STYLES, TOPICS, greeting, partnerOf, topicOf, type TalkLevel, type TalkStyle } from "@/data/talk";
 import { expectAudio, outputLevel, playTalk, prefetchTalk, stopAudio, primeAudio, type AudioWait, type PlayResult, type Segment, type TtsOpts } from "@/lib/audio";
 import Link from "next/link";
@@ -54,7 +55,7 @@ const DEFAULT_SETUP: Setup = { partner: "minjun", topic: "free", level: "beginne
 
 // Gapirib bo'lgach shuncha jim tursangiz — yuboriladi (boshlang'ichlar gap orasida ko'proq o'ylaydi).
 // Jonli suhbatdagidek: odam gapini tugatgach bir lahzada javob keladi
-const SILENCE_MS: Record<TalkLevel, number> = { beginner: 1000, intermediate: 700, advanced: 550 };
+const SILENCE_MS: Record<TalkLevel, number> = { beginner: 1100, intermediate: 850, advanced: 650 };
 const NO_SPEECH_MS = 12000;
 const HANGUL = /[가-힣]/;
 const DIDNT_GET = "🤔 Tushunmadim";
@@ -149,9 +150,12 @@ export default function FreeTalkPage() {
   }, [started, s.partner, s.topic, s.style, s.level]);
 
   // Shar uchun ovoz balandligi: yozayotganda — mikrofon, gapirayotganda — do'st ovozi
-  const getLevel = useCallback(() => (recState.current === "rec" ? Math.min(1, micLevel.current * 7) : outputLevel()), []);
+  // Robot do'st va ovoz to'lqini uchun: do'st ovozining balandligi
+  const getLevel = useCallback(() => outputLevel(), []);
   // Yozuv grafigi uchun: faqat mikrofon
-  const getMicLevel = useCallback(() => micToLevel(micLevel.current), []);
+  // Grafik mikrofon sezgirligiga o'zi moslashadi (iPhone ovozi past kelsa ham gap baland ko'rinadi)
+  const micAuto = useRef<((rms: number) => number) | null>(null);
+  const getMicLevel = useCallback(() => (micAuto.current ??= autoMicLevel())(micLevel.current), []);
 
   const commit = (list: Msg[]) => {
     msgsRef.current = list;
@@ -689,11 +693,19 @@ export default function FreeTalkPage() {
               <RecMeter getLevel={getMicLevel} />
             ) : (
               <>
-                <VoiceOrb mode={mode} getLevel={getLevel} size={40} label="" />
-                <div className="vbar-status">
-                  <b>{status}</b>
-                  <span>{sub}</span>
-                </div>
+                <TalkBot mode={mode} getLevel={getLevel} size={58} />
+                {mode === "speak" ? (
+                  // Do'st gapirayotganda — ovoziga mos jonli to'lqin
+                  <div className="vbar-status bot-talking" aria-label={status}>
+                    <b className="kr">{partner.name}</b>
+                    <MicWave getLevel={getLevel} height={22} tone="voice" />
+                  </div>
+                ) : (
+                  <div className="vbar-status">
+                    <b>{status}</b>
+                    <span>{sub}</span>
+                  </div>
+                )}
               </>
             )}
           </div>

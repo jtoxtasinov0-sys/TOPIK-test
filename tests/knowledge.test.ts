@@ -24,12 +24,15 @@ const writingRoute = await import("../src/app/api/writing/route");
 
 const realFetch = globalThis.fetch;
 let systems: string[] = [];
+let inputs: string[] = [];
 
 function mockGemini(reply: () => Response) {
   systems = [];
+  inputs = [];
   globalThis.fetch = (async (_url: string | URL, init?: RequestInit) => {
-    const body = JSON.parse(String(init?.body)) as { system_instruction?: string };
+    const body = JSON.parse(String(init?.body)) as { system_instruction?: string; input?: unknown };
     systems.push(String(body.system_instruction ?? ""));
+    inputs.push(typeof body.input === "string" ? body.input : JSON.stringify(body.input ?? ""));
     return reply();
   }) as typeof fetch;
 }
@@ -172,6 +175,22 @@ describe("AI yo'llari bilim bazasidan foydalanadi", () => {
     assert.match(systems[0], /-\(으\)므로/, "grammatika kartasi");
     assert.match(systems[0], /안전모 착용/, "xavfsizlik belgilari");
     assert.doesNotMatch(systems[0], /\[1급\] -아요\/어요/, "oddiy shakllar qo'shilmaydi");
+  });
+
+  test("/api/explain: xato javob — nega xato va qanday yechish qadamlari so'raladi", async () => {
+    const out = { translation: "t", correct_reason: "r", user_mistake: "m", steps: ["1", "2"], vocab: [], grammar: [], tip: "x" };
+    mockGemini(() => jsonOut(out));
+    const context = "※ [27~28] 다음을 듣고 물음에 답하십시오.\n[듣기 대본]\n남자: 이번 방학에 뭐 할 거예요?\n27. 두 사람이 무엇에 대해 이야기를 하고 있는지 고르십시오.\n① 방학 계획\n④ 요리 방법";
+    const res = await explainRoute.POST(post("/api/explain", { context, answer: 1, user: 4, exam: "topik1" }));
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), out);
+    assert.match(systems[0], /user_mistake/);
+    assert.match(systems[0], /steps/);
+    assert.match(inputs[0], /chose option 4 \(wrong\)/);
+
+    mockGemini(() => jsonOut(out));
+    await explainRoute.POST(post("/api/explain", { context, answer: 1, exam: "topik1" }));
+    assert.match(inputs[0], /did not answer/);
   });
 
   test("/api/tutor: o'qitish uslubi, o'quvchi profili va mos kartalar", async () => {

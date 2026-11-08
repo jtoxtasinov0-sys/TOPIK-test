@@ -1,22 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ExamId, Group, Question } from "@/lib/exam";
 import { CIRCLED } from "@/lib/exam";
 import { hash } from "@/lib/audio";
 import { Icon } from "../Icon";
-import { postJson, useAiErrorText } from "../ui";
+import { ApiError, postJson, useAiErrorText } from "../ui";
 
 type Explanation = {
   translation: string;
   correct_reason: string;
   wrong_options?: string;
+  /** O'quvchi tanlagan variant nega xato (qaysi tuzoqqa tushdi) */
+  user_mistake?: string;
+  /** Shu savolni qanday to'g'ri yechish: 2–4 qadam */
+  steps?: string[];
   vocab: { ko: string; meaning: string }[];
   grammar: { pattern: string; meaning: string }[];
   tip: string;
 };
 
 const cache = new Map<string, Explanation>();
+const inflight = new Map<string, Promise<Explanation>>();
+
+// Natija sahifasida xatolar tushuntirishi o'zi yuklanadi — bir vaqtda ko'pi bilan 2 ta so'rov
+const AUTO_PARALLEL = 2;
+/** Savol ekranda shuncha turgandan keyin yuklanadi — tez aylantirib o'tib ketilgan savollar uchun so'ralmaydi */
+const DWELL_MS = 500;
+let active = 0;
+const waiting: (() => void)[] = [];
+/** Kirilmagan, sinov tugagan yoki limit tugagan — boshqa savollar uchun o'zi so'ralmaydi (tugma qoladi) */
+let autoOff = false;
+
+async function limited<T>(job: () => Promise<T>): Promise<T> {
+  if (active >= AUTO_PARALLEL) await new Promise<void>((r) => waiting.push(r));
+  else active++;
+  try {
+    return await job();
+  } finally {
+    // Navbatdagiga joy to'g'ridan-to'g'ri beriladi (bo'shasa — kamayadi)
+    const next = waiting.shift();
+    if (next) next();
+    else active--;
+  }
+}
 
 export function questionContext(g: Group, q: Question) {
   const parts = [g.instruction];
@@ -40,38 +67,82 @@ export function questionContext(g: Group, q: Question) {
   return parts.join("\n\n");
 }
 
-export function Explain({ group, question, userAnswer, exam }: { group: Group; question: Question; userAnswer?: number; exam?: ExamId }) {
+const LABEL = { fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em" } as const;
+
+/**
+ * AI tushuntirish (o'zbekcha). auto — natija sahifasidagi xato savol: ekranga yaqinlashganda o'zi yuklanadi,
+ * tugma bosish shart emas.
+ */
+export function Explain({ group, question, userAnswer, exam, auto = false }: { group: Group; question: Question; userAnswer?: number; exam?: ExamId; auto?: boolean }) {
   const errText = useAiErrorText();
   const ctx = questionContext(group, question);
-  const key = hash(ctx);
+  const key = hash(`${ctx}|${userAnswer ?? 0}`);
   const [data, setData] = useState<Explanation | null>(() => cache.get(key) ?? null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const box = useRef<HTMLDivElement>(null);
 
-  const run = async () => {
+  const run = async (queued = false) => {
     setLoading(true);
     setErr("");
     try {
-      const r = await postJson<Explanation>("/api/explain", { context: ctx, answer: question.answer, user: userAnswer, exam });
+      let job = inflight.get(key);
+      if (!job) {
+        const req = () => postJson<Explanation>("/api/explain", { context: ctx, answer: question.answer, user: userAnswer, exam });
+        job = (queued ? limited(req) : req()).finally(() => inflight.delete(key));
+        inflight.set(key, job);
+      }
+      const r = await job;
       cache.set(key, r);
       setData(r);
     } catch (e) {
+      if (e instanceof ApiError && [401, 402, 429].includes(e.status)) autoOff = true;
       setErr(errText(e));
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (!auto || data || autoOff) return;
+    const el = box.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // Faqat ekrandagi va biroz pastdagi savollar: yuqoridagi tahlil ochilib, o'qilayotgan joy pastga surilmaydi
+    const io = new IntersectionObserver(
+      (entries) => {
+        clearTimeout(timer);
+        if (!entries[entries.length - 1]?.isIntersecting) return;
+        timer = setTimeout(() => {
+          if (autoOff) return;
+          io.disconnect();
+          void run(true);
+        }, DWELL_MS);
+      },
+      { rootMargin: "0px 0px 240px 0px" }
+    );
+    io.observe(el);
+    return () => {
+      clearTimeout(timer);
+      io.disconnect();
+    };
+    // run — har renderda yangi; kalit o'zgarsa qayta kuzatamiz
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, key, data]);
+
   if (!data)
     return (
-      <div className="stack" style={{ gap: 8 }}>
-        <button className="btn btn-soft btn-sm" onClick={run} disabled={loading} style={{ alignSelf: "flex-start" }}>
+      <div className="stack" style={{ gap: 8 }} ref={box}>
+        <button className="btn btn-soft btn-sm" onClick={() => run()} disabled={loading} style={{ alignSelf: "flex-start" }}>
           {loading ? <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : <Icon name="spark" size={16} />}
-          {loading ? "AI tushuntirmoqda…" : "AI tushuntirsin (o‘zbekcha)"}
+          {loading ? "AI tahlil qilmoqda…" : "AI tushuntirsin (o‘zbekcha)"}
         </button>
         {err && <div className="callout">{err}</div>}
       </div>
     );
+
+  const wrong = !!userAnswer && userAnswer !== question.answer;
+  const optText = (n: number) => (question.optionStyle === "chart" || question.optionStyle === "picture" ? "" : ` ${question.options[n - 1] ?? ""}`);
 
   return (
     <div className="card flat" style={{ background: "var(--surface-2)", padding: 16, borderRadius: 18 }}>
@@ -79,26 +150,50 @@ export function Explain({ group, question, userAnswer, exam }: { group: Group; q
         <span className="badge">
           <Icon name="spark" size={13} /> AI
         </span>
-        <b className="small">Tushuntirish</b>
+        <b className="small">{wrong || !userAnswer ? "Tahlil: qanday to‘g‘ri yechiladi" : "Tushuntirish"}</b>
       </div>
       <div className="stack" style={{ gap: 10, fontSize: "0.93rem" }}>
+        {wrong && data.user_mistake && (
+          <div className="explain-mistake">
+            <div className="tiny" style={{ ...LABEL, color: "var(--red)" }}>
+              ✗ Siz tanladingiz: <span className="kr">{CIRCLED[userAnswer! - 1]}{optText(userAnswer!)}</span> — nega xato
+            </div>
+            <div>{data.user_mistake}</div>
+          </div>
+        )}
+        {!!data.steps?.length && (
+          <div>
+            <div className="tiny" style={{ ...LABEL, color: "var(--p1)" }}>
+              🧭 Qanday yechiladi
+            </div>
+            <ol className="explain-steps">
+              {data.steps.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ol>
+          </div>
+        )}
         <div>
-          <div className="tiny muted" style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em" }}>Tarjima</div>
-          <div style={{ whiteSpace: "pre-line" }}>{data.translation}</div>
-        </div>
-        <div>
-          <div className="tiny" style={{ fontWeight: 800, color: "var(--green)", textTransform: "uppercase", letterSpacing: ".06em" }}>
-            ✓ Nega to‘g‘ri
+          <div className="tiny" style={{ ...LABEL, color: "var(--green)" }}>
+            ✓ Nega to‘g‘ri: <span className="kr">{CIRCLED[question.answer - 1]}{optText(question.answer)}</span>
           </div>
           <div>{data.correct_reason}</div>
         </div>
         {data.wrong_options && (
           <div>
-            <div className="tiny" style={{ fontWeight: 800, color: "var(--red)", textTransform: "uppercase", letterSpacing: ".06em" }}>
+            <div className="tiny" style={{ ...LABEL, color: "var(--red)" }}>
               ✗ Boshqa variantlar
             </div>
             <div>{data.wrong_options}</div>
           </div>
+        )}
+        {data.translation && (
+          <details className="explain-tr">
+            <summary className="tiny muted" style={LABEL}>
+              Tarjima (o‘zbekcha)
+            </summary>
+            <div style={{ whiteSpace: "pre-line", marginTop: 6 }}>{data.translation}</div>
+          </details>
         )}
         {!!data.vocab?.length && (
           <div className="row-wrap" style={{ gap: 6 }}>

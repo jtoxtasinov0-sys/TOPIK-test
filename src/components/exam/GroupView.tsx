@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import type { ExamId, Group, ListenItem, Question, SectionId } from "@/lib/exam";
-import { answerSeconds, CIRCLED, listenItems, maxPlays, qKey } from "@/lib/exam";
+import { answerSeconds, CIRCLED, instructionSpeech, listenItems, maxPlays, qKey } from "@/lib/exam";
 import { playExamAudio, playKorean, prefetchAudio, stopAudio, unlockAudio, unlockSpeech } from "@/lib/audio";
 import { ChartView } from "../ChartView";
 import { Icon } from "../Icon";
@@ -16,13 +16,16 @@ export { maxPlays };
 const LEAD_MS = 1500;
 /** Ikki eshittirish orasidagi tanaffus */
 const REPEAT_MS = 2500;
+/** Ko'rsatma o'qilgach savol audiosi boshlanguncha */
+const INTRO_GAP_MS = 1200;
 
 type Stage = "load" | "play" | "again" | "answer" | "blocked";
 type AutoNow = { key: string; stage: Stage; round: number; left: number };
 
 /**
- * Imtihon rejimi: sahifadagi audiolar haqiqiy imtihondagidek o'zi, ketma-ket o'ynaydi —
- * har biri belgilangan marta (1 yoki 2), orasida tanaffus, keyin javob uchun vaqt. To'xtatib bo'lmaydi.
+ * Imtihon rejimi: sahifadagi audiolar haqiqiy imtihondagidek o'zi, ketma-ket o'ynaydi — avval ko'rsatma
+ * (※ [17~21] 다음을 듣고 …) koreyscha bir marta o'qiladi, keyin har bir audio belgilangan marta (1 yoki 2),
+ * orasida tanaffus, keyin javob uchun vaqt. To'xtatib bo'lmaydi.
  * Shu sahifada audio eshittirilgan bo'lsa, oxirida onDone() — keyingi sahifaga o'tiladi.
  * onBusy(true) — sahifada hali eshittirilmagan audio bor (boshqa sahifaga o'tsa, qayta eshita olmaydi).
  */
@@ -48,7 +51,9 @@ function useExamAudio(
     // Necha marta eshittirilgani — sahifa ochilgandagi holatdan (qayta kirsa, eshittirilgani qaytarilmaydi)
     if (!used.current) used.current = Object.fromEntries(items.map((it) => [it.key, startPlays()[it.key] ?? 0]));
     const u = used.current;
-    const remaining = () => items.some((it) => (u[it.key] ?? 0) < it.max);
+    // Ko'rsatma hisobga kirmaydi: savol audiolari eshittirilgan bo'lsa, ko'rsatma ham qayta o'qilmaydi
+    const remaining = () => items.some((it) => !it.intro && (u[it.key] ?? 0) < it.max);
+    const firstAudio = items.findIndex((it) => !it.intro);
     let alive = true;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const sleep = (ms: number) => new Promise<void>((r) => timers.push(setTimeout(r, ms)));
@@ -62,7 +67,7 @@ function useExamAudio(
         const it = items[i];
         if ((u[it.key] ?? 0) >= it.max) continue;
         // Keyingi savol audiosi boshlanganda — o'sha savolni ko'rsatamiz
-        if (i > 0 && it.questions.length === 1)
+        if (i > firstAudio && it.questions.length === 1)
           document.getElementById(`q-${it.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
         while ((u[it.key] ?? 0) < it.max) {
           const round = (u[it.key] ?? 0) + 1;
@@ -91,6 +96,11 @@ function useExamAudio(
             if (!alive) return;
           }
         }
+        if (it.intro) {
+          await sleep(INTRO_GAP_MS);
+          if (!alive) return;
+          continue;
+        }
         if (!remaining()) busy(false);
         for (let s = answerSeconds(it); s > 0; s--) {
           setNow({ key: it.key, stage: "answer", round: it.max, left: s });
@@ -117,6 +127,50 @@ function useExamAudio(
     setAttempt((a) => a + 1);
   };
   return { now, retry };
+}
+
+/** Imtihon rejimi: ko'rsatma koreyscha o'qilayotganini ko'rsatadi (ovoz o'ynamasa — bosib boshlash) */
+function IntroListen({ item, now, onRetry }: { item: ListenItem; now: AutoNow | null; onRetry: () => void }) {
+  const stage = now?.key === item.key ? now.stage : null;
+  if (!stage || stage === "again" || stage === "answer") return null;
+  if (stage === "blocked")
+    return (
+      <button className="intro-voice blocked" onClick={onRetry}>
+        <Icon name="play" size={16} fill /> Ovoz o‘ynamadi — boshlash uchun bosing
+      </button>
+    );
+  return (
+    <div className="intro-voice" aria-live="polite">
+      {stage === "load" ? <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : <Icon name="volume" size={16} />}
+      <span>{stage === "load" ? "Ko‘rsatma tayyorlanmoqda…" : "Ko‘rsatma o‘qilmoqda — tinglang"}</span>
+      <span className={`eq sm ${stage === "play" ? "on" : ""}`} aria-hidden>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <i key={i} />
+        ))}
+      </span>
+    </div>
+  );
+}
+
+/** Mashq rejimi: ko'rsatmani koreyscha tinglash tugmasi */
+function IntroButton({ text }: { text: string }) {
+  const [st, setSt] = useState<"idle" | "load" | "play">("idle");
+  useEffect(() => () => stopAudio(), []);
+  const toggle = async () => {
+    if (st !== "idle") {
+      stopAudio();
+      setSt("idle");
+      return;
+    }
+    await playKorean(text, { onLoading: (b) => setSt(b ? "load" : "play"), onStart: () => setSt("play") });
+    setSt("idle");
+  };
+  return (
+    <button className="intro-voice btn-like" onClick={toggle} aria-label="Ko‘rsatmani tinglash">
+      {st === "load" ? <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : <Icon name={st === "play" ? "pause" : "volume"} size={16} />}
+      <span>{st === "play" ? "To‘xtatish" : "Ko‘rsatmani tinglash"}</span>
+    </button>
+  );
 }
 
 /** Imtihon rejimidagi pleer: tugmasi yo'q — audio o'zi boshlanadi va oxirigacha o'ynaydi */
@@ -299,11 +353,15 @@ export function GroupView({
   const items = useMemo(() => (listening ? listenItems(exam, section, group) : []), [exam, section, group, listening]);
   const examAudio = useExamAudio(auto, items, plays, onPlay, () => onAudioDone?.(), (b) => onAudioBusy?.(b));
 
+  const intro = items.find((it) => it.intro);
+  const introText = useMemo(() => (listening ? instructionSpeech(group) : ""), [group, listening]);
+
   useEffect(() => {
     if (!listening) return;
+    if (auto && intro) prefetchAudio(intro.text);
     if (group.script) prefetchAudio(group.script);
     group.questions.forEach((q) => q.script && prefetchAudio(q.script));
-  }, [group, listening]);
+  }, [group, listening, auto, intro]);
 
   const scriptBlock = (key: string, text: string, n: number, answered: boolean) => (
     <>
@@ -329,6 +387,8 @@ export function GroupView({
   return (
     <div className="paper">
       <p className="instruction">{group.instruction}</p>
+      {auto && intro && <IntroListen item={intro} now={examAudio.now} onRetry={examAudio.retry} />}
+      {listening && practice && !review && introText && <IntroButton text={introText} />}
       {group.example && <div className="boki">{group.example}</div>}
       {group.script && scriptBlock(`${section}-g${group.from}`, group.script, group.from, groupAnswered)}
       {group.notice && <Notice notice={group.notice} />}
@@ -407,7 +467,8 @@ export function GroupView({
                     To‘g‘ri javob: <b className="kr">{CIRCLED[q.answer - 1]} {q.optionStyle === "chart" ? "" : q.options[q.answer - 1]}</b>
                   </div>
                 )}
-                <Explain group={group} question={q} userAnswer={chosen} exam={exam} />
+                {/* Natija sahifasida: xato (yoki javobsiz) savol tahlili o'zi yuklanadi */}
+                <Explain group={group} question={q} userAnswer={chosen} exam={exam} auto={!!review && chosen !== q.answer} />
               </div>
             )}
           </div>

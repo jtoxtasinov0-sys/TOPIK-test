@@ -161,14 +161,46 @@ export type ListenItem = {
   text: string;
   max: number; // necha marta eshittiriladi
   questions: number[]; // shu audio qaysi savollarga tegishli
+  /** Ko'rsatma (※ [17~21] 다음을 듣고 …) — sahifa boshida bir marta o'qiladi, javob vaqti yo'q */
+  intro?: boolean;
 };
 
+const EXAMPLE_OPTION = /^[①②③④❶❷❸❹]/;
+
 /**
- * Bir sahifadagi tinglash audiolari — haqiqiy imtihondagi tartibda: avval umumiy matn, keyin har bir savolniki.
- * Imtihon rejimida shu ro'yxat ketma-ket, o'zi o'ynaydi.
+ * Ko'rsatmaning ovozli matni — haqiqiy TOPIK audiosidagidek: «17번부터 21번까지. 다음을 듣고 보기와 같이 …»,
+ * <보기> bo'lsa — uning suhbati ham (variantlar va bo'sh qator o'qilmaydi). Ko'rsatma bo'lmasa — "".
+ */
+export function instructionSpeech(group: Pick<Group, "from" | "to" | "instruction" | "example">): string {
+  const body = (group.instruction ?? "")
+    .replace(/^\s*※\s*/, "")
+    .replace(/\[[^\]]*\]/g, " ") // [17~21]
+    .replace(/\((?:각\s*)?\d+\s*점\)/g, " ") // (각 2점)
+    .replace(/<\s*보\s*기\s*>/g, "보기")
+    .replace(/\(\s*\)/g, "빈칸")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!body) return "";
+  const nums = group.from === group.to ? `${group.from}번.` : `${group.from}번부터 ${group.to}번까지.`;
+  const lines = [`${nums} ${body}`];
+  const example = (group.example ?? "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !EXAMPLE_OPTION.test(l) && !/_{3,}/.test(l))
+    // 가/나 — ikki xil ovoz bilan o'qilishi uchun
+    .map((l) => l.replace(/^가\s*[:：]\s*/, "여자: ").replace(/^나\s*[:：]\s*/, "남자: "));
+  if (example.length) lines.push("보기.", ...example);
+  return lines.join("\n");
+}
+
+/**
+ * Bir sahifadagi tinglash audiolari — haqiqiy imtihondagi tartibda: avval ko'rsatma (bir marta), keyin umumiy matn,
+ * keyin har bir savolniki. Imtihon rejimida shu ro'yxat ketma-ket, o'zi o'ynaydi.
  */
 export function listenItems(exam: ExamId, section: SectionId, group: Group): ListenItem[] {
   const out: ListenItem[] = [];
+  const intro = instructionSpeech(group);
+  if (intro) out.push({ key: `${section}-i${group.from}`, text: intro, max: 1, questions: [], intro: true });
   if (group.script?.trim())
     out.push({
       key: `${section}-g${group.from}`,
@@ -181,8 +213,8 @@ export function listenItems(exam: ExamId, section: SectionId, group: Group): Lis
   return out;
 }
 
-/** Audio tugagach javob uchun vaqt: har bir savolga ANSWER_SECONDS */
-export const answerSeconds = (item: ListenItem) => ANSWER_SECONDS * Math.max(1, item.questions.length);
+/** Audio tugagach javob uchun vaqt: har bir savolga ANSWER_SECONDS (ko'rsatmadan keyin — yo'q) */
+export const answerSeconds = (item: ListenItem) => (item.intro ? 0 : ANSWER_SECONDS * Math.max(1, item.questions.length));
 
 /**
  * Test oxirigacha ishlanmay «Tugatish» bosilganda natija nechta bo'lim bo'yicha chiqariladi.

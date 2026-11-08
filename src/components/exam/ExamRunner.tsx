@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExamId, Group, Section, SectionId, Test, WritingTask } from "@/lib/exam";
-import { allQuestions, EXAM_INFO, formatTime, qKey, reachedSections, SECTION_LABEL } from "@/lib/exam";
+import { allQuestions, EXAM_INFO, formatTime, instructionSpeech, qKey, reachedSections, SECTION_LABEL } from "@/lib/exam";
 import { prefetchAudio, stopAudio, unlockAudio, unlockSpeech } from "@/lib/audio";
 import { imageUrl } from "@/lib/images";
 import { addHistory, KEYS, load, remove, save, saveAiTest, uid, useStored } from "@/lib/store";
@@ -308,9 +308,12 @@ export function ExamRunner({ exam, preset }: { exam: ExamId; preset?: SectionId 
     if (phase !== "run" || section?.id !== "listening") return;
     const g = groups[groupIdx + 1];
     if (!g) return;
+    // Imtihon rejimida sahifa ko'rsatmasi koreyscha o'qiladi — uning ovozi ham oldindan tayyor turadi
+    const intro = practice ? "" : instructionSpeech(g);
+    if (intro) prefetchAudio(intro);
     if (g.script) prefetchAudio(g.script);
     g.questions.forEach((q) => q.script && prefetchAudio(q.script));
-  }, [phase, section, groups, groupIdx]);
+  }, [phase, section, groups, groupIdx, practice]);
 
   // ---------- AI yangi variant yaratish ----------
   const generate = async () => {

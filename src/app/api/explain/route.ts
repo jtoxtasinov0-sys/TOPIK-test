@@ -37,10 +37,12 @@ Explain TOPIK questions clearly and kindly. Write ALL explanations in ${L}. Keep
 - translation: full natural translation of the Korean script/passage into ${L} (keep speaker labels).
 - correct_reason: why the correct option is right, citing the exact Korean phrase that proves it.
 - wrong_options: briefly why the other options are wrong.
+- user_mistake: only if the learner chose a wrong option — explain kindly why THAT option is wrong and what trap made it look right (e.g. a word repeated in the audio, one changed detail, a true fact that does not answer the question). Omit it if the learner was right or did not answer.
+- steps: 2-4 short concrete steps that teach how to solve THIS question correctly: what the question asks, where in the script/passage the key information is (quote the Korean phrase), and how to rule out the trap. Write them so the learner can reuse the method on similar questions.
 - vocab: 4-8 key words (Korean → ${L} meaning).
 - grammar: 1-3 grammar patterns used (e.g. "-(으)려고 하다") with meaning and short usage note in ${L}.
 - tip: one practical exam strategy tip for this question type, in ${L}.${notes ? `\n\nKnowledge base notes (HanUstoz; use the same explanations and terms when these patterns appear):\n${notes}` : ""}`,
-      input: `TOPIK question:\n${context}\n\nCorrect answer: option ${answer}.${user ? ` The learner chose option ${user}.` : ""}`,
+      input: `TOPIK question:\n${context}\n\nCorrect answer: option ${answer}.${user ? ` The learner chose option ${user}${user === answer ? " (correct)" : " (wrong)"}.` : " The learner did not answer."}`,
       schema: explainSchema,
       thinking: "low",
     });

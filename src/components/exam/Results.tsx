@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ExamId, Section, SectionId, Test } from "@/lib/exam";
 import { allQuestions, EXAM_INFO, levelFor, nextLevelGap, qKey, scoreSection, sectionMax, SECTION_LABEL } from "@/lib/exam";
+import { mistakeSummary, type MistakeRef } from "@/lib/review";
 import { updateHistory } from "@/lib/store";
 import { Icon } from "../Icon";
 import { Confetti, ScoreRing, useAiErrorText } from "../ui";
@@ -108,12 +109,28 @@ export function Results({
   const gap = nextLevelGap(test.exam, totals.total);
   const info = EXAM_INFO[test.exam];
   const levelText = totals.level ? info.levelText?.[totals.level] : undefined;
-  const objective = sections.filter((s) => s.id !== "writing");
+  const objective = useMemo(() => sections.filter((s) => s.id !== "writing"), [sections]);
   const [reviewSec, setReviewSec] = useState<SectionId>(objective[0]?.id ?? "listening");
   const [onlyWrong, setOnlyWrong] = useState(true);
   const rs = objective.find((s) => s.id === reviewSec);
   const shownGroups = (rs?.groups ?? []).filter((g) => !onlyWrong || g.questions.some((q) => answers[qKey(rs!.id, q.n)] !== q.answer));
   const pending = writingSection && !writingDone && !writingFailed;
+  const mistakes = useMemo(() => mistakeSummary(objective, answers), [objective, answers]);
+
+  /** Xatolar tahlilidagi savol raqami bosilganda — o'sha savolga sakraymiz va uni bir zum yoritamiz */
+  const jump = (m: MistakeRef) => {
+    setReviewSec(m.section);
+    setOnlyWrong(true);
+    setTimeout(() => {
+      const el = document.getElementById(`q-${qKey(m.section, m.n)}`);
+      if (!el) return;
+      // Darhol (silliq emas): oradagi savollar tahlili yuklanib, sahifani surib yubormaydi
+      el.scrollIntoView({ block: "start" });
+      el.classList.remove("flash");
+      void el.offsetWidth;
+      el.classList.add("flash");
+    }, 80);
+  };
 
   return (
     <div className="container page">
@@ -308,6 +325,47 @@ export function Results({
               </div>
             </div>
           </div>
+          {mistakes.total > 0 && (
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}>
+                <h3 className="h3">📋 Xatolar tahlili</h3>
+                <span className="badge red">{mistakes.total} ta xato</span>
+              </div>
+              <div className="small muted" style={{ marginTop: 6 }}>
+                {mistakes.bySection.map((b) => `${SECTION_LABEL[b.section].ko}: ${b.count} ta`).join(" · ")}
+                {mistakes.unanswered > 0 && ` · shundan javobsiz: ${mistakes.unanswered} ta`}
+              </div>
+              <p className="small" style={{ margin: "10px 0 6px" }}>
+                Xatolaringiz savol turi bo‘yicha. Raqamni bosing — pastda shu savolning AI tahlili: nega xato bo‘ldi va qanday to‘g‘ri yechiladi.
+              </p>
+              <div>
+                {mistakes.kinds.map((k) => (
+                  <div key={k.kind} className="mistake-kind">
+                    <div className="row between" style={{ gap: 8 }}>
+                      <b className="small">{k.label}</b>
+                      <span className="tiny muted">{k.items.length} ta</span>
+                    </div>
+                    <div className="row-wrap" style={{ gap: 6 }}>
+                      {k.items.map((m) => (
+                        <button
+                          key={`${m.section}-${m.n}`}
+                          className={`chip ${m.unanswered ? "empty-a" : ""}`}
+                          onClick={() => jump(m)}
+                          title={m.unanswered ? "Javob berilmagan" : "Xato javob"}
+                        >
+                          {objective.length > 1 && <span className="kr">{SECTION_LABEL[m.section].ko} </span>}
+                          {m.n}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="small" style={{ color: "var(--ink-2)" }}>
+                      💡 {k.tip}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="stack">
             {rs && shownGroups.length === 0 && <div className="card empty">🎉 Bu bo‘limda xato yo‘q!</div>}
             {rs &&

@@ -79,11 +79,13 @@ export const explainSchema = {
     translation: { type: "string", description: "Translation of the Korean audio script / passage" },
     correct_reason: str,
     wrong_options: str,
+    user_mistake: { type: "string", description: "Why the option the learner chose is wrong and what trap made it look right" },
+    steps: { type: "array", items: str, description: "2-4 short steps: how to solve this question correctly" },
     vocab: { type: "array", items: { type: "object", properties: { ko: str, meaning: str }, required: ["ko", "meaning"] } },
     grammar: { type: "array", items: { type: "object", properties: { pattern: str, meaning: str }, required: ["pattern", "meaning"] } },
     tip: str,
   },
-  required: ["translation", "correct_reason", "vocab", "grammar", "tip"],
+  required: ["translation", "correct_reason", "steps", "vocab", "grammar", "tip"],
 };
 
 export const writingResultSchema = {

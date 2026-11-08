@@ -526,7 +526,31 @@ button.chip:hover { border-color: rgba(139, 61, 255, 0.45); }
 .player.exam .play { cursor: default; }
 .player.exam button.play { cursor: pointer; animation: pulse 1.2s ease infinite; }
 .player.exam.over { opacity: 0.82; }
+/* Ko'rsatma (※ … 고르십시오) koreyscha o'qilishi */
+.intro-voice {
+  display: inline-flex; align-items: center; gap: 8px; margin: -4px 0 14px; padding: 7px 12px; border-radius: 999px;
+  background: rgba(139, 61, 255, 0.08); color: var(--p1); font-size: 0.84rem; font-weight: 700; border: 1px solid rgba(139, 61, 255, 0.18);
+}
+button.intro-voice { cursor: pointer; font-family: inherit; }
+.intro-voice.blocked { background: var(--p1); color: #fff; border-color: transparent; animation: pulse 1.2s ease infinite; }
+.eq.sm { height: 14px; gap: 2px; }
+.eq.sm i { width: 3px; }
 .script-box { font-family: var(--font-kr); white-space: pre-line; background: #f7f5ff; border-radius: 12px; padding: 12px 14px; font-size: 0.93rem; color: var(--ink-2); margin-bottom: 14px; border-left: 3px solid var(--p2); }
+
+/* AI tahlil: nega xato va qanday yechiladi */
+.explain-mistake { background: rgba(255, 77, 109, 0.07); border-left: 3px solid var(--red); border-radius: 10px; padding: 10px 12px; }
+.explain-steps { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+.explain-steps li::marker { color: var(--p1); font-weight: 800; }
+.explain-tr summary { cursor: pointer; list-style: revert; }
+
+/* Natija: xatolar tahlili (savol turi bo'yicha) */
+.mistake-kind { padding: 12px 0; border-top: 1px dashed var(--line-2); display: grid; gap: 8px; }
+.mistake-kind:first-of-type { border-top: 0; padding-top: 4px; }
+.mistake-kind .chip { padding: 4px 10px; font-size: 0.8rem; }
+.mistake-kind .chip.empty-a { border-style: dashed; opacity: 0.8; }
+.q { scroll-margin-top: 84px; }
+.q.flash { animation: qFlash 1.6s ease; border-radius: 14px; }
+@keyframes qFlash { 0%, 40% { background: rgba(139, 61, 255, 0.12); box-shadow: 0 0 0 8px rgba(139, 61, 255, 0.12); } 100% { background: transparent; box-shadow: 0 0 0 8px transparent; } }
 
 /* OMR sheet */
 .omr { position: sticky; top: 80px; }
